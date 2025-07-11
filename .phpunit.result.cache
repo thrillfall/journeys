@@ -1,0 +1,1 @@
+{"version":1,"defects":{"OCA\\Journeys\\Tests\\Service\\ImageFetcherTest::testFetchImagesForUserReturnsTypedImages":8},"times":{"ExampleTest::testTrue":0.003,"OCA\\Journeys\\Tests\\Service\\ImageFetcherTest::testFetchImagesForUserReturnsTypedImages":0.007,"OCA\\Journeys\\Tests\\Service\\ClustererTest::testClusterImagesWithAndWithoutLocation":0.002}}

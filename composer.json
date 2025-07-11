@@ -1,0 +1,14 @@
+{
+  "name": "yourname/journeys",
+  "description": "Clusters user images into journeys for Nextcloud.",
+  "type": "project",
+  "require": {
+    "php": ">=8.0",
+    "ext-pdo": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "OCA\\Journeys\\": "lib/"
+    }
+  }
+}
