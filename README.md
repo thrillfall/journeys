@@ -8,6 +8,10 @@ Clusters your images into journeys (vacations/trips) and creates albums for each
 - Modular clustering algorithms
 - Test-driven development
 
+## Requirements
+- The Memories app must be installed and enabled.
+- The Places setup in the Memories app must be completed (see Memories app documentation for details).
+
 ## Setup
 Mount this directory into your Nextcloud container's `custom_apps` folder.
 
