@@ -5,7 +5,7 @@
   <description>Clusters your images into journeys (vacations/trips) and creates albums for each journey. Integrates with the Memories app to access image metadata.</description>
   <licence>agpl</licence>
   <author>thrillfall</author>
-  <version>0.1.0</version>
+  <version>0.1.0-alpha.1</version>
   <namespace>Journeys</namespace>
   <category>multimedia</category>
   <dependencies>
