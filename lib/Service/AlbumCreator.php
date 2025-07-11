@@ -7,6 +7,7 @@ use OCP\Files\IRootFolder;
 use OCA\Journeys\Model\Image;
 
 class AlbumCreator {
+    public const CLUSTERER_MARKER = '[clusterer]';
     private AlbumMapper $albumMapper;
     private IUserManager $userManager;
     private IRootFolder $rootFolder;
@@ -27,9 +28,11 @@ class AlbumCreator {
      * @return void
      */
     public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = ''): void {
-        $album = $this->albumMapper->getByName($albumName, $userId);
+        // Add clusterer marker to album name
+        $markedAlbumName = $albumName . ' ' . self::CLUSTERER_MARKER;
+        $album = $this->albumMapper->getByName($markedAlbumName, $userId);
         if (!$album) {
-            $album = $this->albumMapper->create($userId, $albumName, $location);
+            $album = $this->albumMapper->create($userId, $markedAlbumName, $location);
         }
         foreach ($images as $image) {
             $fileId = $this->getFileIdForImage($userId, $image);

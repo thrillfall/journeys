@@ -3,7 +3,8 @@ namespace OCA\Journeys\Command;
 
 use OCA\Journeys\Service\ImageFetcher;
 use OCA\Journeys\Service\Clusterer;
-use OCA\Journeys\Service\AlbumCreator;
+use OCA\Journeys\Service\AlbumCreator; // ensure import for marker constant
+
 use OCA\Journeys\Service\ClusterLocationResolver;
 use OCA\Journeys\Service\SimplePlaceResolver;
 use OCA\Journeys\Service\ImageLocationInterpolator; // ADDED
@@ -52,13 +53,15 @@ class ClusterAndCreateAlbumsCommand extends Command {
     }
 
     private function deleteAllAlbums(string $userId, OutputInterface $output): void {
-        $output->writeln("Deleting existing albums...");
+        $output->writeln("Deleting clusterer-created albums...");
         $albums = $this->albumMapper->getForUser($userId);
         foreach ($albums as $album) {
-            $this->albumMapper->delete($album->getId());
-            $output->writeln(sprintf("  Deleted album: %s", $album->getTitle()));
+            if (strpos($album->getTitle(), AlbumCreator::CLUSTERER_MARKER) !== false) {
+                $this->albumMapper->delete($album->getId());
+                $output->writeln(sprintf("  Deleted album: %s", $album->getTitle()));
+            }
         }
-        $output->writeln("Finished deleting existing albums.");
+        $output->writeln("Finished deleting clusterer-created albums.");
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
