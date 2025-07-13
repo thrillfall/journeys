@@ -1,0 +1,29 @@
+{
+  "name": "journeys",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "webpack --mode production"
+  },
+  "dependencies": {
+    "@nextcloud/axios": "^1.0.0",
+    "@nextcloud/dialogs": "^1.0.0",
+    "@nextcloud/router": "^1.0.0",
+    "@nextcloud/vue": "^7.5.0",
+    "vue": "^2.6.14"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.21.4",
+    "@babel/preset-env": "^7.20.2",
+    "babel-loader": "^9.1.2",
+    "css-loader": "^6.7.3",
+    "sass": "^1.62.1",
+    "sass-loader": "^13.2.2",
+    "style-loader": "^3.3.2",
+    "vue-loader": "^15.10.1",
+    "vue-template-compiler": "^2.6.14",
+    "webpack": "^5.76.2",
+    "webpack-cli": "^5.0.1",
+    "@nextcloud/webpack-vue-config": "^5.2.1"
+  }
+}

@@ -16,4 +16,8 @@
     <command>OCA\Journeys\Command\ListClustersCommand</command>
     <command>OCA\Journeys\Command\ClusterAndCreateAlbumsCommand</command>
   </commands>
+  <settings>
+    <personal>OCA\Journeys\Settings\PersonalSettings</personal>
+    <personal-section>OCA\Journeys\Sections\PersonalSection</personal-section>
+  </settings>
 </info>
