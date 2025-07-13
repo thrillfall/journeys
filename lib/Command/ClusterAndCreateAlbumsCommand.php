@@ -19,28 +19,20 @@ use Symfony\Component\Console\Output\OutputInterface;
 use OCP\IUserManager;
 use OCP\Files\IRootFolder;
 use OCA\Photos\Album\AlbumMapper;
+use OCA\Journeys\Service\ClusteringManager;
 
 class ClusterAndCreateAlbumsCommand extends Command {
     protected static $defaultName = 'journeys:cluster-create-albums';
 
-    private AlbumCreator $albumCreator;
-    private Clusterer $clusterer;
-    private ImageFetcher $imageFetcher;
-    private ClusterLocationResolver $locationResolver;
+    private ClusteringManager $clusteringManager;
     private AlbumMapper $albumMapper;
 
     public function __construct(
-        AlbumCreator $albumCreator,
-        Clusterer $clusterer,
-        ImageFetcher $imageFetcher,
-        ClusterLocationResolver $locationResolver,
+        ClusteringManager $clusteringManager,
         AlbumMapper $albumMapper
     ) {
         parent::__construct(static::$defaultName);
-        $this->albumCreator = $albumCreator;
-        $this->clusterer = $clusterer;
-        $this->imageFetcher = $imageFetcher;
-        $this->locationResolver = $locationResolver;
+        $this->clusteringManager = $clusteringManager;
         $this->albumMapper = $albumMapper;
     }
 
@@ -72,42 +64,23 @@ class ClusterAndCreateAlbumsCommand extends Command {
         // Delete existing albums
         $this->deleteAllAlbums($user, $output);
 
-        // Fetch images
-        $images = $this->imageFetcher->fetchImagesForUser($user);
-        if (empty($images)) {
-            $output->writeln('<error>No images found for user.</error>');
+        // Delegate clustering and album creation to ClusteringManager
+        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm);
+
+        if (isset($result['error'])) {
+            $output->writeln('<error>' . $result['error'] . '</error>');
             return Command::FAILURE;
         }
-
-        // Sort by datetaken
-        usort($images, function($a, $b) {
-            return strtotime($a->datetaken) <=> strtotime($b->datetaken);
-        });
-
-        // Interpolate missing locations (6-hour = 21600 seconds max gap)
-        $images = ImageLocationInterpolator::interpolate($images, 21600);
-
-        // Cluster
-        $clusters = $this->clusterer->clusterImages($images, $maxTimeGap, $maxDistanceKm);
-        $output->writeln("Found " . count($clusters) . " clusters. Creating albums...\n");
-
-        foreach ($clusters as $i => $cluster) {
-            $count = count($cluster);
-            $start = $cluster[0]->datetaken;
-            $end = $cluster[$count-1]->datetaken;
-            $location = $this->locationResolver->resolveClusterLocation($cluster, true);
-            if ($location) {
-                $albumName = sprintf('%s (%s to %s)', $location, $start, $end);
-            } else {
-                $albumName = sprintf('Journey %d (%s to %s)', $i+1, $start, $end);
-            }
-            $this->albumCreator->createAlbumWithImages($user, $albumName, $cluster, $location ?? '');
+        $output->writeln('Found ' . $result['clustersCreated'] . ' clusters. Creating albums...\n');
+        foreach ($result['clusters'] as $cluster) {
             $output->writeln(sprintf(
-                "Created album '%s' with %d images.",
-                $albumName, $count
+                "Created album '%s' with %d images." . ($cluster['location'] ? " (Location: %s)" : ""),
+                $cluster['albumName'],
+                $cluster['imageCount'],
+                $cluster['location'] ?? ''
             ));
         }
-        $output->writeln("All clusters processed.");
+        $output->writeln('All clusters processed.');
         return Command::SUCCESS;
     }
 }
