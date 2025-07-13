@@ -8,10 +8,14 @@ use OCP\IUserSession;
 
 class PersonalSettingsController extends Controller {
     private $userSession;
+    private $clusteringManager;
 
-    public function __construct($appName, IRequest $request, IUserSession $userSession) {
+    public function __construct($appName, IRequest $request, IUserSession $userSession, 
+        \OCA\Journeys\Service\ClusteringManager $clusteringManager
+    ) {
         parent::__construct($appName, $request);
         $this->userSession = $userSession;
+        $this->clusteringManager = $clusteringManager;
     }
 
     /**
@@ -20,9 +24,12 @@ class PersonalSettingsController extends Controller {
      */
     public function startClustering() {
         $user = $this->userSession->getUser();
-        // TODO: Trigger clustering logic for $user
-        // For now, just return a fake lastRun timestamp
-        return new JSONResponse(['lastRun' => date('c')]);
+        if (!$user) {
+            return new JSONResponse(['error' => 'No user'], 401);
+        }
+        $userId = $user->getUID();
+        $result = $this->clusteringManager->clusterForUser($userId);
+        return new JSONResponse($result);
     }
 
     /**
