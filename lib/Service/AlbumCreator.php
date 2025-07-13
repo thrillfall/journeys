@@ -7,6 +7,23 @@ use OCP\Files\IRootFolder;
 use OCA\Journeys\Model\Image;
 
 class AlbumCreator {
+    /**
+     * Delete all albums created by the clusterer for a user (marked with CLUSTERER_MARKER).
+     *
+     * @param string $userId
+     * @return int Number of albums deleted
+     */
+    public function purgeClusterAlbums(string $userId): int {
+        $deleted = 0;
+        $albums = $this->albumMapper->getForUser($userId);
+        foreach ($albums as $album) {
+            if (strpos($album->getTitle(), self::CLUSTERER_MARKER) !== false) {
+                $this->albumMapper->delete($album->getId());
+                $deleted++;
+            }
+        }
+        return $deleted;
+    }
     public const CLUSTERER_MARKER = '[clusterer]';
     private AlbumMapper $albumMapper;
     private IUserManager $userManager;

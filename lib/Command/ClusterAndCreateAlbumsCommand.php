@@ -44,25 +44,11 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers', 100.0);
     }
 
-    private function deleteAllAlbums(string $userId, OutputInterface $output): void {
-        $output->writeln("Deleting clusterer-created albums...");
-        $albums = $this->albumMapper->getForUser($userId);
-        foreach ($albums as $album) {
-            if (strpos($album->getTitle(), AlbumCreator::CLUSTERER_MARKER) !== false) {
-                $this->albumMapper->delete($album->getId());
-                $output->writeln(sprintf("  Deleted album: %s", $album->getTitle()));
-            }
-        }
-        $output->writeln("Finished deleting clusterer-created albums.");
-    }
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
         $user = $input->getArgument('user');
         $maxTimeGap = (int)$input->getArgument('maxTimeGap');
         $maxDistanceKm = (float)$input->getArgument('maxDistanceKm');
-
-        // Delete existing albums
-        $this->deleteAllAlbums($user, $output);
 
         // Delegate clustering and album creation to ClusteringManager
         $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm);

@@ -2,8 +2,33 @@
 	<div class="journeys_settings">
 		<NcSettingsSection :title="t('journeys', 'Journeys Album Clustering')"
 			:description="t('journeys', 'Configure and start clustering your photos into journeys (vacations/trips).')">
-			<div class="form-group">
-				<button @click="startClustering" :disabled="isProcessing">
+			<div class="form-group clustering-settings-grid">
+				<div class="settings-field">
+					<label :for="'minClusterSize'">{{ t('journeys', 'Minimum Cluster Size') }}</label>
+					<input id="minClusterSize" type="number" min="1" v-model.number="minClusterSize" />
+				</div>
+				<div class="settings-field">
+					<label :for="'maxTimeGap'">{{ t('journeys', 'Max Time Gap (seconds)') }}</label>
+					<input id="maxTimeGap" type="number" min="1" v-model.number="maxTimeGap" />
+				</div>
+				<div class="settings-field">
+					<label :for="'maxDistanceKm'">{{ t('journeys', 'Max Distance (km)') }}</label>
+					<input id="maxDistanceKm" type="number" min="0.1" step="0.1" v-model.number="maxDistanceKm" />
+				</div>
+				<div class="settings-buttons">
+					<button @click="saveSettings" :disabled="isProcessing">
+						{{ t('journeys', 'Save Settings') }}
+					</button>
+					<button @click="startClustering" :disabled="isProcessing" style="margin-left: 1em;">
+						{{ isProcessing ? t('journeys', 'Clustering...') : t('journeys', 'Start Clustering') }}
+					</button>
+				</div>
+				<span v-if="error" class="error">{{ error }}</span>
+				<span v-if="lastRun">{{ t('journeys', 'Last run:') }} {{ lastRun }}</span>
+				<button @click="saveSettings" :disabled="isProcessing">
+					{{ t('journeys', 'Save Settings') }}
+				</button>
+				<button @click="startClustering" :disabled="isProcessing" style="margin-left: 1em;">
 					{{ isProcessing ? t('journeys', 'Clustering...') : t('journeys', 'Start Clustering') }}
 				</button>
 				<span v-if="error" class="error">{{ error }}</span>
@@ -49,9 +74,22 @@ export default {
 			lastRun: null,
 			error: null,
 			clusters: [],
+			minClusterSize: 3, // default
+			maxTimeGap: 86400, // default (24h)
+			maxDistanceKm: 100.0, // default
 		}
 	},
 	async mounted() {
+		try {
+			const settingsResp = await axios.get(generateUrl('/apps/journeys/personal_settings/get_clustering_settings'))
+			if (settingsResp.data) {
+				this.minClusterSize = settingsResp.data.minClusterSize
+				this.maxTimeGap = settingsResp.data.maxTimeGap
+				this.maxDistanceKm = settingsResp.data.maxDistanceKm
+			}
+		} catch (e) {
+			// ignore if not available
+		}
 		try {
 			const resp = await axios.get(generateUrl('/apps/journeys/personal_settings/last_run'))
 			this.lastRun = resp.data.lastRun
@@ -60,11 +98,30 @@ export default {
 		}
 	},
 	methods: {
+		async saveSettings() {
+			this.isProcessing = true
+			try {
+				await axios.post(generateUrl('/apps/journeys/personal_settings/save_clustering_settings'), {
+					minClusterSize: this.minClusterSize,
+					maxTimeGap: this.maxTimeGap,
+					maxDistanceKm: this.maxDistanceKm
+				})
+				showSuccess(this.t('journeys', 'Settings saved.'))
+			} catch (e) {
+				showError(this.t('journeys', 'Failed to save settings.'))
+			} finally {
+				this.isProcessing = false
+			}
+		},
 		async startClustering() {
 			this.isProcessing = true
 			this.error = null
 			try {
-				const resp = await axios.post(generateUrl('/apps/journeys/personal_settings/start_clustering'))
+				const resp = await axios.post(generateUrl('/apps/journeys/personal_settings/start_clustering'), {
+				minClusterSize: this.minClusterSize,
+				maxTimeGap: this.maxTimeGap,
+				maxDistanceKm: this.maxDistanceKm
+			})
 				showSuccess(this.t('journeys', 'Clustering started successfully.'))
 				this.lastRun = resp.data.lastRun || new Date().toISOString()
 				this.clusters = resp.data.clusters || []
@@ -87,6 +144,36 @@ export default {
 .form-group {
 	margin-bottom: 1em;
 }
+.clustering-settings-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2em 2em;
+	align-items: flex-end;
+}
+.settings-field {
+	display: flex;
+	flex-direction: column;
+	margin-bottom: 1em;
+}
+.settings-field label {
+	margin-bottom: 0.5em;
+	font-weight: 500;
+}
+.settings-field input {
+	width: 120px;
+	padding: 0.4em;
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+	background: var(--color-background-input);
+	color: var(--color-text);
+}
+.settings-buttons {
+	display: flex;
+	align-items: center;
+	gap: 1em;
+	margin-top: 0.5em;
+}
+
 .error {
 	color: var(--color-error);
 }

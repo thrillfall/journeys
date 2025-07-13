@@ -21,7 +21,9 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0): array {
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3): array {
+        // Purge cluster albums before creating new ones
+        $purgedAlbums = $this->albumCreator->purgeClusterAlbums($userId);
         $images = $this->imageFetcher->fetchImagesForUser($userId);
         if (empty($images)) {
             return [
@@ -39,6 +41,9 @@ class ClusteringManager {
         $created = 0;
         $clusterSummaries = [];
         foreach ($clusters as $i => $cluster) {
+            if (count($cluster) < $minClusterSize) {
+                continue;
+            }
             $start = $cluster[0]->datetaken;
             $end = $cluster[count($cluster)-1]->datetaken;
             $location = $this->locationResolver->resolveClusterLocation($cluster, true);
@@ -58,7 +63,8 @@ class ClusteringManager {
         return [
             'clustersCreated' => $created,
             'lastRun' => date('c'),
-            'clusters' => $clusterSummaries
+            'clusters' => $clusterSummaries,
+            'purgedAlbums' => $purgedAlbums
         ];
     }
 }
