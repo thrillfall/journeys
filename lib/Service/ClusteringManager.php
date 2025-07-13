@@ -45,12 +45,18 @@ class ClusteringManager {
                 continue;
             }
             $start = $cluster[0]->datetaken;
-            $end = $cluster[count($cluster)-1]->datetaken;
+            $dtStart = new \DateTime($cluster[0]->datetaken);
+            $dtEnd = new \DateTime($cluster[count($cluster)-1]->datetaken);
+            $monthYear = $dtStart->format('F Y');
+            $range = $dtStart->format('M j');
+            if ($dtStart->format('Y-m-d') !== $dtEnd->format('Y-m-d')) {
+                $range .= '–' . $dtEnd->format('M j');
+            }
             $location = $this->locationResolver->resolveClusterLocation($cluster, true);
             if ($location) {
-                $albumName = sprintf('%s (%s to %s)', $location, $start, $end);
+                $albumName = sprintf('%s %s (%s)', $location, $monthYear, $range);
             } else {
-                $albumName = sprintf('Journey %d (%s to %s)', $i+1, $start, $end);
+                $albumName = sprintf('Journey %d %s (%s)', $i+1, $monthYear, $range);
             }
             $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '');
             $clusterSummaries[] = [

@@ -45,7 +45,6 @@ class AlbumCreator {
      * @return void
      */
     public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = ''): void {
-        // Add clusterer marker to album name
         $markedAlbumName = $albumName . ' ' . self::CLUSTERER_MARKER;
         $album = $this->albumMapper->getByName($markedAlbumName, $userId);
         if (!$album) {
