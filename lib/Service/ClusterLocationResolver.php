@@ -39,11 +39,14 @@ class ClusterLocationResolver {
                         return $a['admin_level'] <=> $b['admin_level'];
                     });
                     foreach ($places as $place) {
-                        $locations[] = [
-                            'osm_id' => $place['osm_id'],
-                            'admin_level' => $place['admin_level'],
-                            'name' => $this->getPlaceName($place['osm_id'])
-                        ];
+                        // Only consider city-level (admin_level <= 8) or broader
+                        if ((int)$place['admin_level'] <= 8) {
+                            $locations[] = [
+                                'osm_id' => $place['osm_id'],
+                                'admin_level' => $place['admin_level'],
+                                'name' => $this->getPlaceName($place['osm_id'])
+                            ];
+                        }
                     }
                 }
             }
