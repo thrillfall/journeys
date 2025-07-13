@@ -33,16 +33,22 @@ class ClusteringManager {
         });
         $clusters = $this->clusterer->clusterImages($images);
         $created = 0;
+        $clusterSummaries = [];
         foreach ($clusters as $cluster) {
             $start = $cluster[0]->datetaken;
             $end = $cluster[count($cluster)-1]->datetaken;
             $albumName = sprintf('Journey (%s to %s)', $start, $end);
             $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster);
+            $clusterSummaries[] = [
+                'albumName' => $albumName,
+                'imageCount' => count($cluster)
+            ];
             $created++;
         }
         return [
             'clustersCreated' => $created,
-            'lastRun' => date('c')
+            'lastRun' => date('c'),
+            'clusters' => $clusterSummaries
         ];
     }
 }
