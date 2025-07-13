@@ -25,14 +25,6 @@
 				</div>
 				<span v-if="error" class="error">{{ error }}</span>
 				<span v-if="lastRun">{{ t('journeys', 'Last run:') }} {{ lastRun }}</span>
-				<button @click="saveSettings" :disabled="isProcessing">
-					{{ t('journeys', 'Save Settings') }}
-				</button>
-				<button @click="startClustering" :disabled="isProcessing" style="margin-left: 1em;">
-					{{ isProcessing ? t('journeys', 'Clustering...') : t('journeys', 'Start Clustering') }}
-				</button>
-				<span v-if="error" class="error">{{ error }}</span>
-				<span v-if="lastRun">{{ t('journeys', 'Last run:') }} {{ lastRun }}</span>
 
 				<!-- Cluster summary table -->
 				<div v-if="clusters.length" class="cluster-summary">

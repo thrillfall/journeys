@@ -21,5 +21,13 @@
       <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
       <argument type="service" id="OCA\Journeys\Service\ClusterLocationResolver"/>
     </service>
+    <service id="OCA\Journeys\Controller\PersonalSettingsController">
+      <argument>%app_id%</argument>
+      <argument type="service" id="OCP\IRequest"/>
+      <argument type="service" id="OCP\IUserSession"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusteringManager"/>
+      <argument type="service" id="OCP\IConfig"/>
+    </service>
   </services>
 </container>
+^

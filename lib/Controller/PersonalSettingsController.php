@@ -5,7 +5,7 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
-use OCP\IUserConfig;
+use OCP\IConfig;
 
 class PersonalSettingsController extends Controller {
     private $userSession;
@@ -14,12 +14,12 @@ class PersonalSettingsController extends Controller {
 
     public function __construct($appName, IRequest $request, IUserSession $userSession, 
         \OCA\Journeys\Service\ClusteringManager $clusteringManager,
-        IUserConfig $userConfig
+        IConfig $userConfig
     ) {
         parent::__construct($appName, $request);
         $this->userSession = $userSession;
         $this->clusteringManager = $clusteringManager;
-        $this->userConfig = $userConfig;
+        $this->userConfig = $userConfig; // Now using IConfig
     }
 
     /**
