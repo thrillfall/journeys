@@ -12,7 +12,7 @@
   <category>integration</category>
   <category>multimedia</category>
   <website>https://github.com/thrillfall/journeys</website>
-  <bugs>https://github.com/thrillfall/journeys/issues</website>
+  <bugs>https://github.com/thrillfall/journeys/issues</bugs>
   <dependencies>
     <nextcloud min-version="30" max-version="32"/>
   </dependencies>
