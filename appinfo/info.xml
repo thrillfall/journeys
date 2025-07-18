@@ -1,13 +1,18 @@
 <?xml version="1.0"?>
-<info>
+<info xmlns:xsi= "http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
   <id>journeys</id>
   <name>Journeys</name>
+  <summary>cluster images by time and location</summary>
   <description>Clusters your images into journeys (vacations/trips) and creates albums for each journey. Requires Memories app</description>
   <licence>agpl</licence>
-  <author>thrillfall</author>
+  <author mail="thrillfall@disroot.org">thrillfall</author>
   <version>0.1.0-alpha.1</version>
   <namespace>Journeys</namespace>
+  <category>integration</category>
   <category>multimedia</category>
+  <website>https://github.com/thrillfall/journeys</website>
+  <bugs>https://github.com/thrillfall/journeys/issues</website>
   <dependencies>
     <nextcloud min-version="30" max-version="32"/>
   </dependencies>
