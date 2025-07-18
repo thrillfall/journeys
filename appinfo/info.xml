@@ -38,6 +38,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
+  <screenshot>https://github.com/thrillfall/journeys/blob/main/appinfo/journeys.png</screenshot>
   <bugs>https://github.com/thrillfall/journeys/issues</bugs>
   <dependencies>
     <nextcloud min-version="30" max-version="32"/>
