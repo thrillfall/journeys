@@ -40,18 +40,20 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $this
             ->setDescription('Clusters images by location and creates albums in the Photos app.')
             ->addArgument('user', InputArgument::REQUIRED, 'The ID of the user for whom to cluster images and create albums.')
-            ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in seconds', 86400)
-            ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers', 100.0);
+            ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours', 24)
+            ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers', 100.0)
+->addArgument('minClusterSize', InputArgument::OPTIONAL, 'Minimum images per cluster', 3);
     }
 
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
         $user = $input->getArgument('user');
-        $maxTimeGap = (int)$input->getArgument('maxTimeGap');
+        $maxTimeGap = (int)$input->getArgument('maxTimeGap') * 3600; // convert hours to seconds
         $maxDistanceKm = (float)$input->getArgument('maxDistanceKm');
+        $minClusterSize = (int)$input->getArgument('minClusterSize');
 
         // Delegate clustering and album creation to ClusteringManager
-        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm);
+        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize);
 
         if (isset($result['error'])) {
             $output->writeln('<error>' . $result['error'] . '</error>');
