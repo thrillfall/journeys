@@ -24,7 +24,7 @@ Example:
 ]]></description>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.1.0-alpha.1</version>
+  <version>0.2.1-alpha</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
