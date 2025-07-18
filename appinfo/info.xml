@@ -5,26 +5,36 @@
   <name>Journeys</name>
   <summary>cluster images by time and location</summary>
   <description><![CDATA[
-Clusters your images into journeys (vacations/trips) and creates albums for each journey. Requires Memories app.
+# Journeys: Automatic Photo Album Creation for Nextcloud
 
-OCC usage:
-  php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [minClusterSize]
+Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.  
+**Requires the Memories app.**
 
-Arguments:
-  user           The ID of the user for whom to cluster images and create albums. (required)
-  maxTimeGap     Max allowed time gap in hours (optional, default: 24)
-  maxDistanceKm  Max allowed distance in kilometers (optional, default: 100)
-  minClusterSize Minimum images per cluster (optional, default: 3)
+## ✨ Features
+- **🗺️ Location & Time Clustering:** Group images by when and where they were taken
+- **🗂️ Album Creation:** Albums are created automatically for each journey
+- **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
 
-How time gap influences clustering:
-  The maxTimeGap defines the largest allowed time (in hours) between two consecutive images for them to be grouped into the same journey. If the gap between two images exceeds this value, a new journey (album) is started. Smaller values create more, shorter journeys; larger values group more images together.
+## 🚀 OCC Command Usage
 
-Example:
-  php occ journeys:cluster-create-albums admin 24 100 5
+    php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [minClusterSize]
+
+**Arguments:**
+- `user` — The user to cluster images for (**required**)
+- `maxTimeGap` — Max allowed time gap in hours (optional, default: 24)
+- `maxDistanceKm` — Max allowed distance in kilometers (optional, default: 100)
+- `minClusterSize` — Minimum images per cluster (optional, default: 3)
+
+**How time gap influences clustering:**  
+The `maxTimeGap` defines the largest allowed time (in hours) between two consecutive images for them to be grouped into the same journey. If the gap between two images exceeds this value, a new journey (album) is started. Smaller values create more, shorter journeys; larger values group more images together.
+
+**Example:**
+
+    php occ journeys:cluster-create-albums admin 24 100 5
 ]]></description>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.2.1-alpha</version>
+  <version>0.2.2-alpha</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
