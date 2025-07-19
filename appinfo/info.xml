@@ -4,7 +4,7 @@
   <id>journeys</id>
   <name>Journeys</name>
   <summary>cluster images by time and location</summary>
-  <description><![CDATA[
+    <description><![CDATA[
 # Journeys: Automatic Photo Album Creation for Nextcloud
 
 Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.  

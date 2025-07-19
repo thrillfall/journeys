@@ -12,7 +12,7 @@ class ImageLocationInterpolator {
      * @param int $maxGapSeconds
      * @return Image[] New array of images with interpolated locations where possible
      */
-    public static function interpolate(array $images, int $maxGapSeconds = 21600): array {
+    public static function interpolate(array $images, int $maxGapSeconds = 21600, float $maxDistanceKm = 1.0): array {
         $n = count($images);
         if ($n === 0) return $images;
         $result = $images;
@@ -36,6 +36,11 @@ class ImageLocationInterpolator {
                 $tPrev = strtotime($images[$prev]->datetaken);
                 $tNext = strtotime($images[$next]->datetaken);
                 if (($t - $tPrev) <= $maxGapSeconds && ($tNext - $t) <= $maxGapSeconds) {
+                    // Check spatial constraint (distance between prev and next <= 1km)
+                    $distance = self::haversineDistance((float)$images[$prev]->lat, (float)$images[$prev]->lon, (float)$images[$next]->lat, (float)$images[$next]->lon);
+                    if ($distance > $maxDistanceKm) {
+                        continue; // skip interpolation if too far
+                    }
                     // Interpolate
                     $frac = ($t - $tPrev) / ($tNext - $tPrev);
                     $lat = (float)$images[$prev]->lat + $frac * ((float)$images[$next]->lat - (float)$images[$prev]->lat);
@@ -60,5 +65,26 @@ class ImageLocationInterpolator {
             // else: leave as is
         }
         return $result;
+    }
+
+    /**
+     * Calculate the great-circle distance between two points using the Haversine formula.
+     * @param float $lat1
+     * @param float $lon1
+     * @param float $lat2
+     * @param float $lon2
+     * @return float Distance in kilometers
+     */
+    private static function haversineDistance(float $lat1, float $lon1, float $lat2, float $lon2): float {
+        $earthRadius = 6371.0; // km
+        $lat1Rad = deg2rad($lat1);
+        $lon1Rad = deg2rad($lon1);
+        $lat2Rad = deg2rad($lat2);
+        $lon2Rad = deg2rad($lon2);
+        $dLat = $lat2Rad - $lat1Rad;
+        $dLon = $lon2Rad - $lon1Rad;
+        $a = sin($dLat/2) * sin($dLat/2) + cos($lat1Rad) * cos($lat2Rad) * sin($dLon/2) * sin($dLon/2);
+        $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+        return $earthRadius * $c;
     }
 }
