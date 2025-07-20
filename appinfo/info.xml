@@ -32,9 +32,17 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
 
     php occ journeys:cluster-create-albums admin 24 100 5
 ]]></description>
+  <changelog><![CDATA[
+    <h3>0.3.0-alpha (2025-07-20)</h3>
+    <ul>
+      <li><b>Spatial constraint for interpolation:</b> Only interpolate image locations if the two neighboring images are within 1km of each other.</li>
+      <li><b>Stricter time gap for single neighbor:</b> When only one reference image is available, the time gap must not be larger than 1 hour.</li>
+      <li><b>Improved clustering accuracy:</b> Prevented assignment of interpolated locations over large distances.</li>
+    </ul>
+  ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.2.2-alpha</version>
+  <version>0.3.0-alpha</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

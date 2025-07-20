@@ -26,7 +26,6 @@ class AlbumCreator {
     }
     public const CLUSTERER_MARKER = '[clusterer]';
     private AlbumMapper $albumMapper;
-    private IUserManager $userManager;
     private IRootFolder $rootFolder;
 
     public function __construct(AlbumMapper $albumMapper, IUserManager $userManager, IRootFolder $rootFolder) {
