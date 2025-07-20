@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2025-07-20
+- SystemTag-only album identification: new albums are created without postfix, identified and managed solely via SystemTags.
+- Legacy albums with postfix are still purged via fallback logic.
+- Added spatial constraint (≤1km) for location interpolation
+- Stricter time gap (≤1h) for single neighbor interpolation
+- Improved clustering accuracy for album clustering
+- Added PHPUnit tests for interpolation logic
+
 ## [0.3.0-alpha] - 2025-07-20
 ### Added
 - Spatial constraint for location interpolation: only interpolate image locations if the two neighboring images are within 1km of each other.
