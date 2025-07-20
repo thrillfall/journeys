@@ -49,14 +49,16 @@ class ImageLocationInterpolator {
                 }
             } elseif ($prev !== null) {
                 $tPrev = strtotime($images[$prev]->datetaken);
-                if (($t - $tPrev) <= $maxGapSeconds) {
+                // Only allow single reference assignment if within 1 hour (3600s)
+                if (($t - $tPrev) <= 3600) {
                     $lat = $images[$prev]->lat;
                     $lon = $images[$prev]->lon;
                     $result[$i] = new Image($images[$i]->fileid, $images[$i]->path, $images[$i]->datetaken, $lat, $lon);
                 }
             } elseif ($next !== null) {
                 $tNext = strtotime($images[$next]->datetaken);
-                if (($tNext - $t) <= $maxGapSeconds) {
+                // Only allow single reference assignment if within 1 hour (3600s)
+                if (($tNext - $t) <= 3600) {
                     $lat = $images[$next]->lat;
                     $lon = $images[$next]->lon;
                     $result[$i] = new Image($images[$i]->fileid, $images[$i]->path, $images[$i]->datetaken, $lat, $lon);
