@@ -46,7 +46,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->setDescription('Clusters images by location and creates albums in the Photos app.')
             ->addArgument('user', InputArgument::REQUIRED, 'The ID of the user for whom to cluster images and create albums.')
             ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours', 24)
-            ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers', 100.0)
+            ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers (default: 50.0)', 50.0)
             ->addArgument('minClusterSize', InputArgument::OPTIONAL, 'Minimum images per cluster', 3)
             ->addOption('home-aware', null, \Symfony\Component\Console\Input\InputOption::VALUE_NONE, 'Detect and output user home location');
     }

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2025-07-27
+### Changed
+- Default `maxDistanceKm` for clustering is now 50.0 (was 100.0)
+- Updated documentation and help text in code, README, and info.xml to reflect new default
+
 ## [0.3.1] - 2025-07-20
 - SystemTag-only album identification: new albums are created without postfix, identified and managed solely via SystemTags.
 - Legacy albums with postfix are still purged via fallback logic.

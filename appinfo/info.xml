@@ -22,7 +22,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 **Arguments:**
 - `user` — The user to cluster images for (**required**)
 - `maxTimeGap` — Max allowed time gap in hours (optional, default: 24)
-- `maxDistanceKm` — Max allowed distance in kilometers (optional, default: 100)
+- `maxDistanceKm` — Optional Maximum allowed distance in kilometers between consecutive images in a cluster (default: 50.0)
 - `minClusterSize` — Minimum images per cluster (optional, default: 3)
 
 **How time gap influences clustering:**  
@@ -33,6 +33,11 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
     php occ journeys:cluster-create-albums admin 24 100 5
 ]]></description>
   <changelog><![CDATA[
+    <h3>0.3.2 (2025-07-27)</h3>
+    <ul>
+      <li><b>Default maxDistanceKm for clustering is now 50.0 (was 100.0)</b></li>
+    </ul>
+
     <h3>0.3.1 (2025-07-20)</h3>
     <ul>
       <li><b>SystemTag-only album identification:</b> New albums are created without postfix, identified and managed solely via SystemTags.</li>
@@ -48,7 +53,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.3.1-alpha</version>
+  <version>0.3.2-alpha</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>^

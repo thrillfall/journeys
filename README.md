@@ -22,7 +22,7 @@ php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [minC
 **Arguments:**
 - `user` — The user to cluster images for (**required**)
 - `maxTimeGap` — Max allowed time gap in hours (optional, default: 24)
-- `maxDistanceKm` — Max allowed distance in kilometers (optional, default: 100)
+- `maxDistanceKm` — Maximum allowed distance in kilometers between consecutive images in a cluster (default: 50.0)
 - `minClusterSize` — Minimum images per cluster (optional, default: 3)
 
 **How time gap influences clustering:**  
