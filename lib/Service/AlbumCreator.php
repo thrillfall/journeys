@@ -9,6 +9,26 @@ use OCA\Journeys\Model\Image;
 
 class AlbumCreator {
     /**
+     * Delete all albums for a user (regardless of marker/tag).
+     *
+     * @param string $userId
+     * @return int Number of albums deleted
+     */
+    public function purgeAllAlbums(string $userId): int {
+        $deleted = 0;
+        $albums = $this->albumMapper->getForUser($userId);
+        foreach ($albums as $album) {
+            try {
+                $this->albumMapper->delete($album->getId());
+                $deleted++;
+            } catch (\Throwable $e) {
+                // Ignore and continue
+            }
+        }
+        return $deleted;
+    }
+
+    /**
      * Delete all albums created by the clusterer for a user (marked with CLUSTERER_MARKER).
      *
      * @param string $userId

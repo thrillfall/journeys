@@ -61,6 +61,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
     <command>OCA\Journeys\Command\FetchUserImagesCommand</command>
     <command>OCA\Journeys\Command\ListClustersCommand</command>
     <command>OCA\Journeys\Command\ClusterAndCreateAlbumsCommand</command>
+    <command>OCA\Journeys\Command\RemoveAllAlbumsCommand</command>
   </commands>
   <settings>
     <personal>OCA\Journeys\Settings\PersonalSettings</personal>
