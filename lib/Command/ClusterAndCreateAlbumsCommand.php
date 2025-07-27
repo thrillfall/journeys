@@ -14,6 +14,7 @@ use OCP\IDBConnection;
 use OCA\Journeys\Model\Image;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use OCP\IUserManager;
@@ -26,15 +27,19 @@ class ClusterAndCreateAlbumsCommand extends Command {
 
     private ClusteringManager $clusteringManager;
     private AlbumMapper $albumMapper;
+    private ImageFetcher $imageFetcher;
 
     public function __construct(
         ClusteringManager $clusteringManager,
-        AlbumMapper $albumMapper
+        AlbumMapper $albumMapper,
+        ImageFetcher $imageFetcher
     ) {
         parent::__construct(static::$defaultName);
         $this->clusteringManager = $clusteringManager;
         $this->albumMapper = $albumMapper;
+        $this->imageFetcher = $imageFetcher;
     }
+
 
     protected function configure(): void {
         $this
@@ -42,7 +47,8 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addArgument('user', InputArgument::REQUIRED, 'The ID of the user for whom to cluster images and create albums.')
             ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours', 24)
             ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers', 100.0)
-->addArgument('minClusterSize', InputArgument::OPTIONAL, 'Minimum images per cluster', 3);
+            ->addArgument('minClusterSize', InputArgument::OPTIONAL, 'Minimum images per cluster', 3)
+            ->addOption('home-aware', null, \Symfony\Component\Console\Input\InputOption::VALUE_NONE, 'Detect and output user home location');
     }
 
 
@@ -51,6 +57,22 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $maxTimeGap = (int)$input->getArgument('maxTimeGap') * 3600; // convert hours to seconds
         $maxDistanceKm = (float)$input->getArgument('maxDistanceKm');
         $minClusterSize = (int)$input->getArgument('minClusterSize');
+        $homeAware = $input->getOption('home-aware');
+
+        if ($homeAware) {
+            // Fetch images and output detected home location
+            $images = $this->imageFetcher->fetchImagesForUser($user);
+            $home = $this->clusteringManager->detectHomeLocation($images);
+            if ($home) {
+                $output->writeln(sprintf(
+                    '<info>Detected Home Location:</info> lat=%.5f, lon=%.5f%s',
+                    $home['lat'], $home['lon'],
+                    $home['name'] ? ", name={$home['name']}" : ''
+                ));
+            } else {
+                $output->writeln('<comment>Could not determine home location (not enough geotagged images).</comment>');
+            }
+        }
 
         // Delegate clustering and album creation to ClusteringManager
         $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize);

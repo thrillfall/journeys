@@ -2,18 +2,31 @@
 namespace OCA\Journeys\Service;
 
 use OCA\Journeys\Model\Image;
+use OCA\Journeys\Service\HomeLocationDetector;
 
 class ClusteringManager {
+
+    /**
+     * Delegates home location detection to HomeLocationDetector.
+     * @param Image[] $images
+     * @return array|null
+     */
+    public function detectHomeLocation(array $images): ?array {
+        return $this->homeLocationDetector->detect($images);
+    }
+
     private $imageFetcher;
     private $clusterer;
     private $albumCreator;
     private $locationResolver;
+    private $homeLocationDetector;
 
-    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver) {
+    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector) {
         $this->imageFetcher = $imageFetcher;
         $this->clusterer = $clusterer;
         $this->albumCreator = $albumCreator;
         $this->locationResolver = $locationResolver;
+        $this->homeLocationDetector = $homeLocationDetector;
     }
 
     /**

@@ -51,7 +51,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   <version>0.3.1-alpha</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
-  <category>multimedia</category>
+  <category>multimedia</category>^
   <screenshot>https://raw.githubusercontent.com/thrillfall/journeys/main/appinfo/journeys.png</screenshot>
   <bugs>https://github.com/thrillfall/journeys/issues</bugs>
   <dependencies>
