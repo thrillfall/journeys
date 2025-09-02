@@ -33,6 +33,12 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
     php occ journeys:cluster-create-albums admin 24 100 5
 ]]></description>
   <changelog><![CDATA[
+    <h3>0.4.0 (2025-09-03)</h3>
+    <ul>
+      <li><b>Home-aware clustering:</b> Segment timeline into near-home and away-from-home blocks; cluster each block independently.</li>
+      <li><b>Near-home alignment:</b> when left at built-in defaults, near-home time gap aligns to global, and distance aligns to global but is capped at <b>25km</b> for finer local clustering.</li>
+      <li><b>Away thresholds</b> default to 36h / 50km and can be tuned via CLI to better handle multi-day gaps during long trips.</li>
+    </ul>
     <h3>0.3.2 (2025-07-27)</h3>
     <ul>
       <li><b>Default maxDistanceKm for clustering is now 50.0 (was 100.0)</b></li>
@@ -53,7 +59,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.3.2-alpha</version>
+  <version>0.4.0-alpha</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>^

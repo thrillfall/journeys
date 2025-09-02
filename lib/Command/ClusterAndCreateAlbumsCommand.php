@@ -48,7 +48,14 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours', 24)
             ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers (default: 50.0)', 50.0)
             ->addArgument('minClusterSize', InputArgument::OPTIONAL, 'Minimum images per cluster', 3)
-            ->addOption('home-aware', null, \Symfony\Component\Console\Input\InputOption::VALUE_NONE, 'Detect and output user home location');
+            ->addOption('home-aware', null, \Symfony\Component\Console\Input\InputOption::VALUE_NONE, 'Enable home-aware clustering (uses detected or provided home)')
+            ->addOption('home-lat', null, InputOption::VALUE_REQUIRED, 'Home latitude')
+            ->addOption('home-lon', null, InputOption::VALUE_REQUIRED, 'Home longitude')
+            ->addOption('home-radius', null, InputOption::VALUE_REQUIRED, 'Home radius in km (default: 50)', 50)
+            ->addOption('near-time-gap', null, InputOption::VALUE_REQUIRED, 'Near-home max time gap in hours (default: 6)', 6)
+            ->addOption('near-distance-km', null, InputOption::VALUE_REQUIRED, 'Near-home max distance between consecutive photos in km (default: 3)', 3)
+            ->addOption('away-time-gap', null, InputOption::VALUE_REQUIRED, 'Away-from-home max time gap in hours (default: 36)', 36)
+            ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (default: 50)', 50);
     }
 
 
@@ -58,24 +65,47 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $maxDistanceKm = (float)$input->getArgument('maxDistanceKm');
         $minClusterSize = (int)$input->getArgument('minClusterSize');
         $homeAware = $input->getOption('home-aware');
+        $homeLat = $input->getOption('home-lat');
+        $homeLon = $input->getOption('home-lon');
+        $homeRadius = (float)$input->getOption('home-radius');
+        $nearTimeGap = (int)$input->getOption('near-time-gap') * 3600;
+        $nearDistanceKm = (float)$input->getOption('near-distance-km');
+        $awayTimeGap = (int)$input->getOption('away-time-gap') * 3600;
+        $awayDistanceKm = (float)$input->getOption('away-distance-km');
 
+        $home = null;
+        $thresholds = null;
         if ($homeAware) {
-            // Fetch images and output detected home location
-            $images = $this->imageFetcher->fetchImagesForUser($user);
-            $home = $this->clusteringManager->detectHomeLocation($images);
-            if ($home) {
-                $output->writeln(sprintf(
-                    '<info>Detected Home Location:</info> lat=%.5f, lon=%.5f%s',
-                    $home['lat'], $home['lon'],
-                    $home['name'] ? ", name={$home['name']}" : ''
-                ));
+            // Build thresholds
+            $thresholds = [
+                'near' => ['timeGap' => $nearTimeGap > 0 ? $nearTimeGap : 21600, 'distanceKm' => $nearDistanceKm > 0 ? $nearDistanceKm : 3.0],
+                'away' => ['timeGap' => $awayTimeGap > 0 ? $awayTimeGap : 129600, 'distanceKm' => $awayDistanceKm > 0 ? $awayDistanceKm : 50.0],
+            ];
+            // Use provided home or detect
+            if ($homeLat !== null && $homeLon !== null) {
+                $home = [ 'lat' => (float)$homeLat, 'lon' => (float)$homeLon, 'radiusKm' => (float)$homeRadius ];
+                $output->writeln(sprintf('<info>Using provided home:</info> lat=%.5f, lon=%.5f, radius=%.1f km', $home['lat'], $home['lon'], $home['radiusKm']));
             } else {
-                $output->writeln('<comment>Could not determine home location (not enough geotagged images).</comment>');
+                // Fetch images and output detected home location
+                $images = $this->imageFetcher->fetchImagesForUser($user);
+                $detected = $this->clusteringManager->detectHomeLocation($images);
+                if ($detected) {
+                    $home = [ 'lat' => $detected['lat'], 'lon' => $detected['lon'], 'radiusKm' => $homeRadius, 'name' => $detected['name'] ?? null ];
+                    $output->writeln(sprintf(
+                        '<info>Detected Home Location:</info> lat=%.5f, lon=%.5f%s',
+                        $home['lat'], $home['lon'],
+                        isset($home['name']) && $home['name'] ? ", name={$home['name']}" : ''
+                    ));
+                } else {
+                    $output->writeln('<comment>Could not determine home location (not enough geotagged images). Proceeding without home-aware thresholds.</comment>');
+                    $homeAware = false;
+                    $thresholds = null;
+                }
             }
         }
 
-        // Delegate clustering and album creation to ClusteringManager
-        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize);
+        // Delegate clustering and album creation to ClusteringManager (home-aware optional)
+        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds);
 
         if (isset($result['error'])) {
             $output->writeln('<error>' . $result['error'] . '</error>');

@@ -34,7 +34,7 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3): array {
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null): array {
         // Purge cluster albums before creating new ones
         $purgedAlbums = $this->albumCreator->purgeClusterAlbums($userId);
         $images = $this->imageFetcher->fetchImagesForUser($userId);
@@ -50,7 +50,47 @@ class ClusteringManager {
         });
         // Interpolate missing locations (match CLI default: 6h)
         $images = \OCA\Journeys\Service\ImageLocationInterpolator::interpolate($images, 21600);
-        $clusters = $this->clusterer->clusterImages($images, $maxTimeGap, $maxDistanceKm);
+        if ($homeAware) {
+            // Determine home and thresholds
+            if ($home === null) {
+                $detected = $this->homeLocationDetector->detect($images);
+                if ($detected) {
+                    $home = [
+                        'lat' => $detected['lat'],
+                        'lon' => $detected['lon'],
+                        'radiusKm' => 50.0,
+                        'name' => $detected['name'] ?? null,
+                    ];
+                } else {
+                    // Fallback: disable home-aware if we cannot detect a home
+                    $homeAware = false;
+                }
+            } else {
+                // Ensure radius default
+                if (!isset($home['radiusKm'])) {
+                    $home['radiusKm'] = 50.0;
+                }
+            }
+        }
+
+        if ($homeAware) {
+            $thresholds = $thresholds ?? [
+                'near' => ['timeGap' => 21600, 'distanceKm' => 3.0],   // 6h, 3km
+                'away' => ['timeGap' => 129600, 'distanceKm' => 50.0], // 36h, 50km
+            ];
+            // If 'near' thresholds are still at built-in defaults, align them with the non-home-aware thresholds
+            if (
+                isset($thresholds['near']['timeGap'], $thresholds['near']['distanceKm']) &&
+                (int)$thresholds['near']['timeGap'] === 21600 && (float)$thresholds['near']['distanceKm'] === 3.0
+            ) {
+                $thresholds['near']['timeGap'] = $maxTimeGap;
+                // Cap near-home distance to 25km for finer local clustering
+                $thresholds['near']['distanceKm'] = min((float)$maxDistanceKm, 25.0);
+            }
+            $clusters = $this->clusterer->clusterImagesHomeAware($images, $home, $thresholds);
+        } else {
+            $clusters = $this->clusterer->clusterImages($images, $maxTimeGap, $maxDistanceKm);
+        }
         $created = 0;
         $clusterSummaries = [];
         foreach ($clusters as $i => $cluster) {
@@ -86,4 +126,5 @@ class ClusteringManager {
             'purgedAlbums' => $purgedAlbums
         ];
     }
+    
 }

@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2025-09-03
+### Added
+- Home-aware clustering: timeline is segmented into near-home and away-from-home blocks; each block is clustered independently.
+
+### Changed
+- Near-home thresholds align to global `maxTimeGap/maxDistanceKm` when left at built-in defaults, ensuring consistent behavior near home.
+- Near-home distance is capped at 25km when aligning to global defaults to improve local clustering.
+- Away thresholds default to 36h / 50km and can be adjusted via CLI flags to better handle multi-day gaps during long trips.
+- Removed post-processing merge for home-aware mode; clustering output is used directly.
+
 ## [0.3.2] - 2025-07-27
 ### Changed
 - Default `maxDistanceKm` for clustering is now 50.0 (was 100.0)

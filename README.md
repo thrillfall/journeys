@@ -33,3 +33,36 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
 php occ journeys:cluster-create-albums admin 24 100 5
 ```
 
+
+## 🏠 Home-aware clustering (optional)
+
+Home-aware mode adapts clustering based on whether photos are taken near your home or away:
+
+- Near home: uses the global time threshold and a capped distance (defaults: 24h, up to 25km)
+- Away from home: uses separate, typically looser thresholds (defaults: 36h, 50km)
+- The timeline is segmented into contiguous near/away blocks, and each block is clustered independently. This supports long, multi-week away trips without per-edge switching.
+
+Enable with:
+
+```sh
+php occ journeys:cluster-create-albums <user> --home-aware [--home-lat <lat> --home-lon <lon> --home-radius <km>] \
+  [--near-time-gap <hours>] [--near-distance-km <km>] \
+  [--away-time-gap <hours>] [--away-distance-km <km>]
+```
+
+Flags:
+
+- `--home-aware` Enable home-aware clustering
+- `--home-lat`, `--home-lon` Provide home coordinates (optional; otherwise auto-detected)
+- `--home-radius` Home radius in km (default: 50)
+- `--near-time-gap` Near-home max time gap in hours (default: 6)
+- `--near-distance-km` Near-home max distance in km (default: 3)
+- `--away-time-gap` Away-from-home max time gap in hours (default: 36)
+- `--away-distance-km` Away-from-home max distance in km (default: 50)
+
+Notes:
+
+- If near-home thresholds are left at their defaults, the time gap aligns to the global `maxTimeGap`, and the distance aligns to the global `maxDistanceKm` but is capped at 25km for finer local clustering.
+- For long away trips with multi-day gaps in the same place, consider increasing `--away-time-gap` (e.g., 72–168 hours).
+- In home-aware mode, there is no post-processing merge; clusters are used as produced per segment for predictability.
+

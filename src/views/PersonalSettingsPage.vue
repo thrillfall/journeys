@@ -15,6 +15,26 @@
 					<label :for="'maxDistanceKm'">{{ t('journeys', 'Max Distance (km)') }}</label>
 					<input id="maxDistanceKm" type="number" min="0.1" step="0.1" v-model.number="maxDistanceKm" />
 				</div>
+				<div class="settings-field">
+					<label>
+						<input type="checkbox" v-model="homeAwareEnabled" />
+						{{ t('journeys', 'Enable home-aware clustering') }}
+					</label>
+				</div>
+				<template v-if="homeAwareEnabled">
+					<div class="settings-field">
+						<label :for="'homeLat'">{{ t('journeys', 'Home latitude') }}</label>
+						<input id="homeLat" type="number" step="0.000001" v-model.number="homeLat" />
+					</div>
+					<div class="settings-field">
+						<label :for="'homeLon'">{{ t('journeys', 'Home longitude') }}</label>
+						<input id="homeLon" type="number" step="0.000001" v-model.number="homeLon" />
+					</div>
+					<div class="settings-field">
+						<label :for="'homeRadiusKm'">{{ t('journeys', 'Home radius (km)') }}</label>
+						<input id="homeRadiusKm" type="number" min="1" step="1" v-model.number="homeRadiusKm" />
+					</div>
+				</template>
 				<div class="settings-buttons">
 					<button @click="saveSettings" :disabled="isProcessing">
 						{{ t('journeys', 'Save Settings') }}
@@ -69,6 +89,10 @@ export default {
 			minClusterSize: 3, // default
 			maxTimeGap: 86400, // default (24h)
 			maxDistanceKm: 100.0, // default
+			homeAwareEnabled: false,
+			homeLat: null,
+			homeLon: null,
+			homeRadiusKm: 50,
 		}
 	},
 	async mounted() {
@@ -78,6 +102,10 @@ export default {
 				this.minClusterSize = settingsResp.data.minClusterSize
 				this.maxTimeGap = settingsResp.data.maxTimeGap
 				this.maxDistanceKm = settingsResp.data.maxDistanceKm
+				this.homeAwareEnabled = !!settingsResp.data.homeAwareEnabled
+				this.homeLat = settingsResp.data.homeLat
+				this.homeLon = settingsResp.data.homeLon
+				this.homeRadiusKm = settingsResp.data.homeRadiusKm
 			}
 		} catch (e) {
 			// ignore if not available
@@ -96,7 +124,11 @@ export default {
 				await axios.post(generateUrl('/apps/journeys/personal_settings/save_clustering_settings'), {
 					minClusterSize: this.minClusterSize,
 					maxTimeGap: this.maxTimeGap,
-					maxDistanceKm: this.maxDistanceKm
+					maxDistanceKm: this.maxDistanceKm,
+					homeAwareEnabled: this.homeAwareEnabled,
+					homeLat: this.homeLat,
+					homeLon: this.homeLon,
+					homeRadiusKm: this.homeRadiusKm,
 				})
 				showSuccess(this.t('journeys', 'Settings saved.'))
 			} catch (e) {
@@ -112,7 +144,11 @@ export default {
 				const resp = await axios.post(generateUrl('/apps/journeys/personal_settings/start_clustering'), {
 				minClusterSize: this.minClusterSize,
 				maxTimeGap: this.maxTimeGap,
-				maxDistanceKm: this.maxDistanceKm
+				maxDistanceKm: this.maxDistanceKm,
+				homeAwareEnabled: this.homeAwareEnabled,
+				homeLat: this.homeLat,
+				homeLon: this.homeLon,
+				homeRadiusKm: this.homeRadiusKm,
 			})
 				showSuccess(this.t('journeys', 'Clustering started successfully.'))
 				this.lastRun = resp.data.lastRun || new Date().toISOString()
