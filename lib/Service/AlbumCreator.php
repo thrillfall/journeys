@@ -5,6 +5,7 @@ use OCA\Photos\Album\AlbumMapper;
 use OCP\IUserManager;
 use OCP\Files\IRootFolder;
 use OCP\SystemTag\ISystemTagManager;
+use OCP\IDBConnection;
 use OCA\Journeys\Model\Image;
 
 class AlbumCreator {
@@ -36,58 +37,43 @@ class AlbumCreator {
      */
     public function purgeClusterAlbums(string $userId): int {
         $deleted = 0;
-        $albums = $this->albumMapper->getForUser($userId);
-        $deletedAlbumIds = [];
-        // 1. Delete albums with the journeys SystemTag
         try {
-            $userFolder = $this->rootFolder->getUserFolder($userId);
-            $tags = $this->systemTagManager->getTagsByName(self::JOURNEYS_TAG);
-            if (!empty($tags)) {
-                $journeysClusterTag = array_values($tags)[0];
-                foreach ($albums as $album) {
-                    try {
-                        $albumFolder = $userFolder->get($album->getName());
-                        $objectTags = $this->systemTagManager->getTagsForObject($albumFolder);
-                        foreach ($objectTags as $objectTag) {
-                            if ($objectTag->getId() === $journeysClusterTag->getId()) {
-                                $this->albumMapper->delete($album->getId());
-                                $deletedAlbumIds[] = $album->getId();
-                                $deleted++;
-                                break;
-                            }
-                        }
-                    } catch (\Throwable $e) {
-                        // Ignore missing folders or errors
-                    }
+            // Fetch tracked album ids for this user
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("SELECT album_id FROM {$table} WHERE user_id = ?");
+            $result = $stmt->execute([$userId]);
+            $rows = $result->fetchAll();
+            foreach ($rows as $row) {
+                try {
+                    $this->albumMapper->delete((int)$row['album_id']);
+                    $deleted++;
+                } catch (\Throwable $e) {
+                    // ignore and continue
                 }
             }
+            // Clear tracking rows for this user regardless of deletion outcome
+            $delStmt = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ?");
+            $delStmt->execute([$userId]);
         } catch (\Throwable $e) {
-            // Tagging is best-effort; ignore errors
-        }
-        // 2. Fallback: delete any remaining albums with the postfix marker
-        foreach ($albums as $album) {
-            if (in_array($album->getId(), $deletedAlbumIds)) {
-                continue;
-            }
-            if (strpos($album->getTitle(), self::CLUSTERER_MARKER) !== false) {
-                $this->albumMapper->delete($album->getId());
-                $deleted++;
-            }
+            // if anything goes wrong, return what we managed to delete
         }
         return $deleted;
     }
     public const CLUSTERER_MARKER = '[clusterer]';
     private AlbumMapper $albumMapper;
+    private IUserManager $userManager;
     private IRootFolder $rootFolder;
     private ISystemTagManager $systemTagManager;
+    private IDBConnection $db;
 
     private const JOURNEYS_TAG = 'journeys-album';
 
-    public function __construct(AlbumMapper $albumMapper, IUserManager $userManager, IRootFolder $rootFolder, ISystemTagManager $systemTagManager) {
+    public function __construct(AlbumMapper $albumMapper, IUserManager $userManager, IRootFolder $rootFolder, ISystemTagManager $systemTagManager, IDBConnection $db) {
         $this->albumMapper = $albumMapper;
         $this->userManager = $userManager;
         $this->rootFolder = $rootFolder;
         $this->systemTagManager = $systemTagManager;
+        $this->db = $db;
     }
 
     /**
@@ -113,6 +99,12 @@ class AlbumCreator {
                     // Ignore if image is already in album or other non-fatal errors
                 }
             }
+        }
+        // Track this album as clusterer-created for reliable purge
+        try {
+            $this->trackClusterAlbum($userId, (int)$album->getId(), $album->getName(), $location);
+        } catch (\Throwable $e) {
+            // best-effort tracking
         }
         // Assign SystemTag to album folder (in addition to postfix logic)
         try {
@@ -152,5 +144,22 @@ class AlbumCreator {
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    private function getTrackingTableName(): string {
+        // Use Nextcloud SQL prefix placeholder; it is expanded by the DB layer
+        return '*PREFIX*journeys_cluster_albums';
+    }
+
+    /**
+     * Track a clusterer-created album for a user.
+     */
+    private function trackClusterAlbum(string $userId, int $albumId, string $name, string $location): void {
+        $table = $this->getTrackingTableName();
+        // Delete existing row (if any) then insert, to avoid DB-specific upsert syntax
+        $del = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ? AND album_id = ?");
+        $del->execute([$userId, $albumId]);
+        $ins = $this->db->prepare("INSERT INTO {$table} (user_id, album_id, name, location) VALUES (?, ?, ?, ?)");
+        $ins->execute([$userId, $albumId, $name, $location]);
     }
 }

@@ -33,6 +33,13 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
     php occ journeys:cluster-create-albums admin 24 100 5
 ]]></description>
   <changelog><![CDATA[
+    <h3>0.4.1 (2025-09-03)</h3>
+    <ul>
+      <li><b>Deterministic purge of cluster albums:</b> Introduced DB-backed tracking table for clusterer-created albums (per user), used during purge instead of folder tag/title heuristics. Prevents accumulation of albums across runs.</li>
+      <li><b>Docs:</b> Clarified deterministic purge behavior on re-runs; added upgrade notes.</li>
+      <li><b>Cleanup:</b> Removed runtime table creation; rely on app migration for schema.</li>
+      <li><b>DB prefix fix:</b> Use <code>*PREFIX*</code> placeholder in SQL instead of accessing connection prefix.</li>
+    </ul>
     <h3>0.4.0 (2025-09-03)</h3>
     <ul>
       <li><b>Home-aware clustering:</b> Segment timeline into near-home and away-from-home blocks; cluster each block independently.</li>
@@ -59,10 +66,10 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.4.0-alpha</version>
+  <version>0.4.1-alpha</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
-  <category>multimedia</category>^
+  <category>multimedia</category>
   <screenshot>https://raw.githubusercontent.com/thrillfall/journeys/main/appinfo/journeys.png</screenshot>
   <bugs>https://github.com/thrillfall/journeys/issues</bugs>
   <dependencies>

@@ -34,6 +34,14 @@ php occ journeys:cluster-create-albums admin 24 100 5
 ```
 
 
+## ♻️ Deterministic purge on re-runs (>= 0.4.1)
+
+- The app tracks clusterer-created albums in a DB table and purges those before creating new ones, so repeated runs do not accumulate albums.
+- Behavior differs with/without `--home-aware` because cluster results differ; within the same mode and parameters the album count should be stable.
+
+First-time migration to enable tracking runs automatically on app update (see below).
+
+
 ## 🏠 Home-aware clustering (optional)
 
 Home-aware mode adapts clustering based on whether photos are taken near your home or away:
@@ -65,4 +73,18 @@ Notes:
 - If near-home thresholds are left at their defaults, the time gap aligns to the global `maxTimeGap`, and the distance aligns to the global `maxDistanceKm` but is capped at 25km for finer local clustering.
 - For long away trips with multi-day gaps in the same place, consider increasing `--away-time-gap` (e.g., 72–168 hours).
 - In home-aware mode, there is no post-processing merge; clusters are used as produced per segment for predictability.
+
+
+## ⬆️ Upgrade notes
+
+- Update the app to apply DB migrations:
+  ```sh
+  php occ app:update journeys
+  # if prompted that an upgrade is required, run:
+  php occ upgrade
+  ```
+- After updating, re-run the cluster command. To reset old albums once, you can run:
+  ```sh
+  php occ journeys:remove-all-albums <user>
+  ```
 

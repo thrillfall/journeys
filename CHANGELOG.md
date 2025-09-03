@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2025-09-03
+### Added
+- Deterministic purge of cluster albums via DB-backed tracking table (per user). Prevents album accumulation across runs.
+### Changed
+- Documentation: clarified deterministic purge behavior on re-runs and added upgrade notes.
+- Cleanup: removed runtime table creation; rely on app migrations for schema.
+- DB prefix handling: use `*PREFIX*` placeholder in SQL instead of reading connection prefix.
+
 ## [0.4.0] - 2025-09-03
 ### Added
 - Home-aware clustering: timeline is segmented into near-home and away-from-home blocks; each block is clustered independently.
