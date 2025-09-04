@@ -97,6 +97,17 @@ class ClusteringManager {
             if (count($cluster) < $minClusterSize) {
                 continue;
             }
+            // Discard clusters composed entirely of images without location
+            $hasGeolocated = false;
+            foreach ($cluster as $img) {
+                if ($img->lat !== null && $img->lon !== null) {
+                    $hasGeolocated = true;
+                    break;
+                }
+            }
+            if (!$hasGeolocated) {
+                continue;
+            }
             $start = $cluster[0]->datetaken;
             $dtStart = new \DateTime($cluster[0]->datetaken);
             $dtEnd = new \DateTime($cluster[count($cluster)-1]->datetaken);
