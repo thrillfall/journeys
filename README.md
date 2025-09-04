@@ -75,6 +75,13 @@ Notes:
 - In home-aware mode, there is no post-processing merge; clusters are used as produced per segment for predictability.
 
 
+## 🧭 Clustering robustness (>= 0.4.2)
+
+- The clusterer now prevents time-only tails (images without coordinates) from bridging over large spatial jumps.
+- Distance checks are anchored to the last-known geolocated photo within the current cluster, so a run of no-location images won’t “stitch” a far-away next geolocated point into the same cluster.
+- This improves results for long trips where some photos are missing GPS data, especially in home-aware “away” segments.
+
+
 ## ⬆️ Upgrade notes
 
 - Update the app to apply DB migrations:
