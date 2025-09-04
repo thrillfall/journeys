@@ -16,24 +16,43 @@ class Clusterer {
         $clusters = [];
         $currentCluster = [];
         $prev = null;
+        // Anchor for spatial continuity: last image in the current cluster that has valid coordinates
+        $prevGeo = null;
         foreach ($images as $img) {
             if (empty($currentCluster)) {
                 $currentCluster[] = $img;
+                // initialize geo anchor when the first item of the cluster has coords
+                if ($img->lat !== null && $img->lon !== null) {
+                    $prevGeo = $img;
+                } else {
+                    $prevGeo = null;
+                }
             } else {
                 $timeGap = abs(strtotime($img->datetaken) - strtotime($prev->datetaken));
-                $hasLoc1 = $img->lat !== null && $img->lon !== null;
-                $hasLoc2 = $prev->lat !== null && $prev->lon !== null;
-                if ($hasLoc1 && $hasLoc2) {
-                    $dist = $this->haversine($img->lat, $img->lon, $prev->lat, $prev->lon);
-                    $shouldSplit = $timeGap > $maxTimeGap || $dist > $maxDistanceKm;
-                } else {
-                    $shouldSplit = $timeGap > $maxTimeGap;
+                $hasLocCurrent = $img->lat !== null && $img->lon !== null;
+
+                // Start with time gap rule
+                $shouldSplit = $timeGap > $maxTimeGap;
+
+                // Spatial rule: compare current geolocated point to the last-known geolocated anchor in the cluster.
+                // This prevents a run of unlocated images from "bridging" to a far-away point without splitting.
+                if (!$shouldSplit && $hasLocCurrent && $prevGeo !== null) {
+                    $dist = $this->haversine($img->lat, $img->lon, $prevGeo->lat, $prevGeo->lon);
+                    if ($dist > $maxDistanceKm) {
+                        $shouldSplit = true;
+                    }
                 }
                 if ($shouldSplit) {
                     $clusters[] = $currentCluster;
                     $currentCluster = [];
+                    // Reset geo anchor for new cluster
+                    $prevGeo = null;
                 }
                 $currentCluster[] = $img;
+                // Update geo anchor only when the current image has coordinates
+                if ($img->lat !== null && $img->lon !== null) {
+                    $prevGeo = $img;
+                }
             }
             $prev = $img;
         }
