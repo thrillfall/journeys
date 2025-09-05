@@ -74,7 +74,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>4.0.3</version>
+  <version>0.4.3</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
