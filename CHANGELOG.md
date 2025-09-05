@@ -2,13 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [4.0.3] - 2025-09-05
-### Changed
-- Clustering robustness: prevent time-only tails (images without coordinates) from bridging over large spatial jumps by anchoring distance checks to the last-known geolocated photo within a cluster.
-
 ## [0.4.3] - 2025-09-05
 ### Changed
 - Skip no-location-only clusters: clusters composed entirely of images without coordinates are no longer turned into albums. This reduces noise from placeholder “Journey # (date range)” albums.
+
+## [0.4.2] - 2025-09-05
+### Changed
+- Clustering robustness: prevent time-only tails (images without coordinates) from bridging over large spatial jumps by anchoring distance checks to the last-known geolocated photo within a cluster.
 
 ## [0.4.1] - 2025-09-03
 ### Added
