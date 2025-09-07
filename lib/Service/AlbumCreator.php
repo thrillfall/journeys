@@ -6,6 +6,7 @@ use OCP\IUserManager;
 use OCP\Files\IRootFolder;
 use OCP\SystemTag\ISystemTagManager;
 use OCP\IDBConnection;
+use Psr\Log\LoggerInterface;
 use OCA\Journeys\Model\Image;
 
 class AlbumCreator {
@@ -65,15 +66,17 @@ class AlbumCreator {
     private IRootFolder $rootFolder;
     private ISystemTagManager $systemTagManager;
     private IDBConnection $db;
+    private LoggerInterface $logger;
 
     private const JOURNEYS_TAG = 'journeys-album';
 
-    public function __construct(AlbumMapper $albumMapper, IUserManager $userManager, IRootFolder $rootFolder, ISystemTagManager $systemTagManager, IDBConnection $db) {
+    public function __construct(AlbumMapper $albumMapper, IUserManager $userManager, IRootFolder $rootFolder, ISystemTagManager $systemTagManager, IDBConnection $db, LoggerInterface $logger) {
         $this->albumMapper = $albumMapper;
         $this->userManager = $userManager;
         $this->rootFolder = $rootFolder;
         $this->systemTagManager = $systemTagManager;
         $this->db = $db;
+        $this->logger = $logger;
     }
 
     /**
@@ -86,9 +89,23 @@ class AlbumCreator {
      * @return void
      */
     public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null): void {
-        $album = $this->albumMapper->getByName($albumName, $userId);
-        if (!$album) {
+        // Always attempt to create a new album; do not reuse by name to avoid collisions with manually created albums
+        try {
             $album = $this->albumMapper->create($userId, $albumName, $location);
+        } catch (\Throwable $e) {
+            // If creation fails (e.g., name collision), log and skip this album without falling back to getByName
+            try {
+                $this->logger->warning('Journeys: skipping album creation due to error (likely name collision)', [
+                    'app' => 'journeys',
+                    'userId' => $userId,
+                    'albumName' => $albumName,
+                    'location' => $location,
+                    'exception' => $e->getMessage(),
+                ]);
+            } catch (\Throwable $ignored) {
+                // ignore logging failures
+            }
+            return;
         }
         foreach ($images as $image) {
             $fileId = $this->getFileIdForImage($userId, $image);
@@ -202,5 +219,97 @@ class AlbumCreator {
         } catch (\Throwable $e) {
             return false;
         }
+    }
+
+    /**
+     * Return tracked album IDs for a user.
+     * @return int[]
+     */
+    public function getTrackedAlbumIds(string $userId): array {
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("SELECT album_id FROM {$table} WHERE user_id = ?");
+            $result = $stmt->execute([$userId]);
+            $ids = [];
+            while ($row = $result->fetch()) {
+                if (isset($row['album_id'])) {
+                    $ids[] = (int)$row['album_id'];
+                }
+            }
+            return $ids;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Best-effort fetch of file IDs contained in a Photos album using AlbumMapper API.
+     * @return int[]
+     */
+    public function getAlbumFileIds(int $albumId): array {
+        try {
+            if (method_exists($this->albumMapper, 'getFiles')) {
+                $files = $this->albumMapper->getFiles($albumId);
+                $ids = [];
+                foreach ($files as $f) {
+                    // Try common access patterns
+                    if (is_object($f)) {
+                        if (method_exists($f, 'getFileId')) {
+                            $ids[] = (int)$f->getFileId();
+                        } elseif (isset($f->fileId)) {
+                            $ids[] = (int)$f->fileId;
+                        }
+                    } elseif (is_array($f)) {
+                        if (isset($f['file_id'])) {
+                            $ids[] = (int)$f['file_id'];
+                        } elseif (isset($f['fileId'])) {
+                            $ids[] = (int)$f['fileId'];
+                        }
+                    }
+                }
+                return $ids;
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+        return [];
+    }
+
+    /**
+     * Derive latest end datetime from tracked albums using provided images (for datetaken lookup).
+     * @param string $userId
+     * @param Image[] $images
+     * @return \DateTimeInterface|null
+     */
+    public function deriveLatestEndFromTracked(string $userId, array $images): ?\DateTimeInterface {
+        $albumIds = $this->getTrackedAlbumIds($userId);
+        if (empty($albumIds)) {
+            return null;
+        }
+        // Build map fileId -> datetaken
+        $byId = [];
+        foreach ($images as $img) {
+            if (isset($img->fileid)) {
+                $byId[(int)$img->fileid] = $img->datetaken;
+            }
+        }
+        $maxTs = null;
+        foreach ($albumIds as $aid) {
+            $fileIds = $this->getAlbumFileIds($aid);
+            foreach ($fileIds as $fid) {
+                if (isset($byId[$fid])) {
+                    $ts = strtotime($byId[$fid]);
+                    if ($ts !== false) {
+                        if ($maxTs === null || $ts > $maxTs) {
+                            $maxTs = $ts;
+                        }
+                    }
+                }
+            }
+        }
+        if ($maxTs !== null) {
+            return (new \DateTime())->setTimestamp($maxTs);
+        }
+        return null;
     }
 }

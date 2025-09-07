@@ -54,6 +54,13 @@ class ClusteringManager {
         // Incremental: only consider images after the latest tracked cluster end
         if (!$fromScratch) {
             $latestEnd = $this->albumCreator->getLatestClusterEnd($userId);
+            if ($latestEnd === null && $this->albumCreator->hasTrackedAlbums($userId)) {
+                // Fallback: derive latest end from already tracked albums using current images list
+                $derived = $this->albumCreator->deriveLatestEndFromTracked($userId, $images);
+                if ($derived !== null) {
+                    $latestEnd = $derived;
+                }
+            }
             if ($latestEnd !== null) {
                 $cutTs = $latestEnd->getTimestamp();
                 $images = array_values(array_filter($images, function($img) use ($cutTs) {
