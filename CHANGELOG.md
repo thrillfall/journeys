@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2025-09-07
+### Added
+- Incremental clustering (default): only process images taken after the latest tracked cluster end.
+- OCC flags: `--from-scratch` to fully rebuild clusters; `--recent-cutoff-days` to control skipping of very recent trips (default 5; 0 disables).
+
 ## [0.4.3] - 2025-09-05
 ### Changed
 - Skip no-location-only clusters: clusters composed entirely of images without coordinates are no longer turned into albums. This reduces noise from placeholder “Journey # (date range)” albums.

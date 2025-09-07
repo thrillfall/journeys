@@ -16,7 +16,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 ## 🚀 OCC Command Usage
 
 ```sh
-php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [minClusterSize]
+php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [minClusterSize] [--from-scratch] [--home-aware ...]
 ```
 
 **Arguments:**
@@ -74,14 +74,20 @@ Notes:
 - For long away trips with multi-day gaps in the same place, consider increasing `--away-time-gap` (e.g., 72–168 hours).
 - In home-aware mode, there is no post-processing merge; clusters are used as produced per segment for predictability.
 
+### Incremental clustering (default)
 
-## 🧭 Clustering robustness (>= 0.4.3)
+- By default, clustering runs incrementally: it only considers images taken after the latest previously created cluster. This keeps runtime low and avoids recreating existing albums.
+- Use `--from-scratch` to purge previously created cluster albums and recluster all images from a clean slate.
+- To avoid creating incomplete trips, clusters whose last image is within the past 5 days are skipped; they will be picked up in a future run once the trip is likely complete.
+
+
+## 🧭 Clustering robustness (>= 4.0.3)
 
 - The clusterer now prevents time-only tails (images without coordinates) from bridging over large spatial jumps.
 - Distance checks are anchored to the last-known geolocated photo within the current cluster, so a run of no-location images won’t “stitch” a far-away next geolocated point into the same cluster.
 - This improves results for long trips where some photos are missing GPS data, especially in home-aware “away” segments.
 
-### Additional behavior (>= 0.4.3)
+### Additional behavior (>= 4.0.3)
 
 - Clusters composed entirely of images without coordinates are skipped and no album is created. This reduces noise from placeholder “Journey # (date range)” albums.
 

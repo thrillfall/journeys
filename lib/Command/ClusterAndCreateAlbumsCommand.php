@@ -43,19 +43,21 @@ class ClusterAndCreateAlbumsCommand extends Command {
 
     protected function configure(): void {
         $this
-            ->setDescription('Clusters images by location and creates albums in the Photos app.')
+            ->setDescription('Clusters images by location and creates albums in the Photos app (incremental by default).')
             ->addArgument('user', InputArgument::REQUIRED, 'The ID of the user for whom to cluster images and create albums.')
             ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours', 24)
             ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers (default: 50.0)', 50.0)
             ->addArgument('minClusterSize', InputArgument::OPTIONAL, 'Minimum images per cluster', 3)
-            ->addOption('home-aware', null, \Symfony\Component\Console\Input\InputOption::VALUE_NONE, 'Enable home-aware clustering (uses detected or provided home)')
+            ->addOption('home-aware', null, InputOption::VALUE_NONE, 'Enable home-aware clustering (uses detected or provided home)')
+            ->addOption('from-scratch', null, InputOption::VALUE_NONE, 'Recluster all images from scratch (purges previously created cluster albums)')
             ->addOption('home-lat', null, InputOption::VALUE_REQUIRED, 'Home latitude')
             ->addOption('home-lon', null, InputOption::VALUE_REQUIRED, 'Home longitude')
             ->addOption('home-radius', null, InputOption::VALUE_REQUIRED, 'Home radius in km (default: 50)', 50)
             ->addOption('near-time-gap', null, InputOption::VALUE_REQUIRED, 'Near-home max time gap in hours (default: 6)', 6)
             ->addOption('near-distance-km', null, InputOption::VALUE_REQUIRED, 'Near-home max distance between consecutive photos in km (default: 3)', 3)
             ->addOption('away-time-gap', null, InputOption::VALUE_REQUIRED, 'Away-from-home max time gap in hours (default: 36)', 36)
-            ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (default: 50)', 50);
+            ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (default: 50)', 50)
+            ->addOption('recent-cutoff-days', null, InputOption::VALUE_REQUIRED, 'Skip clusters whose last image is within the past N days (default: 5, 0 disables)', 5);
     }
 
 
@@ -72,6 +74,8 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $nearDistanceKm = (float)$input->getOption('near-distance-km');
         $awayTimeGap = (int)$input->getOption('away-time-gap') * 3600;
         $awayDistanceKm = (float)$input->getOption('away-distance-km');
+        $fromScratch = (bool)$input->getOption('from-scratch');
+        $recentCutoffDays = max(0, (int)$input->getOption('recent-cutoff-days'));
 
         $home = null;
         $thresholds = null;
@@ -105,7 +109,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
         }
 
         // Delegate clustering and album creation to ClusteringManager (home-aware optional)
-        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds);
+        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds, $fromScratch, $recentCutoffDays);
 
         if (isset($result['error'])) {
             $output->writeln('<error>' . $result['error'] . '</error>');

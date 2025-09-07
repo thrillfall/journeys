@@ -34,9 +34,12 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null): array {
-        // Purge cluster albums before creating new ones
-        $purgedAlbums = $this->albumCreator->purgeClusterAlbums($userId);
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 5): array {
+        // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
+        $purgedAlbums = 0;
+        if ($fromScratch) {
+            $purgedAlbums = $this->albumCreator->purgeClusterAlbums($userId);
+        }
         $images = $this->imageFetcher->fetchImagesForUser($userId);
         if (empty($images)) {
             return [
@@ -48,6 +51,24 @@ class ClusteringManager {
         usort($images, function($a, $b) {
             return strtotime($a->datetaken) <=> strtotime($b->datetaken);
         });
+        // Incremental: only consider images after the latest tracked cluster end
+        if (!$fromScratch) {
+            $latestEnd = $this->albumCreator->getLatestClusterEnd($userId);
+            if ($latestEnd !== null) {
+                $cutTs = $latestEnd->getTimestamp();
+                $images = array_values(array_filter($images, function($img) use ($cutTs) {
+                    return strtotime($img->datetaken) > $cutTs;
+                }));
+            }
+            if (empty($images)) {
+                return [
+                    'clustersCreated' => 0,
+                    'lastRun' => date('c'),
+                    'clusters' => [],
+                    'purgedAlbums' => $purgedAlbums,
+                ];
+            }
+        }
         // Interpolate missing locations (match CLI default: 6h)
         $images = \OCA\Journeys\Service\ImageLocationInterpolator::interpolate($images, 21600);
         if ($homeAware) {
@@ -111,6 +132,14 @@ class ClusteringManager {
             $start = $cluster[0]->datetaken;
             $dtStart = new \DateTime($cluster[0]->datetaken);
             $dtEnd = new \DateTime($cluster[count($cluster)-1]->datetaken);
+            // Discard clusters whose last image is considered too recent (incomplete travel)
+            if ($recentCutoffDays > 0) {
+                $now = new \DateTime('now');
+                $ageSeconds = $now->getTimestamp() - $dtEnd->getTimestamp();
+                if ($ageSeconds < $recentCutoffDays * 24 * 3600) {
+                    continue;
+                }
+            }
             $monthYear = $dtStart->format('F Y');
             $range = $dtStart->format('M j');
             if ($dtStart->format('Y-m-d') !== $dtEnd->format('Y-m-d')) {
@@ -122,7 +151,7 @@ class ClusteringManager {
             } else {
                 $albumName = sprintf('Journey %d %s (%s)', $i+1, $monthYear, $range);
             }
-            $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '');
+            $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd);
             $clusterSummaries[] = [
                 'albumName' => $albumName,
                 'imageCount' => count($cluster),

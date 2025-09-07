@@ -85,7 +85,7 @@ class AlbumCreator {
      * @param string $location
      * @return void
      */
-    public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = ''): void {
+    public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null): void {
         $album = $this->albumMapper->getByName($albumName, $userId);
         if (!$album) {
             $album = $this->albumMapper->create($userId, $albumName, $location);
@@ -100,9 +100,9 @@ class AlbumCreator {
                 }
             }
         }
-        // Track this album as clusterer-created for reliable purge
+        // Track this album as clusterer-created for reliable purge and incremental boundary detection
         try {
-            $this->trackClusterAlbum($userId, (int)$album->getId(), $album->getName(), $location);
+            $this->trackClusterAlbum($userId, (int)$album->getId(), $album->getName(), $location, $dtStart, $dtEnd);
         } catch (\Throwable $e) {
             // best-effort tracking
         }
@@ -154,12 +154,53 @@ class AlbumCreator {
     /**
      * Track a clusterer-created album for a user.
      */
-    private function trackClusterAlbum(string $userId, int $albumId, string $name, string $location): void {
+    private function trackClusterAlbum(string $userId, int $albumId, string $name, string $location, ?\DateTime $dtStart, ?\DateTime $dtEnd): void {
         $table = $this->getTrackingTableName();
         // Delete existing row (if any) then insert, to avoid DB-specific upsert syntax
         $del = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ? AND album_id = ?");
         $del->execute([$userId, $albumId]);
-        $ins = $this->db->prepare("INSERT INTO {$table} (user_id, album_id, name, location) VALUES (?, ?, ?, ?)");
-        $ins->execute([$userId, $albumId, $name, $location]);
+        $ins = $this->db->prepare("INSERT INTO {$table} (user_id, album_id, name, location, start_dt, end_dt) VALUES (?, ?, ?, ?, ?, ?)");
+        $ins->execute([
+            $userId,
+            $albumId,
+            $name,
+            $location,
+            $dtStart ? $dtStart->format('Y-m-d H:i:s') : null,
+            $dtEnd ? $dtEnd->format('Y-m-d H:i:s') : null,
+        ]);
+    }
+
+    /**
+     * Get the latest cluster end datetime for a user from tracking table.
+     * @return \DateTimeInterface|null
+     */
+    public function getLatestClusterEnd(string $userId): ?\DateTimeInterface {
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("SELECT MAX(end_dt) AS max_end FROM {$table} WHERE user_id = ?");
+            $result = $stmt->execute([$userId]);
+            $row = $result->fetch();
+            if ($row && !empty($row['max_end'])) {
+                return new \DateTime($row['max_end']);
+            }
+        } catch (\Throwable $e) {
+            // ignore and fallback to null
+        }
+        return null;
+    }
+
+    /**
+     * Check if there are any previously tracked clusterer-created albums for this user.
+     */
+    public function hasTrackedAlbums(string $userId): bool {
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("SELECT 1 FROM {$table} WHERE user_id = ? LIMIT 1");
+            $result = $stmt->execute([$userId]);
+            $row = $result->fetch();
+            return $row !== false && $row !== null;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }
