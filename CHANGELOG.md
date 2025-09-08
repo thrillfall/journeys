@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.2] - 2025-09-08
+### Fixed
+- Prevent division by zero when interpolating locations for adjacent images with identical `datetaken` (equal timestamps).
+
 ## [0.5.0] - 2025-09-07
 ### Added
 - Incremental clustering (default): only process images taken after the latest tracked cluster end.

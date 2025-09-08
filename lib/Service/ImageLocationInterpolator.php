@@ -35,17 +35,32 @@ class ImageLocationInterpolator {
             if ($prev !== null && $next !== null) {
                 $tPrev = strtotime($images[$prev]->datetaken);
                 $tNext = strtotime($images[$next]->datetaken);
-                if (($t - $tPrev) <= $maxGapSeconds && ($tNext - $t) <= $maxGapSeconds) {
+                // Guard invalid timestamps
+                if ($tPrev === false || $tNext === false) {
+                    // cannot interpolate without valid neighbor timestamps
+                    // fall through to single-reference cases below
+                } else if (($t - $tPrev) <= $maxGapSeconds && ($tNext - $t) <= $maxGapSeconds) {
                     // Check spatial constraint (distance between prev and next <= 1km)
                     $distance = self::haversineDistance((float)$images[$prev]->lat, (float)$images[$prev]->lon, (float)$images[$next]->lat, (float)$images[$next]->lon);
                     if ($distance > $maxDistanceKm) {
                         continue; // skip interpolation if too far
                     }
-                    // Interpolate
-                    $frac = ($t - $tPrev) / ($tNext - $tPrev);
-                    $lat = (float)$images[$prev]->lat + $frac * ((float)$images[$next]->lat - (float)$images[$prev]->lat);
-                    $lon = (float)$images[$prev]->lon + $frac * ((float)$images[$next]->lon - (float)$images[$prev]->lon);
-                    $result[$i] = new Image($images[$i]->fileid, $images[$i]->path, $images[$i]->datetaken, (string)$lat, (string)$lon);
+                    // Interpolate safely; if timestamps are equal, use midpoint to avoid division by zero
+                    $span = $tNext - $tPrev;
+                    if ($span === 0) {
+                        $lat = ((float)$images[$prev]->lat + (float)$images[$next]->lat) / 2.0;
+                        $lon = ((float)$images[$prev]->lon + (float)$images[$next]->lon) / 2.0;
+                    } else if ($span < 0) {
+                        // out-of-order timestamps; skip interpolation
+                        $lat = null; $lon = null;
+                    } else {
+                        $frac = ($t - $tPrev) / $span;
+                        $lat = (float)$images[$prev]->lat + $frac * ((float)$images[$next]->lat - (float)$images[$prev]->lat);
+                        $lon = (float)$images[$prev]->lon + $frac * ((float)$images[$next]->lon - (float)$images[$prev]->lon);
+                    }
+                    if ($lat !== null && $lon !== null) {
+                        $result[$i] = new Image($images[$i]->fileid, $images[$i]->path, $images[$i]->datetaken, (string)$lat, (string)$lon);
+                    }
                 }
             } elseif ($prev !== null) {
                 $tPrev = strtotime($images[$prev]->datetaken);
