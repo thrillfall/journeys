@@ -9,6 +9,7 @@ use OCA\Journeys\Service\ClusterLocationResolver;
 use OCA\Journeys\Service\SimplePlaceResolver;
 use OCA\Journeys\Service\ImageLocationInterpolator; // ADDED
 use OCP\IDBConnection;
+use OCA\Journeys\Service\HomeService;
 
 
 use OCA\Journeys\Model\Image;
@@ -28,16 +29,19 @@ class ClusterAndCreateAlbumsCommand extends Command {
     private ClusteringManager $clusteringManager;
     private AlbumMapper $albumMapper;
     private ImageFetcher $imageFetcher;
+    private HomeService $homeService;
 
     public function __construct(
         ClusteringManager $clusteringManager,
         AlbumMapper $albumMapper,
-        ImageFetcher $imageFetcher
+        ImageFetcher $imageFetcher,
+        HomeService $homeService
     ) {
         parent::__construct(static::$defaultName);
         $this->clusteringManager = $clusteringManager;
         $this->albumMapper = $albumMapper;
         $this->imageFetcher = $imageFetcher;
+        $this->homeService = $homeService;
     }
 
 
@@ -90,16 +94,24 @@ class ClusterAndCreateAlbumsCommand extends Command {
                 $home = [ 'lat' => (float)$homeLat, 'lon' => (float)$homeLon, 'radiusKm' => (float)$homeRadius ];
                 $output->writeln(sprintf('<info>Using provided home:</info> lat=%.5f, lon=%.5f, radius=%.1f km', $home['lat'], $home['lon'], $home['radiusKm']));
             } else {
-                // Fetch images and output detected home location
+                // Resolve via HomeService and inform user about the source
                 $images = $this->imageFetcher->fetchImagesForUser($user);
-                $detected = $this->clusteringManager->detectHomeLocation($images);
-                if ($detected) {
-                    $home = [ 'lat' => $detected['lat'], 'lon' => $detected['lon'], 'radiusKm' => $homeRadius, 'name' => $detected['name'] ?? null ];
-                    $output->writeln(sprintf(
-                        '<info>Detected Home Location:</info> lat=%.5f, lon=%.5f%s',
-                        $home['lat'], $home['lon'],
-                        isset($home['name']) && $home['name'] ? ", name={$home['name']}" : ''
-                    ));
+                $resolved = $this->homeService->resolveHome($user, $images, null, (float)$homeRadius, true);
+                $home = $resolved['home'];
+                if ($home !== null) {
+                    if ($resolved['source'] === 'config') {
+                        $output->writeln(sprintf(
+                            '<info>Using home from config:</info> lat=%.5f, lon=%.5f%s',
+                            $home['lat'], $home['lon'],
+                            isset($home['name']) && $home['name'] ? ", name={$home['name']}" : ''
+                        ));
+                    } elseif ($resolved['source'] === 'detected') {
+                        $output->writeln(sprintf(
+                            '<info>Detected Home Location:</info> lat=%.5f, lon=%.5f%s',
+                            $home['lat'], $home['lon'],
+                            isset($home['name']) && $home['name'] ? ", name={$home['name']}" : ''
+                        ));
+                    }
                 } else {
                     $output->writeln('<comment>Could not determine home location (not enough geotagged images). Proceeding without home-aware thresholds.</comment>');
                     $homeAware = false;

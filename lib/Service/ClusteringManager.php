@@ -3,6 +3,7 @@ namespace OCA\Journeys\Service;
 
 use OCA\Journeys\Model\Image;
 use OCA\Journeys\Service\HomeLocationDetector;
+use OCA\Journeys\Service\HomeService;
 
 class ClusteringManager {
 
@@ -20,13 +21,15 @@ class ClusteringManager {
     private $albumCreator;
     private $locationResolver;
     private $homeLocationDetector;
+    private HomeService $homeService;
 
-    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector) {
+    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService) {
         $this->imageFetcher = $imageFetcher;
         $this->clusterer = $clusterer;
         $this->albumCreator = $albumCreator;
         $this->locationResolver = $locationResolver;
         $this->homeLocationDetector = $homeLocationDetector;
+        $this->homeService = $homeService;
     }
 
     /**
@@ -51,6 +54,24 @@ class ClusteringManager {
         usort($images, function($a, $b) {
             return strtotime($a->datetaken) <=> strtotime($b->datetaken);
         });
+        // Determine home for home-aware mode before we potentially restrict images for incremental clustering
+        $effectiveHomeAware = $homeAware;
+        if ($effectiveHomeAware) {
+            if ($home === null) {
+                // Resolve via HomeService: prefers config, then detects over all images (and stores if detected)
+                $resolved = $this->homeService->resolveHome($userId, $images, null, 50.0, true);
+                $home = $resolved['home'];
+                if ($home === null) {
+                    $effectiveHomeAware = false;
+                }
+            } else {
+                // Ensure radius default
+                if (!isset($home['radiusKm'])) {
+                    $home['radiusKm'] = 50.0;
+                }
+            }
+        }
+
         // Incremental: only consider images after the latest tracked cluster end
         if (!$fromScratch) {
             $latestEnd = $this->albumCreator->getLatestClusterEnd($userId);
@@ -78,30 +99,9 @@ class ClusteringManager {
         }
         // Interpolate missing locations (match CLI default: 6h)
         $images = \OCA\Journeys\Service\ImageLocationInterpolator::interpolate($images, 21600);
-        if ($homeAware) {
+        if ($effectiveHomeAware) {
             // Determine home and thresholds
-            if ($home === null) {
-                $detected = $this->homeLocationDetector->detect($images);
-                if ($detected) {
-                    $home = [
-                        'lat' => $detected['lat'],
-                        'lon' => $detected['lon'],
-                        'radiusKm' => 50.0,
-                        'name' => $detected['name'] ?? null,
-                    ];
-                } else {
-                    // Fallback: disable home-aware if we cannot detect a home
-                    $homeAware = false;
-                }
-            } else {
-                // Ensure radius default
-                if (!isset($home['radiusKm'])) {
-                    $home['radiusKm'] = 50.0;
-                }
-            }
-        }
-
-        if ($homeAware) {
+            // At this point $home is either provided, loaded from config, or detected earlier
             $thresholds = $thresholds ?? [
                 'near' => ['timeGap' => 21600, 'distanceKm' => 3.0],   // 6h, 3km
                 'away' => ['timeGap' => 129600, 'distanceKm' => 50.0], // 36h, 50km
@@ -172,6 +172,15 @@ class ClusteringManager {
             'clusters' => $clusterSummaries,
             'purgedAlbums' => $purgedAlbums
         ];
+    }
+
+    // Backward-compatible delegator used by commands
+    private function setHomeInConfig(string $userId, array $home): void {
+        $this->homeService->setHomeInConfig($userId, $home);
+    }
+
+    public function getHomeFromConfig(string $userId): ?array {
+        return $this->homeService->getHomeFromConfig($userId);
     }
     
 }
