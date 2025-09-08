@@ -33,6 +33,11 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
     php occ journeys:cluster-create-albums admin 24 100 5
 ]]></description>
   <changelog><![CDATA[
+    <h3>0.5.3 (2025-09-08)</h3>
+    <ul>
+      <li><b>DB migration:</b> Added <code>start_dt</code> and <code>end_dt</code> columns plus index to <code>journeys_cluster_albums</code> for reliable incremental clustering.</li>
+      <li><b>Fail-fast tracking:</b> Album tracking now throws on DB errors instead of silently ignoring them.</li>
+    </ul>
     <h3>0.5.2 (2025-09-08)</h3>
     <ul>
       <li><b>Fix:</b> Prevent division by zero when interpolating locations for adjacent images with identical datetaken.</li>
@@ -89,7 +94,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.5.2</version>
+  <version>0.5.3</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

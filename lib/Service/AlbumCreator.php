@@ -118,15 +118,11 @@ class AlbumCreator {
             }
         }
         // Track this album as clusterer-created for reliable purge and incremental boundary detection
-        try {
-            $this->trackClusterAlbum($userId, (int)$album->getId(), $album->getName(), $location, $dtStart, $dtEnd);
-        } catch (\Throwable $e) {
-            // best-effort tracking
-        }
+        $this->trackClusterAlbum($userId, (int)$album->getId(), $album->getTitle(), $location, $dtStart, $dtEnd);
         // Assign SystemTag to album folder (in addition to postfix logic)
         try {
             $userFolder = $this->rootFolder->getUserFolder($userId);
-            $albumFolder = $userFolder->get($album->getName());
+            $albumFolder = $userFolder->get($album->getTitle());
             // Ensure the journeysClusterTag exists
             $tags = $this->systemTagManager->getTagsByName(self::JOURNEYS_TAG);
             if (empty($tags)) {
@@ -175,9 +171,12 @@ class AlbumCreator {
         $table = $this->getTrackingTableName();
         // Delete existing row (if any) then insert, to avoid DB-specific upsert syntax
         $del = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ? AND album_id = ?");
-        $del->execute([$userId, $albumId]);
+        $delResult = $del->execute([$userId, $albumId]);
+        if ($delResult === false) {
+            throw new \RuntimeException('Failed to delete existing tracking row for cluster album');
+        }
         $ins = $this->db->prepare("INSERT INTO {$table} (user_id, album_id, name, location, start_dt, end_dt) VALUES (?, ?, ?, ?, ?, ?)");
-        $ins->execute([
+        $insResult = $ins->execute([
             $userId,
             $albumId,
             $name,
@@ -185,6 +184,9 @@ class AlbumCreator {
             $dtStart ? $dtStart->format('Y-m-d H:i:s') : null,
             $dtEnd ? $dtEnd->format('Y-m-d H:i:s') : null,
         ]);
+        if ($insResult === false) {
+            throw new \RuntimeException('Failed to insert tracking row for cluster album');
+        }
     }
 
     /**
