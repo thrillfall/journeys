@@ -103,6 +103,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   <dependencies>
     <nextcloud min-version="30" max-version="32"/>
   </dependencies>
+  <bootstrap>OCA\Journeys\AppInfo\Application</bootstrap>
   <commands>
     <command>OCA\Journeys\Command\FetchUserImagesCommand</command>
     <command>OCA\Journeys\Command\ListClustersCommand</command>

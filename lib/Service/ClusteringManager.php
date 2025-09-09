@@ -4,6 +4,9 @@ namespace OCA\Journeys\Service;
 use OCA\Journeys\Model\Image;
 use OCA\Journeys\Service\HomeLocationDetector;
 use OCA\Journeys\Service\HomeService;
+use OCP\Notification\IManager as NotificationManager;
+use OCP\IURLGenerator;
+use Psr\Log\LoggerInterface;
 
 class ClusteringManager {
 
@@ -22,14 +25,20 @@ class ClusteringManager {
     private $locationResolver;
     private $homeLocationDetector;
     private HomeService $homeService;
+    private NotificationManager $notificationManager;
+    private LoggerInterface $logger;
+    private IURLGenerator $urlGenerator;
 
-    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService) {
+    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator) {
         $this->imageFetcher = $imageFetcher;
         $this->clusterer = $clusterer;
         $this->albumCreator = $albumCreator;
         $this->locationResolver = $locationResolver;
         $this->homeLocationDetector = $homeLocationDetector;
         $this->homeService = $homeService;
+        $this->notificationManager = $notificationManager;
+        $this->logger = $logger;
+        $this->urlGenerator = $urlGenerator;
     }
 
     /**
@@ -73,6 +82,7 @@ class ClusteringManager {
         }
 
         // Incremental: only consider images after the latest tracked cluster end
+        $isTrulyIncremental = false;
         if (!$fromScratch) {
             $latestEnd = $this->albumCreator->getLatestClusterEnd($userId);
             if ($latestEnd === null && $this->albumCreator->hasTrackedAlbums($userId)) {
@@ -87,6 +97,7 @@ class ClusteringManager {
                 $images = array_values(array_filter($images, function($img) use ($cutTs) {
                     return strtotime($img->datetaken) > $cutTs;
                 }));
+                $isTrulyIncremental = true;
             }
             if (empty($images)) {
                 return [
@@ -158,13 +169,17 @@ class ClusteringManager {
             } else {
                 $albumName = sprintf('Journey %d %s (%s)', $i+1, $monthYear, $range);
             }
-            $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd);
+            $albumId = $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd);
             $clusterSummaries[] = [
                 'albumName' => $albumName,
                 'imageCount' => count($cluster),
                 'location' => $location
             ];
             $created++;
+        }
+        // Send one aggregated notification for the run if any clusters were created
+        if ($created > 0) {
+            $this->notifyClusterSummary($userId, $clusterSummaries);
         }
         return [
             'clustersCreated' => $created,
@@ -183,4 +198,51 @@ class ClusteringManager {
         return $this->homeService->getHomeFromConfig($userId);
     }
     
+    private function notifyClusterSummary(string $userId, array $clusterSummaries): void {
+        try {
+            $count = count($clusterSummaries);
+            $n = $this->notificationManager->createNotification();
+            $n->setApp('journeys')
+                ->setUser($userId)
+                ->setDateTime(new \DateTime())
+                // Identify this run by timestamp
+                ->setObject('run', (string)time())
+                // Subject key understood by Notifier
+                ->setSubject('clusters_summary', [
+                    'count' => (string)$count,
+                    'first' => $clusterSummaries[0]['albumName'] ?? '',
+                    'list' => array_map(fn($c) => $c['albumName'], array_slice($clusterSummaries, 0, 5)),
+                ])
+                ->setParsedSubject('Journeys: new albums created')
+                ->setParsedMessage($this->buildSummaryMessage($clusterSummaries));
+            // Add action to open Photos app (albums view)
+            try {
+                $action = $n->createAction();
+                $action->setLabel('Open Photos')
+                    ->setLink($this->urlGenerator->getAbsoluteURL('/apps/photos'), 'GET');
+                $n->addAction($action);
+            } catch (\Throwable $e) {}
+            $this->notificationManager->notify($n);
+        } catch (\Throwable $e) {
+            try {
+                $this->logger->warning('Journeys: failed to send summary notification', [
+                    'exception' => $e->getMessage(),
+                ]);
+            } catch (\Throwable $ignored) {}
+        }
+    }
+
+    private function buildSummaryMessage(array $clusterSummaries): string {
+        $count = count($clusterSummaries);
+        $names = array_map(fn($c) => $c['albumName'], $clusterSummaries);
+        $shown = array_slice($names, 0, 5);
+        $msg = sprintf('%d new journey album%s created', $count, $count === 1 ? '' : 's');
+        if (!empty($shown)) {
+            $msg .= ': ' . implode(', ', $shown);
+            if (count($names) > count($shown)) {
+                $msg .= sprintf(' + %d more', count($names) - count($shown));
+            }
+        }
+        return $msg;
+    }
 }

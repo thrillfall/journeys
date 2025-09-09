@@ -88,7 +88,7 @@ class AlbumCreator {
      * @param string $location
      * @return void
      */
-    public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null): void {
+    public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null): ?int {
         // Always attempt to create a new album; do not reuse by name to avoid collisions with manually created albums
         try {
             $album = $this->albumMapper->create($userId, $albumName, $location);
@@ -105,7 +105,7 @@ class AlbumCreator {
             } catch (\Throwable $ignored) {
                 // ignore logging failures
             }
-            return;
+            return null;
         }
         foreach ($images as $image) {
             $fileId = $this->getFileIdForImage($userId, $image);
@@ -134,6 +134,7 @@ class AlbumCreator {
         } catch (\Throwable $e) {
             // Tagging is best-effort; ignore errors
         }
+        return (int)$album->getId();
     }
 
     /**
