@@ -80,6 +80,12 @@ Notes:
 - Use `--from-scratch` to purge previously created cluster albums and recluster all images from a clean slate.
 - To avoid creating incomplete trips, clusters whose last image is within the past 5 days are skipped; they will be picked up in a future run once the trip is likely complete.
 
+## 🔔 Notifications (>= 0.5.4)
+
+- After each run that creates one or more albums, the app sends a single aggregated notification to the user with a short summary of the created albums.
+- The notification contains an "Open Photos" action that links to the Photos app so you can review the albums quickly.
+- Notifications may appear with a short delay due to client polling.
+
 
 ## 🧭 Clustering robustness (>= 4.0.3)
 

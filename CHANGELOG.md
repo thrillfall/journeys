@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.4] - 2025-09-09
+### Added
+- Aggregated notification per run with an "Open Photos" action that links to the Photos app.
+
+
+## [0.5.3] - 2025-09-08
+### Added
+- DB migration: add `start_dt` and `end_dt` columns and an index to `journeys_cluster_albums` for reliable incremental clustering.
+
+### Changed
+- Fail-fast album tracking: throw on DB errors instead of ignoring them silently.
+
 ## [0.5.2] - 2025-09-08
 ### Fixed
 - Prevent division by zero when interpolating locations for adjacent images with identical `datetaken` (equal timestamps).
