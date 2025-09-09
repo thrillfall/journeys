@@ -165,6 +165,23 @@ class AlbumCreator {
     }
 
     /**
+     * Reset the latest cluster end by deleting all tracking rows for a user.
+     * This effectively resets the "last end" to null for future computations.
+     *
+     * @param string $userId
+     * @return void
+     */
+    public function resetLatestClusterEnd(string $userId): void {
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ?");
+            $stmt->execute([$userId]);
+        } catch (\Throwable $e) {
+            // best-effort, ignore errors
+        }
+    }
+
+    /**
      * Track a clusterer-created album for a user.
      */
     private function trackClusterAlbum(string $userId, int $albumId, string $name, string $location, ?\DateTime $dtStart, ?\DateTime $dtEnd): void {

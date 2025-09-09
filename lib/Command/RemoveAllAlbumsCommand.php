@@ -47,7 +47,9 @@ class RemoveAllAlbumsCommand extends Command
         }
 
         $deleted = $this->albumCreator->purgeAllAlbums($userId);
-        $io->success("User <info>{$userId}</info>: Deleted <comment>{$deleted}</comment> albums");
+        // Also reset the latest tracked end for cluster albums
+        $this->albumCreator->resetLatestClusterEnd($userId);
+        $io->success("User <info>{$userId}</info>: Deleted <comment>{$deleted}</comment> albums and reset latest cluster end");
         return 0;
     }
 }
