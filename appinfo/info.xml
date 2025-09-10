@@ -17,37 +17,23 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 
 ## 🚀 OCC Command Usage
 
-    php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [minClusterSize]
-
-**Arguments:**
-- `user` — The user to cluster images for (**required**)
-- `maxTimeGap` — Max allowed time gap in hours (optional, default: 24)
-- `maxDistanceKm` — Optional Maximum allowed distance in kilometers between consecutive images in a cluster (default: 50.0)
-- `minClusterSize` — Minimum images per cluster (optional, default: 3)
-
-**How time gap influences clustering:**  
-The `maxTimeGap` defines the largest allowed time (in hours) between two consecutive images for them to be grouped into the same journey. If the gap between two images exceeds this value, a new journey (album) is started. Smaller values create more, shorter journeys; larger values group more images together.
-
-**Example:**
-
-    php occ journeys:cluster-create-albums admin 24 100 5
+    php occ journeys:cluster-create-albums <user>
 
 ## 🏠 Using your home location (default)
-By default, Journeys uses your home location to segment the timeline into **near home** and **away from home** portions, and clusters each portion with thresholds suited to local days vs. trips. Use `--no-home-aware` to disable this behavior if you prefer a single global set of thresholds.
-    
-- Near‑home defaults align to the global time gap, and the distance threshold aligns to global but is capped at **25 km** for finer local clustering.
-- Away‑from‑home defaults are **36 h / 50 km**, which better tolerate multi‑day gaps typical for trips.
-    
-You can optionally specify home coordinates and tune thresholds with flags like `--home-lat`, `--home-lon`, `--home-radius`, `--near-time-gap`, `--near-distance-km`, `--away-time-gap`, `--away-distance-km`.
-    
+Journeys segments the timeline into **near home** and **away from home** and applies sensible defaults for each to capture local days vs. trips.
+
+## ⏰ Runs automatically
+A background job runs **daily** to cluster newly added photos, and you’ll receive a **notification** whenever new albums are created.
+
 ## 🏷️ How album names are created
-Album titles are generated from the **resolved place name** and the **date range** of the cluster, for example:
-    
-- `Iceland — Aug 12–19, 2024`
-- `San Francisco Bay Area — Jan 3–6, 2025`
+Album titles are generated from the **resolved place name** and the **date range** of the cluster, e.g. `Iceland — Aug 12–19, 2024`.
     
 ]]></description>
   <changelog><![CDATA[
+    <h3>0.5.6 (2025-09-10)</h3>
+    <ul>
+      <li><b>Docs:</b> Trimmed and clarified the app description; added note about the daily background job and notifications for new albums.</li>
+    </ul>
     <h3>0.5.5 (2025-09-10)</h3>
     <ul>
       <li><b>Default behavior change:</b> Clustering now uses your home location by default to segment near-home vs away-from-home and apply appropriate thresholds.</li>
@@ -120,7 +106,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.5.5</version>
+  <version>0.5.6</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
