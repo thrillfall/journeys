@@ -5,10 +5,10 @@
   <name>Journeys</name>
   <summary>cluster images by time and location</summary>
     <description><![CDATA[
-# Journeys: Automatic Photo Album Creation for Nextcloud
+# Automatic Photo Album Creation for Nextcloud
 
 Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.  
-**Requires the Memories app.**
+**Requires the Memories app!**
 
 ## ✨ Features
 - **🗺️ Location & Time Clustering:** Group images by when and where they were taken
@@ -31,8 +31,30 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
 **Example:**
 
     php occ journeys:cluster-create-albums admin 24 100 5
+
+## 🏠 Using your home location (default)
+By default, Journeys uses your home location to segment the timeline into **near home** and **away from home** portions, and clusters each portion with thresholds suited to local days vs. trips. Use `--no-home-aware` to disable this behavior if you prefer a single global set of thresholds.
+    
+- Near‑home defaults align to the global time gap, and the distance threshold aligns to global but is capped at **25 km** for finer local clustering.
+- Away‑from‑home defaults are **36 h / 50 km**, which better tolerate multi‑day gaps typical for trips.
+    
+You can optionally specify home coordinates and tune thresholds with flags like `--home-lat`, `--home-lon`, `--home-radius`, `--near-time-gap`, `--near-distance-km`, `--away-time-gap`, `--away-distance-km`.
+    
+## 🏷️ How album names are created
+Album titles are generated from the **resolved place name** and the **date range** of the cluster, for example:
+    
+- `Iceland — Aug 12–19, 2024`
+- `San Francisco Bay Area — Jan 3–6, 2025`
+    
 ]]></description>
   <changelog><![CDATA[
+    <h3>0.5.5 (2025-09-10)</h3>
+    <ul>
+      <li><b>Default behavior change:</b> Clustering now uses your home location by default to segment near-home vs away-from-home and apply appropriate thresholds.</li>
+      <li><b>New flag:</b> <code>--no-home-aware</code> to disable home-based segmentation and use a single global set of thresholds.</li>
+      <li><b>Deprecated:</b> <code>--home-aware</code> (no longer required; default is on).</li>
+      <li><b>Docs:</b> Updated description to explain how home location is used and how to opt out.</li>
+    </ul>
     <h3>0.5.4 (2025-09-09)</h3>
     <ul>
       <li><b>Notifications:</b> Send a single aggregated notification per run (instead of one per album) with a quick link to open Photos.</li>
@@ -98,7 +120,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.5.4</version>
+  <version>0.5.5</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

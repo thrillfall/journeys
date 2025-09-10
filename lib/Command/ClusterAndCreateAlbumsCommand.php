@@ -47,12 +47,13 @@ class ClusterAndCreateAlbumsCommand extends Command {
 
     protected function configure(): void {
         $this
-            ->setDescription('Clusters images by location and creates albums in the Photos app (incremental by default).')
+            ->setDescription('Clusters images by location and creates albums in the Photos app (incremental by default, home-aware enabled by default).')
             ->addArgument('user', InputArgument::REQUIRED, 'The ID of the user for whom to cluster images and create albums.')
             ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours', 24)
             ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers (default: 50.0)', 50.0)
             ->addArgument('minClusterSize', InputArgument::OPTIONAL, 'Minimum images per cluster', 3)
-            ->addOption('home-aware', null, InputOption::VALUE_NONE, 'Enable home-aware clustering (uses detected or provided home)')
+            ->addOption('home-aware', null, InputOption::VALUE_NONE, '[Deprecated] Enable home-aware clustering (now enabled by default)')
+            ->addOption('no-home-aware', null, InputOption::VALUE_NONE, 'Disable home-aware clustering')
             ->addOption('from-scratch', null, InputOption::VALUE_NONE, 'Recluster all images from scratch (purges previously created cluster albums)')
             ->addOption('home-lat', null, InputOption::VALUE_REQUIRED, 'Home latitude')
             ->addOption('home-lon', null, InputOption::VALUE_REQUIRED, 'Home longitude')
@@ -70,7 +71,14 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $maxTimeGap = (int)$input->getArgument('maxTimeGap') * 3600; // convert hours to seconds
         $maxDistanceKm = (float)$input->getArgument('maxDistanceKm');
         $minClusterSize = (int)$input->getArgument('minClusterSize');
-        $homeAware = $input->getOption('home-aware');
+        // Home-aware is enabled by default; allow explicit opt-out with --no-home-aware
+        $homeAware = true;
+        if ($input->getOption('no-home-aware')) {
+            $homeAware = false;
+        } elseif ($input->getOption('home-aware')) {
+            // kept for backward compatibility; explicit enable is redundant
+            $homeAware = true;
+        }
         $homeLat = $input->getOption('home-lat');
         $homeLon = $input->getOption('home-lon');
         $homeRadius = (float)$input->getOption('home-radius');

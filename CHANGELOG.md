@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.5] - 2025-09-10
+### Changed
+- Clustering now uses your home location by default to segment near-home vs away-from-home and apply appropriate thresholds.
+
+### Added
+- `--no-home-aware` flag to disable home-based segmentation and use a single global set of thresholds.
+
+### Deprecated
+- `--home-aware` (no longer required; default is on).
+
+### Docs
+- Updated app description to explain how home location is used by default and how to opt out.
+
 ## [0.5.4] - 2025-09-09
 ### Added
 - Aggregated notification per run with an "Open Photos" action that links to the Photos app.
