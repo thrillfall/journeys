@@ -30,6 +30,10 @@ Album titles are generated from the **resolved place name** and the **date range
     
 ]]></description>
   <changelog><![CDATA[
+    <h3>0.5.7 (2025-09-15)</h3>
+    <ul>
+      <li><b>Meta:</b> Version bump.</li>
+    </ul>
     <h3>0.5.6 (2025-09-15)</h3>
     <ul>
       <li><b>Cleanup:</b> Removed legacy <code>appinfo/app.php</code> since the app uses <code>IBootstrap</code> via <code>lib/AppInfo/Application.php</code>. This eliminates the recurring log warning about <code>app.php</code> not being loaded.</li>
@@ -106,7 +110,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.5.6</version>
+  <version>0.5.7</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
