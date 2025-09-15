@@ -30,9 +30,9 @@ Album titles are generated from the **resolved place name** and the **date range
     
 ]]></description>
   <changelog><![CDATA[
-    <h3>0.5.6 (2025-09-10)</h3>
+    <h3>0.5.6 (2025-09-15)</h3>
     <ul>
-      <li><b>Docs:</b> Trimmed and clarified the app description; added note about the daily background job and notifications for new albums.</li>
+      <li><b>Cleanup:</b> Removed legacy <code>appinfo/app.php</code> since the app uses <code>IBootstrap</code> via <code>lib/AppInfo/Application.php</code>. This eliminates the recurring log warning about <code>app.php</code> not being loaded.</li>
     </ul>
     <h3>0.5.5 (2025-09-10)</h3>
     <ul>
