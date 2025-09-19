@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.8] - 2025-09-19
+### Changed
+- Settings (#7): Personal settings page is now accessible to all logged-in users (per-user configuration; no admin required).
+
+
 ## [0.5.5] - 2025-09-10
 ### Changed
 - Clustering now uses your home location by default to segment near-home vs away-from-home and apply appropriate thresholds.

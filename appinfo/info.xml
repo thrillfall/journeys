@@ -30,6 +30,11 @@ Album titles are generated from the **resolved place name** and the **date range
     
 ]]></description>
   <changelog><![CDATA[
+    <h3>0.5.8 (2025-09-19)</h3>
+    <ul>
+      <li><b>Settings (#7):</b> Personal settings page is now accessible to all logged-in users (per-user configuration; no admin required).</li>
+      <li><b>Security:</b> Re-enabled CSRF protection on settings endpoints (removed <code>@NoCSRFRequired</code> annotations).</li>
+    </ul>
     <h3>0.5.7 (2025-09-15)</h3>
     <ul>
       <li><b>Meta:</b> Version bump.</li>
@@ -110,7 +115,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.5.7</version>
+  <version>0.5.8</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
