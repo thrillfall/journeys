@@ -24,7 +24,6 @@ class PersonalSettingsController extends Controller {
 
     /**
      * @NoAdminRequired
-     * @NoCSRFRequired
      */
     public function startClustering() {
         $user = $this->userSession->getUser();
@@ -65,11 +64,6 @@ class PersonalSettingsController extends Controller {
 
     /**
      * @NoAdminRequired
-     * @NoCSRFRequired
-     */
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
      */
     public function saveClusteringSettings() {
         $user = $this->userSession->getUser();
@@ -102,6 +96,9 @@ class PersonalSettingsController extends Controller {
         }
     }
 
+    /**
+     * @NoAdminRequired
+     */
     public function getClusteringSettings() {
         $user = $this->userSession->getUser();
         if (!$user) {
@@ -126,6 +123,9 @@ class PersonalSettingsController extends Controller {
         ]);
     }
 
+    /**
+     * @NoAdminRequired
+     */
     public function lastRun() {
         // TODO: Return the timestamp of the last clustering run
         return new JSONResponse(['lastRun' => null]);
