@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2025-09-19
+### Packaging
+- Release workflow builds the frontend before packaging to ensure fresh assets ship with releases.
+
+For local dev from a git checkout, run `npm ci && npm run build`.
+
+
 ## [0.5.8] - 2025-09-19
 ### Changed
 - Settings (#7): Personal settings page is now accessible to all logged-in users (per-user configuration; no admin required).

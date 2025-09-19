@@ -12,10 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
         with:
           path: ${{ env.APP_NAME }}
-      - name: Run build
+      - name: Install NPM packages
+        run: cd ${{ env.APP_NAME }} && make npm-init
+      - name: Build JS (production)
+        run: cd ${{ env.APP_NAME }} && make build-js-production
+      - name: Create release tarball
         run: cd ${{ env.APP_NAME }} && make appstore
       - name: Upload app tarball to release
         uses: svenstaro/upload-release-action@v2
