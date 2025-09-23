@@ -92,7 +92,14 @@ class RenderClusterVideoCommand extends Command {
             try {
                 $node = $userFolder->get($rel);
                 if (!($node instanceof \OCP\Files\File)) { continue; }
+                // Only include images for now. Videos in the selection can cause concat/duration issues.
+                $mime = strtolower($node->getMimeType() ?? '');
+                if (strpos($mime, 'image/') !== 0) {
+                    // skip non-image files (e.g. video clips)
+                    continue;
+                }
                 $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION) ?: 'jpg');
+                if ($ext === '' || $ext === 'jpeg') { $ext = 'jpg'; }
                 $dest = sprintf('%s/%05d.%s', $tmpBase, $i+1, $ext);
                 $in = $node->fopen('r');
                 $out = fopen($dest, 'w');
