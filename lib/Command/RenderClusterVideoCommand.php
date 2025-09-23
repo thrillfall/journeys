@@ -5,6 +5,7 @@ use OCA\Journeys\Service\ImageFetcher;
 use OCA\Journeys\Service\Clusterer;
 use OCA\Journeys\Service\VideoStorySelector;
 use OCP\Files\IRootFolder;
+use Symfony\Component\Process\Process;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -129,32 +130,40 @@ class RenderClusterVideoCommand extends Command {
         $cmd = [
             'ffmpeg','-y',
             '-f','concat','-safe','0','-i', $listPath,
+            // disable audio to avoid DTS warnings for image-only slideshows
+            '-an',
+            // output settings
             '-r', (string)$fps,
             '-vf', $vf,
             '-pix_fmt','yuv420p',
+            '-movflags','+faststart',
             $tmpOut,
         ];
 
         $output->writeln('<info>Starting ffmpeg...</info>');
-        $descriptorSpec = [1 => ['pipe','w'], 2 => ['pipe','w']];
-        $proc = proc_open($cmd, $descriptorSpec, $pipes);
-        if (!is_resource($proc)) {
-            $output->writeln('<error>Failed to start ffmpeg.</error>');
-            return Command::FAILURE;
-        }
-        $stdout = stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        $exit = proc_close($proc);
+        // Run ffmpeg and stream its stdout/stderr live to the OCC output
+        $process = new Process($cmd);
+        // Allow long-running renders; if needed a hard timeout can be set by replacing null.
+        $process->setTimeout(null);
+        $process->setIdleTimeout(null);
+        $process->run(function (string $type, string $buffer) use ($output) {
+            // Forward both STDOUT and STDERR to the console in real time
+            $output->write($buffer);
+        });
         $output->writeln('<info>ffmpeg finished.</info>');
 
-        if ($exit !== 0) {
+        if (!$process->isSuccessful()) {
             // Cleanup temp dir
             foreach (glob($tmpBase . '/*') as $f) { @unlink($f); }
             @rmdir($tmpBase);
             $output->writeln('<error>ffmpeg failed</error>');
-            if ($stderr) { $output->writeln($stderr); }
+            // Provide the last lines of error output for context
+            $err = trim($process->getErrorOutput());
+            if ($err !== '') {
+                $lines = explode("\n", $err);
+                $tail = implode("\n", array_slice($lines, -50));
+                $output->writeln($tail);
+            }
             return Command::FAILURE;
         }
 
