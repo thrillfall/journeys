@@ -53,14 +53,20 @@
 						<table class="nc-table nc-table--hover nc-table--zebra nc-table--compact">
 							<thead>
 								<tr>
-									<th style="text-align:left; min-width: 200px;">{{ t('journeys', 'Album Name') }}</th>
-									<th style="text-align:right; min-width: 100px;">{{ t('journeys', 'Image Count') }}</th>
+									<th style="text-align:left; min-width: 60px;">{{ t('journeys', 'ID') }}</th>
+									<th style="text-align:left; min-width: 200px;">{{ t('journeys', 'Name') }}</th>
+									<th style="text-align:right; min-width: 90px;">{{ t('journeys', 'Image Count') }}</th>
+									<th style="text-align:left; min-width: 160px;">{{ t('journeys', 'Location') }}</th>
+									<th style="text-align:left; min-width: 200px;">{{ t('journeys', 'Date Range') }}</th>
 								</tr>
 							</thead>
 							<tbody>
-								<tr v-for="(cluster, idx) in clusters" :key="idx">
-									<td style="padding: 0.5em 1em;">{{ cluster.albumName }}</td>
+								<tr v-for="cluster in clusters" :key="cluster.id">
+									<td style="padding: 0.5em 1em;">{{ cluster.id }}</td>
+									<td style="padding: 0.5em 1em;">{{ cluster.name }}</td>
 									<td style="padding: 0.5em 1em; text-align: right;">{{ cluster.imageCount }}</td>
+									<td style="padding: 0.5em 1em;">{{ cluster.location || t('journeys', 'Unknown') }}</td>
+									<td style="padding: 0.5em 1em;">{{ formatDateRange(cluster.dateRange) }}</td>
 								</tr>
 							</tbody>
 						</table>
@@ -116,6 +122,7 @@ export default {
 		} catch (e) {
 			// ignore if not available
 		}
+		await this.fetchClusters()
 	},
 	methods: {
 		async saveSettings() {
@@ -152,13 +159,36 @@ export default {
 			})
 				showSuccess(this.t('journeys', 'Clustering started successfully.'))
 				this.lastRun = resp.data.lastRun || new Date().toISOString()
-				this.clusters = resp.data.clusters || []
+				await this.fetchClusters()
 			} catch (e) {
 				this.error = this.t('journeys', 'Failed to start clustering.')
 				showError(this.error)
 			} finally {
 				this.isProcessing = false
 			}
+		},
+		async fetchClusters() {
+			try {
+				const resp = await axios.get(generateUrl('/apps/journeys/personal_settings/clusters'))
+				if (resp.data && Array.isArray(resp.data.clusters)) {
+					this.clusters = resp.data.clusters
+				} else {
+					this.clusters = []
+				}
+			} catch (e) {
+				this.clusters = []
+			}
+		},
+		formatDateRange(range) {
+			if (!range || (!range.start && !range.end)) {
+				return this.t('journeys', 'Unknown')
+			}
+			const start = range.start ? range.start : '—'
+			const end = range.end ? range.end : null
+			if (!end || end === start) {
+				return start
+			}
+			return `${start} – ${end}`
 		},
 	},
 }
