@@ -16,7 +16,7 @@ class ImageFetcher {
 
         $storageId = 'home::' . $user;
         $sql = "
-            SELECT m.fileid, m.datetaken, m.lat, m.lon, f.path
+            SELECT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
             FROM oc_memories m
             JOIN oc_filecache f ON m.fileid = f.fileid
             JOIN oc_storages s ON f.storage = s.numeric_id
@@ -32,7 +32,9 @@ class ImageFetcher {
                 $row['path'],
                 $row['datetaken'],
                 $row['lat'],
-                $row['lon']
+                $row['lon'],
+                isset($row['w']) ? (int)$row['w'] : null,
+                isset($row['h']) ? (int)$row['h'] : null,
             );
         }
         return $images;
