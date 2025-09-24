@@ -18,6 +18,15 @@ class VideoStorySelector {
     public function selectImages(string $userId, array $clusterImages, int $minGapSeconds = 5, int $maxImages = 80): array {
         if (empty($clusterImages)) return [];
 
+        // Filter out landscape images to optimize for mobile (portrait-first). Keep square.
+        // If dimensions are unavailable, keep the image to avoid over-filtering.
+        $clusterImages = array_values(array_filter($clusterImages, function($img) {
+            if (!($img instanceof Image)) return false;
+            if ($img->w === null || $img->h === null) return true;
+            return $img->h >= $img->w; // keep portrait or square, drop landscape
+        }));
+        if (empty($clusterImages)) return [];
+
         // Ensure sorted by datetaken
         usort($clusterImages, fn($a,$b) => strtotime($a->datetaken) <=> strtotime($b->datetaken));
 
