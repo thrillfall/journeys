@@ -3,6 +3,7 @@ namespace OCA\Journeys\Command;
 
 use OCA\Journeys\Exception\ClusterNotFoundException;
 use OCA\Journeys\Exception\NoImagesFoundException;
+use OCA\Journeys\Model\ClusterVideoSelection;
 use OCA\Journeys\Service\ClusterVideoFilePreparer;
 use OCA\Journeys\Service\ClusterVideoImageProvider;
 use OCA\Journeys\Service\ClusterVideoRenderer;
@@ -49,7 +50,7 @@ class RenderClusterVideoCommand extends Command {
         $maxImages = $maxImagesOption > 0 ? $maxImagesOption : 80;
 
         try {
-            $selected = $this->imageProvider->getSelectedImages($user, $clusterIndex, $minGap, $maxImages);
+            $selection = $this->imageProvider->getSelectedImages($user, $clusterIndex, $minGap, $maxImages);
         } catch (NoImagesFoundException) {
             $output->writeln('<comment>No images found for user.</comment>');
             return Command::SUCCESS;
@@ -61,13 +62,13 @@ class RenderClusterVideoCommand extends Command {
             return Command::FAILURE;
         }
 
-        if (empty($selected)) {
+        if (empty($selection->selectedImages)) {
             $output->writeln('<comment>No suitable images found for this cluster.</comment>');
             return Command::SUCCESS;
         }
 
         try {
-            $preparation = $this->filePreparer->prepare($user, $selected);
+            $preparation = $this->filePreparer->prepare($user, $selection->selectedImages);
         } catch (\Throwable $e) {
             $output->writeln('<error>Failed to prepare media files: ' . $e->getMessage() . '</error>');
             return Command::FAILURE;
@@ -76,7 +77,7 @@ class RenderClusterVideoCommand extends Command {
         $workingDir = $preparation['workingDir'];
         $filePaths = $preparation['files'];
         $copied = (int)($preparation['copied'] ?? count($filePaths));
-        $preferredFileName = sprintf('Journey-%02d.mp4', $clusterIndex + 1);
+        $preferredFileName = $this->buildPreferredFileName($selection);
 
         $result = null;
         try {
@@ -113,7 +114,22 @@ class RenderClusterVideoCommand extends Command {
             return Command::FAILURE;
         }
 
-        $output->writeln(sprintf('<info>Video created:</info> %s (%d images)', $result['path'], $copied));
+        $output->writeln(sprintf(
+            '<info>Video created:</info> %s (%d images, cluster "%s")',
+            $result['path'],
+            $copied,
+            $selection->clusterName
+        ));
         return Command::SUCCESS;
+    }
+
+    private function buildPreferredFileName(ClusterVideoSelection $selection): string {
+        $clusterId = $selection->clusterIndex + 1;
+        $clusterName = trim($selection->clusterName);
+        if ($clusterName === '') {
+            $clusterName = 'Untitled';
+        }
+
+        return sprintf('%02d - %s', $clusterId, $clusterName);
     }
 }

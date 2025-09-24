@@ -128,8 +128,7 @@ class ClusterVideoRenderer {
             $movies = $docs->newFolder('Journeys Movies');
         }
 
-        // Determine filename based on count of existing videos or timestamp
-        $fileName = sprintf('Journey-%s.mp4', date('Ymd-His'));
+        $fileName = $this->determineFileName($preferredFileName);
         try {
             $existing = $movies->get($fileName);
             if ($existing instanceof \OCP\Files\File) {
@@ -146,5 +145,32 @@ class ClusterVideoRenderer {
         }
         $destFile->putContent($data);
         return '/Documents/Journeys Movies/' . $fileName;
+    }
+
+    private function determineFileName(?string $preferredFileName): string {
+        $fallback = sprintf('Journey-%s.mp4', date('Ymd-His'));
+        if ($preferredFileName === null || trim($preferredFileName) === '') {
+            return $fallback;
+        }
+
+        $name = $this->sanitizeFileName($preferredFileName);
+        if ($name === '') {
+            return $fallback;
+        }
+
+        if (!str_ends_with(strtolower($name), '.mp4')) {
+            $name .= '.mp4';
+        }
+
+        return $name;
+    }
+
+    private function sanitizeFileName(string $fileName): string {
+        $fileName = str_replace(['\\', '/'], '-', $fileName);
+        $fileName = preg_replace('/[^A-Za-z0-9\.\-_ ]+/', '', $fileName) ?? '';
+        $fileName = trim($fileName);
+        // Collapse consecutive spaces or hyphens
+        $fileName = preg_replace('/\s+/', ' ', $fileName) ?? $fileName;
+        return $fileName;
     }
 }
