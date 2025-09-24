@@ -7,19 +7,24 @@ use OCP\IRequest;
 use OCP\IUserSession;
 use OCP\IConfig;
 
+use OCA\Journeys\Service\AlbumCreator;
+
 class PersonalSettingsController extends Controller {
     private $userSession;
     private $clusteringManager;
     private $userConfig;
+    private AlbumCreator $albumCreator;
 
     public function __construct($appName, IRequest $request, IUserSession $userSession, 
         \OCA\Journeys\Service\ClusteringManager $clusteringManager,
-        IConfig $userConfig
+        IConfig $userConfig,
+        AlbumCreator $albumCreator
     ) {
         parent::__construct($appName, $request);
         $this->userSession = $userSession;
         $this->clusteringManager = $clusteringManager;
         $this->userConfig = $userConfig; // Now using IConfig
+        $this->albumCreator = $albumCreator;
     }
 
     /**
@@ -129,5 +134,39 @@ class PersonalSettingsController extends Controller {
     public function lastRun() {
         // TODO: Return the timestamp of the last clustering run
         return new JSONResponse(['lastRun' => null]);
+    }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    public function listClusters(): JSONResponse {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new JSONResponse(['error' => 'No user'], 401);
+        }
+
+        $userId = $user->getUID();
+        $tracked = $this->albumCreator->getTrackedClusters($userId);
+
+        $clusters = array_map(function (array $cluster) use ($userId) {
+            $imageCount = 0;
+            if (!empty($cluster['album_id'])) {
+                $imageCount = count($this->albumCreator->getAlbumFileIds((int)$cluster['album_id']));
+            }
+
+            return [
+                'id' => (int)$cluster['album_id'],
+                'name' => $cluster['name'],
+                'imageCount' => $imageCount,
+                'location' => $cluster['location'],
+                'dateRange' => [
+                    'start' => $cluster['start_dt'],
+                    'end' => $cluster['end_dt'],
+                ],
+            ];
+        }, $tracked);
+
+        return new JSONResponse(['clusters' => $clusters]);
     }
 }

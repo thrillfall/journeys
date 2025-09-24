@@ -21,5 +21,10 @@ return [
             'url' => '/personal_settings/save_clustering_settings',
             'verb' => 'POST',
         ],
+        [
+            'name' => 'personal_settings#listClusters',
+            'url' => '/personal_settings/clusters',
+            'verb' => 'GET',
+        ],
     ],
 ];
