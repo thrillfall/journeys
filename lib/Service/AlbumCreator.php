@@ -296,6 +296,36 @@ class AlbumCreator {
     }
 
     /**
+     * Retrieve cluster metadata tracked by the album creator for a given user, sorted by start date.
+     *
+     * @param string $userId
+     * @return array<int, array{album_id:int,name:string,location:?string,start_dt:?string,end_dt:?string}>
+     */
+    public function getTrackedClusters(string $userId): array {
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("SELECT album_id, name, location, start_dt, end_dt FROM {$table} WHERE user_id = ? ORDER BY start_dt ASC, album_id ASC");
+            $result = $stmt->execute([$userId]);
+            $rows = $result ? $result->fetchAll() : [];
+            if (!is_array($rows)) {
+                return [];
+            }
+
+            return array_map(function ($row) {
+                return [
+                    'album_id' => isset($row['album_id']) ? (int)$row['album_id'] : 0,
+                    'name' => isset($row['name']) ? (string)$row['name'] : '',
+                    'location' => isset($row['location']) && $row['location'] !== null ? (string)$row['location'] : null,
+                    'start_dt' => isset($row['start_dt']) ? (string)$row['start_dt'] : null,
+                    'end_dt' => isset($row['end_dt']) ? (string)$row['end_dt'] : null,
+                ];
+            }, $rows);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
      * Derive latest end datetime from tracked albums using provided images (for datetaken lookup).
      * @param string $userId
      * @param Image[] $images

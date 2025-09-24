@@ -13,6 +13,7 @@
       <argument type="service" id="OCA\Journeys\Service\ImageFetcher"/>
       <argument type="service" id="OCA\Journeys\Service\Clusterer"/>
       <argument type="service" id="OCA\Journeys\Service\VideoStorySelector"/>
+      <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
     </service>
     <service id="OCA\Journeys\Service\ClusterVideoFilePreparer">
       <argument type="service" id="OCP\Files\IRootFolder"/>

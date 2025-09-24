@@ -7,7 +7,7 @@
     <description><![CDATA[
 # Automatic Photo Album Creation for Nextcloud
 
-Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.  
+Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.
 **Requires the Memories app!**
 
 ## ✨ Features
@@ -27,7 +27,7 @@ A background job runs **daily** to cluster newly added photos, and you’ll rece
 
 ## 🏷️ How album names are created
 Album titles are generated from the **resolved place name** and the **date range** of the cluster, e.g. `Iceland — Aug 12–19, 2024`.
-    
+
 ]]></description>
   <changelog><![CDATA[
     <h3>0.6.0 (2025-09-19)</h3>
@@ -131,7 +131,6 @@ Album titles are generated from the **resolved place name** and the **date range
   <bootstrap>OCA\Journeys\AppInfo\Application</bootstrap>
   <commands>
     <command>OCA\Journeys\Command\FetchUserImagesCommand</command>
-    <command>OCA\Journeys\Command\ListClustersCommand</command>
     <command>OCA\Journeys\Command\ClusterAndCreateAlbumsCommand</command>
     <command>OCA\Journeys\Command\RemoveAllAlbumsCommand</command>
     <command>OCA\Journeys\Command\ShowLatestClusterEndCommand</command>
