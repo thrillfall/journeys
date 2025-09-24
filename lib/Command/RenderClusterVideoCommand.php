@@ -1,11 +1,11 @@
 <?php
 namespace OCA\Journeys\Command;
 
-use OCA\Journeys\Service\ImageFetcher;
-use OCA\Journeys\Service\Clusterer;
-use OCA\Journeys\Service\VideoStorySelector;
-use OCP\Files\IRootFolder;
-use Symfony\Component\Process\Process;
+use OCA\Journeys\Exception\ClusterNotFoundException;
+use OCA\Journeys\Exception\NoImagesFoundException;
+use OCA\Journeys\Service\ClusterVideoFilePreparer;
+use OCA\Journeys\Service\ClusterVideoImageProvider;
+use OCA\Journeys\Service\ClusterVideoRenderer;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -16,10 +16,9 @@ class RenderClusterVideoCommand extends Command {
     protected static $defaultName = 'journeys:render-cluster-video';
 
     public function __construct(
-        private ImageFetcher $imageFetcher,
-        private Clusterer $clusterer,
-        private VideoStorySelector $selector,
-        private IRootFolder $rootFolder,
+        private ClusterVideoImageProvider $imageProvider,
+        private ClusterVideoFilePreparer $filePreparer,
+        private ClusterVideoRenderer $videoRenderer,
     ) {
         parent::__construct(static::$defaultName);
     }
@@ -44,185 +43,77 @@ class RenderClusterVideoCommand extends Command {
         $duration = (float)$input->getOption('duration-seconds');
         $width = (int)$input->getOption('width');
         $fps = (int)$input->getOption('fps');
-        $outPath = (string)$input->getOption('output');
-        $maxImages = (int)$input->getOption('max-images');
+        $outputOption = $input->getOption('output');
+        $outPath = is_string($outputOption) && $outputOption !== '' ? $outputOption : null;
+        $maxImagesOption = (int)$input->getOption('max-images');
+        $maxImages = $maxImagesOption > 0 ? $maxImagesOption : 80;
 
-        // Fetch & sort
-        $images = $this->imageFetcher->fetchImagesForUser($user);
-        if (empty($images)) {
+        try {
+            $selected = $this->imageProvider->getSelectedImages($user, $clusterIndex, $minGap, $maxImages);
+        } catch (NoImagesFoundException) {
             $output->writeln('<comment>No images found for user.</comment>');
             return Command::SUCCESS;
-        }
-        usort($images, fn($a,$b) => strtotime($a->datetaken) <=> strtotime($b->datetaken));
-
-        // Cluster with defaults (24h, 50km)
-        $clusters = $this->clusterer->clusterImages($images, 24*3600, 50.0);
-        if ($clusterIndex < 0 || $clusterIndex >= count($clusters)) {
-            $output->writeln(sprintf('<error>Cluster %d not found. Found %d clusters.</error>', $clusterIndex+1, count($clusters)));
+        } catch (ClusterNotFoundException $e) {
+            $output->writeln(sprintf('<error>Cluster %d not found. %s</error>', $clusterIndex + 1, $e->getMessage()));
+            return Command::FAILURE;
+        } catch (\Throwable $e) {
+            $output->writeln('<error>Failed to select images: ' . $e->getMessage() . '</error>');
             return Command::FAILURE;
         }
-        $cluster = $clusters[$clusterIndex];
 
-        // Select images
-        $selected = $this->selector->selectImages($user, $cluster, $minGap, $maxImages > 0 ? $maxImages : 80);
         if (empty($selected)) {
             $output->writeln('<comment>No suitable images found for this cluster.</comment>');
             return Command::SUCCESS;
         }
 
-        // Prepare temp dir and copy files
-        $tmpBase = sys_get_temp_dir() . '/journeys_video_' . uniqid();
-        if (!@mkdir($tmpBase, 0770, true) && !is_dir($tmpBase)) {
-            $output->writeln('<error>Failed to create temp directory.</error>');
+        try {
+            $preparation = $this->filePreparer->prepare($user, $selected);
+        } catch (\Throwable $e) {
+            $output->writeln('<error>Failed to prepare media files: ' . $e->getMessage() . '</error>');
             return Command::FAILURE;
         }
 
-        $userFolder = $this->rootFolder->getUserFolder($user);
-        $listPath = $tmpBase . '/list.ffconcat';
-        $list = fopen($listPath, 'w');
-        fwrite($list, "ffconcat version 1.0\n");
+        $workingDir = $preparation['workingDir'];
+        $filePaths = $preparation['files'];
+        $copied = (int)($preparation['copied'] ?? count($filePaths));
+        $preferredFileName = sprintf('Journey-%02d.mp4', $clusterIndex + 1);
 
-        $i = 0;
-        $copied = 0;
-        foreach ($selected as $img) {
-            $rel = $img->path;
-            if (strpos($rel, 'files/') === 0) {
-                $rel = substr($rel, 6);
+        $result = null;
+        try {
+            if ($copied === 0 || empty($filePaths)) {
+                $output->writeln('<comment>No readable files to render.</comment>');
+                return Command::SUCCESS;
             }
-            try {
-                $node = $userFolder->get($rel);
-                if (!($node instanceof \OCP\Files\File)) { continue; }
-                // Only include images for now. Videos in the selection can cause concat/duration issues.
-                $mime = strtolower($node->getMimeType() ?? '');
-                if (strpos($mime, 'image/') !== 0) {
-                    // skip non-image files (e.g. video clips)
-                    continue;
-                }
-                $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION) ?: 'jpg');
-                if ($ext === '' || $ext === 'jpeg') { $ext = 'jpg'; }
-                $dest = sprintf('%s/%05d.%s', $tmpBase, $i+1, $ext);
-                $in = $node->fopen('r');
-                $out = fopen($dest, 'w');
-                if ($in && $out) {
-                    stream_copy_to_stream($in, $out);
-                    fclose($in); fclose($out);
-                    // write ffconcat entries
-                    fwrite($list, sprintf("file '%s'\n", str_replace("'", "'\\''", $dest)));
-                    fwrite($list, sprintf("duration %.3f\n", max(0.1, $duration)));
-                    $copied++;
-                    $i++;
-                }
-            } catch (\Throwable $e) {
-                // skip
-            }
-        }
-        fclose($list);
 
-        if ($copied === 0) {
-            @unlink($listPath);
-            @rmdir($tmpBase);
-            $output->writeln('<comment>No readable files to render.</comment>');
-            return Command::SUCCESS;
-        }
-
-        // Concat requires last file entry repeated without duration
-        // Append it now
-        $lastFile = sprintf('%s/%05d.%s', $tmpBase, $i, strtolower(pathinfo($selected[$i-1]->path, PATHINFO_EXTENSION) ?: 'jpg'));
-        file_put_contents($listPath, sprintf("file '%s'\n", str_replace("'", "'\\''", $lastFile)), FILE_APPEND);
-
-        // Build ffmpeg command
-        // If no explicit output path is provided, write to a temporary mp4 and later copy into the user's Files
-        $tmpOut = $outPath ?: ($tmpBase . '/output.mp4');
-        $vf = sprintf('scale=%d:-2,format=yuv420p', max(320, $width));
-        $cmd = [
-            'ffmpeg','-y',
-            '-f','concat','-safe','0','-i', $listPath,
-            // disable audio to avoid DTS warnings for image-only slideshows
-            '-an',
-            // output settings
-            '-r', (string)$fps,
-            '-vf', $vf,
-            '-pix_fmt','yuv420p',
-            '-movflags','+faststart',
-            $tmpOut,
-        ];
-
-        $output->writeln('<info>Starting ffmpeg...</info>');
-        // Run ffmpeg and stream its stdout/stderr live to the OCC output
-        $process = new Process($cmd);
-        // Allow long-running renders; if needed a hard timeout can be set by replacing null.
-        $process->setTimeout(null);
-        $process->setIdleTimeout(null);
-        $process->run(function (string $type, string $buffer) use ($output) {
-            // Forward both STDOUT and STDERR to the console in real time
-            $output->write($buffer);
-        });
-        $output->writeln('<info>ffmpeg finished.</info>');
-
-        if (!$process->isSuccessful()) {
-            // Cleanup temp dir
-            foreach (glob($tmpBase . '/*') as $f) { @unlink($f); }
-            @rmdir($tmpBase);
+            $output->writeln('<info>Starting ffmpeg...</info>');
+            $result = $this->videoRenderer->render(
+                $user,
+                $outPath,
+                $duration,
+                $width,
+                $fps,
+                $workingDir,
+                $filePaths,
+                function (string $type, string $buffer) use ($output): void {
+                    $output->write($buffer);
+                },
+                $preferredFileName,
+            );
+            $output->writeln('<info>ffmpeg finished.</info>');
+        } catch (\Throwable $e) {
             $output->writeln('<error>ffmpeg failed</error>');
-            // Provide the last lines of error output for context
-            $err = trim($process->getErrorOutput());
-            if ($err !== '') {
-                $lines = explode("\n", $err);
-                $tail = implode("\n", array_slice($lines, -50));
-                $output->writeln($tail);
-            }
+            $output->writeln('<comment>Reason:</comment> ' . $e->getMessage());
+            return Command::FAILURE;
+        } finally {
+            $this->filePreparer->cleanup($workingDir);
+        }
+
+        if (!is_array($result) || !isset($result['path'])) {
+            $output->writeln('<error>Video rendering did not return a path.</error>');
             return Command::FAILURE;
         }
 
-        $virtualDest = null;
-        if (!$outPath) {
-            // Copy temp mp4 into the user's Documents/Journeys Movies folder within Nextcloud Files
-            try {
-                $userFolder = $this->rootFolder->getUserFolder($user);
-                // Ensure Documents folder exists
-                try {
-                    $docs = $userFolder->get('Documents');
-                } catch (\Throwable $e) {
-                    $docs = $userFolder->newFolder('Documents');
-                }
-                // Ensure subfolder exists
-                try {
-                    $movies = $docs->get('Journeys Movies');
-                } catch (\Throwable $e) {
-                    $movies = $docs->newFolder('Journeys Movies');
-                }
-                $fileName = sprintf('Journey-%02d.mp4', $clusterIndex + 1);
-                // If file exists, overwrite
-                try {
-                    $existing = $movies->get($fileName);
-                    if ($existing instanceof \OCP\Files\File) {
-                        $existing->delete();
-                    }
-                } catch (\Throwable $e) { /* ignore */ }
-                $output->writeln('<info>Saving video into Nextcloud Files...</info>');
-                $destFile = $movies->newFile($fileName);
-                $data = @file_get_contents($tmpOut);
-                if ($data === false) {
-                    throw new \RuntimeException('Failed to read temporary video output');
-                }
-                $destFile->putContent($data);
-                $virtualDest = '/Documents/Journeys Movies/' . $fileName;
-            } catch (\Throwable $e) {
-                // Fall back to leaving the temp file if copy failed
-                $output->writeln('<comment>Rendered video, but failed to copy into Nextcloud Files. Temp path:</comment> ' . $tmpOut);
-                $output->writeln('<comment>Reason:</comment> ' . $e->getMessage());
-            }
-        }
-
-        // Cleanup temp dir
-        foreach (glob($tmpBase . '/*') as $f) { @unlink($f); }
-        @rmdir($tmpBase);
-
-        if ($virtualDest !== null) {
-            $output->writeln(sprintf('<info>Video created:</info> %s (%d images)', $virtualDest, $copied));
-        } else {
-            $output->writeln(sprintf('<info>Video created:</info> %s (%d images)', $outPath ?: $tmpOut, $copied));
-        }
+        $output->writeln(sprintf('<info>Video created:</info> %s (%d images)', $result['path'], $copied));
         return Command::SUCCESS;
     }
 }
