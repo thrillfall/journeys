@@ -7,24 +7,30 @@ use OCP\IRequest;
 use OCP\IUserSession;
 use OCP\IConfig;
 
+use OCA\Journeys\Exception\ClusterNotFoundException;
+use OCA\Journeys\Exception\NoImagesFoundException;
 use OCA\Journeys\Service\AlbumCreator;
+use OCA\Journeys\Service\ClusterVideoJobRunner;
 
 class PersonalSettingsController extends Controller {
     private $userSession;
     private $clusteringManager;
     private $userConfig;
     private AlbumCreator $albumCreator;
+    private ClusterVideoJobRunner $clusterVideoJobRunner;
 
     public function __construct($appName, IRequest $request, IUserSession $userSession, 
         \OCA\Journeys\Service\ClusteringManager $clusteringManager,
         IConfig $userConfig,
-        AlbumCreator $albumCreator
+        AlbumCreator $albumCreator,
+        ClusterVideoJobRunner $clusterVideoJobRunner,
     ) {
         parent::__construct($appName, $request);
         $this->userSession = $userSession;
         $this->clusteringManager = $clusteringManager;
         $this->userConfig = $userConfig; // Now using IConfig
         $this->albumCreator = $albumCreator;
+        $this->clusterVideoJobRunner = $clusterVideoJobRunner;
     }
 
     /**
@@ -152,7 +158,7 @@ class PersonalSettingsController extends Controller {
         $clusters = array_map(function (array $cluster) use ($userId) {
             $imageCount = 0;
             if (!empty($cluster['album_id'])) {
-                $imageCount = count($this->albumCreator->getAlbumFileIds((int)$cluster['album_id']));
+                $imageCount = count($this->albumCreator->getAlbumFileIdsForUser($userId, (int)$cluster['album_id']));
             }
 
             return [
@@ -168,5 +174,59 @@ class PersonalSettingsController extends Controller {
         }, $tracked);
 
         return new JSONResponse(['clusters' => $clusters]);
+    }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    public function renderClusterVideo(): JSONResponse {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new JSONResponse(['error' => 'No user'], 401);
+        }
+
+        $albumIdParam = $this->request->getParam('albumId');
+        if ($albumIdParam === null || $albumIdParam === '') {
+            return new JSONResponse(['error' => 'Missing albumId'], 400);
+        }
+
+        $albumId = (int)$albumIdParam;
+        if ($albumId <= 0) {
+            return new JSONResponse(['error' => 'Invalid albumId'], 400);
+        }
+
+        $userId = $user->getUID();
+        $minGap = max(0, (int)($this->request->getParam('minGapSeconds') ?? 5));
+        $duration = (float)($this->request->getParam('durationSeconds') ?? 2.5);
+        $width = (int)($this->request->getParam('width') ?? 1920);
+        $fps = (int)($this->request->getParam('fps') ?? 30);
+        $maxImages = (int)($this->request->getParam('maxImages') ?? 80);
+
+        try {
+            $result = $this->clusterVideoJobRunner->renderForAlbum(
+                $userId,
+                $albumId,
+                $minGap,
+                $duration,
+                $width,
+                $fps,
+                $maxImages > 0 ? $maxImages : 80,
+            );
+        } catch (NoImagesFoundException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], 404);
+        } catch (ClusterNotFoundException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], 404);
+        } catch (\Throwable $e) {
+            return new JSONResponse(['error' => 'Failed to render video', 'detail' => $e->getMessage()], 500);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'path' => $result['path'],
+            'storedInUserFiles' => $result['storedInUserFiles'],
+            'imageCount' => $result['imageCount'],
+            'clusterName' => $result['clusterName'],
+        ]);
     }
 }
