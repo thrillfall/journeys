@@ -50,23 +50,26 @@
 				<div v-if="clusters.length" class="cluster-summary">
 					<h3>{{ t('journeys', 'Clusters Created') }}</h3>
 					<div class="table-responsive">
-						<table class="nc-table nc-table--hover nc-table--zebra nc-table--compact">
+						<table class="nc-table nc-table--hover nc-table--compact">
 							<thead>
 								<tr>
 									<th style="text-align:left; min-width: 60px;">{{ t('journeys', 'ID') }}</th>
-									<th style="text-align:left; min-width: 200px;">{{ t('journeys', 'Name') }}</th>
-									<th style="text-align:right; min-width: 90px;">{{ t('journeys', 'Image Count') }}</th>
-									<th style="text-align:left; min-width: 160px;">{{ t('journeys', 'Location') }}</th>
-									<th style="text-align:left; min-width: 200px;">{{ t('journeys', 'Date Range') }}</th>
+									<th style="text-align:left; min-width: 240px;">{{ t('journeys', 'Name') }}</th>
+									<th style="text-align:left; min-width: 160px;">{{ t('journeys', 'Actions') }}</th>
 								</tr>
 							</thead>
 							<tbody>
 								<tr v-for="cluster in clusters" :key="cluster.id">
 									<td style="padding: 0.5em 1em;">{{ cluster.id }}</td>
 									<td style="padding: 0.5em 1em;">{{ cluster.name }}</td>
-									<td style="padding: 0.5em 1em; text-align: right;">{{ cluster.imageCount }}</td>
-									<td style="padding: 0.5em 1em;">{{ cluster.location || t('journeys', 'Unknown') }}</td>
-									<td style="padding: 0.5em 1em;">{{ formatDateRange(cluster.dateRange) }}</td>
+									<td style="padding: 0.5em 1em;">
+										<button
+											@click="renderCluster(cluster)"
+											:disabled="isProcessing || renderingClusterId === cluster.id"
+										>
+											{{ renderingClusterId === cluster.id ? t('journeys', 'Rendering...') : t('journeys', 'Render Video') }}
+										</button>
+									</td>
 								</tr>
 							</tbody>
 						</table>
@@ -92,6 +95,7 @@ export default {
 			lastRun: null,
 			error: null,
 			clusters: [],
+			renderingClusterId: null,
 			minClusterSize: 3, // default
 			maxTimeGap: 86400, // default (24h)
 			maxDistanceKm: 100.0, // default
@@ -177,6 +181,36 @@ export default {
 				}
 			} catch (e) {
 				this.clusters = []
+			}
+		},
+		async renderCluster(cluster) {
+			if (!cluster || !cluster.id) {
+				return
+			}
+			this.error = null
+			this.renderingClusterId = cluster.id
+			try {
+				const resp = await axios.post(generateUrl('/apps/journeys/personal_settings/render_cluster_video'), {
+					albumId: cluster.id,
+				})
+				if (resp.data && resp.data.success) {
+					const path = resp.data.path
+					const imageCount = resp.data.imageCount
+					const clusterName = resp.data.clusterName || cluster.name
+					showSuccess(this.t('journeys', 'Video rendering started for {name} ({count} images)', {
+						name: clusterName,
+						count: imageCount,
+					}))
+				} else if (resp.data && resp.data.error) {
+					showError(resp.data.error)
+				} else {
+					showError(this.t('journeys', 'Failed to render video.'))
+				}
+			} catch (e) {
+				const message = e?.response?.data?.error || e?.message || this.t('journeys', 'Failed to render video.')
+				showError(message)
+			} finally {
+				this.renderingClusterId = null
 			}
 		},
 		formatDateRange(range) {

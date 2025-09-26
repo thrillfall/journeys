@@ -26,5 +26,10 @@ return [
             'url' => '/personal_settings/clusters',
             'verb' => 'GET',
         ],
+        [
+            'name' => 'personal_settings#renderClusterVideo',
+            'url' => '/personal_settings/render_cluster_video',
+            'verb' => 'POST',
+        ],
     ],
 ];
