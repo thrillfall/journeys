@@ -35,7 +35,7 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
 php occ journeys:cluster-create-albums admin 24 100 5
 ```
 
-## 🎥 Video rendering (>= 0.7.0)
+## 🎥 Video rendering (>= 0.7.1)
 
 - Render any Journey album to an MP4 via personal settings: open **Settings → Journeys**, find the album in the list, and click **Render Video**.
 - Or use the OCC command:
@@ -48,12 +48,11 @@ php occ journeys:cluster-create-albums admin 24 100 5
 
 ### Current limitations
 
-- Videos are optimised for mobile-friendly portrait playback.
-- Audio tracks and transition effects are not yet included.
+- Portrait mode is the default; landscape preset can be enabled via the OCC flag or UI toggle.
+- Audio tracks are not yet included.
 
 ### Roadmap
 
-- Landscape presets for large displays.
 - Background music selection.
 - Scene transitions and pacing controls.
 

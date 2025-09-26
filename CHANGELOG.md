@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2025-09-26
+### Fixed
+- Trim rendered MP4 files to the expected duration so playback ends when the slideshow does.
+- Ensure portrait output uses the correct crop for all frames when crossfades are enabled.
+
+### Improved
+- Smoother Ken Burns motion and crossfade transitions without regressing CLI progress reporting.
+
 ## [0.7.0] - 2025-09-26
 ### Added
 - Journey albums can now be rendered into MP4 videos via the personal settings page or the `occ journeys:render-cluster-video <user> <albumId>` command.

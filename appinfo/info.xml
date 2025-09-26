@@ -31,7 +31,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
-  <h3>0.7.0 (2025-09-26)</h3>
+  <h3>0.7.1 (2025-09-26)</h3>
+    <ul>
+      <li><b>Improvement:</b> Added Ken Burns motion with crossfades</li>
+    </ul>
+    <h3>0.7.0 (2025-09-26)</h3>
     <ul>
       <li><b>New:</b> Render Journey albums into MP4 videos directly from the personal settings page or via <code>occ journeys:render-cluster-video &lt;user&gt; &lt;albumId&gt;</code>.</li>
       <li><b>Requirement:</b> The Nextcloud server must have <code>ffmpeg</code> available in <code>PATH</code> for rendering to succeed.</li>
@@ -125,7 +129,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.7.0</version>
+  <version>0.7.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
