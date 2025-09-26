@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2025-09-26
+### Added
+- Journey albums can now be rendered into MP4 videos via the personal settings page or the `occ journeys:render-cluster-video <user> <albumId>` command.
+
+### Requirements
+- Rendering depends on `ffmpeg` being installed and available on the Nextcloud server's `PATH`.
+
+### Known limitations
+- Output is currently optimised for mobile-friendly portrait playback. Landscape presets, transitions, and background music will arrive in upcoming releases.
+
 ## [0.6.0] - 2025-09-19
 ### Packaging
 - Release workflow builds the frontend before packaging to ensure fresh assets ship with releases.

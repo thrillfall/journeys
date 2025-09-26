@@ -8,10 +8,12 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗺️ Location & Time Clustering:** Group images by when and where they were taken
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
+- **🎥 Video Rendering:** Render any Journey album to an MP4 via personal settings or OCC command
 
 ## Requirements
 - The Memories app must be installed and enabled.
 - The Places setup in the Memories app must be completed (see Memories app documentation for details).
+- The Nextcloud server must have `ffmpeg` available in `PATH` for video rendering.
 
 ## 🚀 OCC Command Usage
 
@@ -33,16 +35,30 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
 php occ journeys:cluster-create-albums admin 24 100 5
 ```
 
+## 🎥 Video rendering (>= 0.7.0)
 
-## ♻️ Deterministic purge on re-runs (>= 0.4.1)
+- Render any Journey album to an MP4 via personal settings: open **Settings → Journeys**, find the album in the list, and click **Render Video**.
+- Or use the OCC command:
 
-- The app tracks clusterer-created albums in a DB table and purges those before creating new ones, so repeated runs do not accumulate albums.
-- Behavior differs with/without `--home-aware` because cluster results differ; within the same mode and parameters the album count should be stable.
+  ```sh
+  php occ journeys:render-cluster-video <user> <albumId>
+  ```
 
-First-time migration to enable tracking runs automatically on app update (see below).
+- The rendered file is saved to `Documents/Journeys Movies/` in the user’s storage (or to a custom path when `--output` is provided).
+
+### Current limitations
+
+- Videos are optimised for mobile-friendly portrait playback.
+- Audio tracks and transition effects are not yet included.
+
+### Roadmap
+
+- Landscape presets for large displays.
+- Background music selection.
+- Scene transitions and pacing controls.
 
 
-## 🏠 Home-aware clustering (optional)
+## 🏠 Home-aware clustering (default)
 
 Home-aware mode adapts clustering based on whether photos are taken near your home or away:
 
@@ -50,7 +66,6 @@ Home-aware mode adapts clustering based on whether photos are taken near your ho
 - Away from home: uses separate, typically looser thresholds (defaults: 36h, 50km)
 - The timeline is segmented into contiguous near/away blocks, and each block is clustered independently. This supports long, multi-week away trips without per-edge switching.
 
-Enable with:
 
 ```sh
 php occ journeys:cluster-create-albums <user> --home-aware [--home-lat <lat> --home-lon <lon> --home-radius <km>] \
@@ -60,7 +75,6 @@ php occ journeys:cluster-create-albums <user> --home-aware [--home-lat <lat> --h
 
 Flags:
 
-- `--home-aware` Enable home-aware clustering
 - `--home-lat`, `--home-lon` Provide home coordinates (optional; otherwise auto-detected)
 - `--home-radius` Home radius in km (default: 50)
 - `--near-time-gap` Near-home max time gap in hours (default: 6)
@@ -93,9 +107,6 @@ Notes:
 - Distance checks are anchored to the last-known geolocated photo within the current cluster, so a run of no-location images won’t “stitch” a far-away next geolocated point into the same cluster.
 - This improves results for long trips where some photos are missing GPS data, especially in home-aware “away” segments.
 
-### Additional behavior (>= 4.0.3)
-
-- Clusters composed entirely of images without coordinates are skipped and no album is created. This reduces noise from placeholder “Journey # (date range)” albums.
 
 
 ## ⬆️ Upgrade notes

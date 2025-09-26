@@ -14,6 +14,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗺️ Location & Time Clustering:** Group images by when and where they were taken
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
+- **🎥 (NEW) Video Rendering:** Turn journey albums into MP4 highlight reels (requires `ffmpeg` on the server)
 
 ## 🚀 OCC Command Usage
 
@@ -30,6 +31,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.7.0 (2025-09-26)</h3>
+    <ul>
+      <li><b>New:</b> Render Journey albums into MP4 videos directly from the personal settings page or via <code>occ journeys:render-cluster-video &lt;user&gt; &lt;albumId&gt;</code>.</li>
+      <li><b>Requirement:</b> The Nextcloud server must have <code>ffmpeg</code> available in <code>PATH</code> for rendering to succeed.</li>
+    </ul>
     <h3>0.6.0 (2025-09-19)</h3>
     <ul>
       <li><b>Packaging:</b> Release workflow now builds the frontend before packaging to ensure fresh assets are shipped.</li>
@@ -119,7 +125,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.6.0</version>
+  <version>0.7.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
