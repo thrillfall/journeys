@@ -59,6 +59,66 @@ class ClusterVideoImageProvider {
         );
     }
 
+    /**
+     * Select images by Photos album id (tracked cluster) without re-clustering.
+     * Guarantees a 1:1 mapping albumId -> album files.
+     *
+     * @param string $user
+     * @param int $albumId
+     * @param int $minGapSeconds
+     * @param int $maxImages
+     * @return ClusterVideoSelection
+     * @throws NoImagesFoundException
+     */
+    public function getSelectedImagesForAlbumId(string $user, int $albumId, int $minGapSeconds, int $maxImages): ClusterVideoSelection {
+        // Get fileids for the album (owned by this user)
+        $fileIds = $this->albumCreator->getAlbumFileIdsForUser($user, $albumId);
+        if (empty($fileIds)) {
+            throw new NoImagesFoundException('No images found for album id');
+        }
+
+        // Fetch only those images by file ids (left join oc_memories, fallback to mtime)
+        $wanted = $this->imageFetcher->fetchImagesByFileIds($user, $fileIds);
+        if (empty($wanted)) {
+            throw new NoImagesFoundException('No album images readable for this user');
+        }
+
+        usort($wanted, fn(Image $a, Image $b) => strtotime($a->datetaken) <=> strtotime($b->datetaken));
+
+        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $maxImages);
+
+        $clusterStart = $this->createDateTimeImmutable($wanted[0]->datetaken ?? null);
+        $clusterEnd = $this->createDateTimeImmutable($wanted[count($wanted) - 1]->datetaken ?? null);
+
+        // Lookup metadata from tracked clusters by album id
+        $tracked = $this->albumCreator->getTrackedClusters($user);
+        $resolvedIndex = 0;
+        $clusterName = '';
+        $clusterLocation = null;
+        foreach (array_values($tracked) as $idx => $row) {
+            if (isset($row['album_id']) && (int)$row['album_id'] === $albumId) {
+                $resolvedIndex = $idx;
+                $normalized = $this->normalizeTrackedRow($row) ?? [];
+                $clusterName = (string)($normalized['name'] ?? '');
+                $clusterLocation = $normalized['location'] ?? null;
+                break;
+            }
+        }
+
+        if ($clusterName === '') {
+            $clusterName = $this->buildClusterName($clusterStart, $clusterEnd, $resolvedIndex, null);
+        }
+
+        return new ClusterVideoSelection(
+            $selected,
+            $resolvedIndex,
+            $clusterStart,
+            $clusterEnd,
+            $clusterLocation,
+            $clusterName,
+        );
+    }
+
     private function createDateTimeImmutable(?string $value): DateTimeImmutable {
         if ($value === null || $value === '') {
             return new DateTimeImmutable();

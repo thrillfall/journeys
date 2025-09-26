@@ -296,6 +296,41 @@ class AlbumCreator {
     }
 
     /**
+     * Get file IDs for an album owned by a specific user using Photos tables directly.
+     * This is robust against AlbumMapper API variations and returns exactly the files assigned to the album.
+     *
+     * @param string $userId
+     * @param int $albumId
+     * @return int[]
+     */
+    public function getAlbumFileIdsForUser(string $userId, int $albumId): array {
+        try {
+            // Verify the album is owned by this user
+            $stmt = $this->db->prepare('SELECT album_id FROM *PREFIX*photos_albums WHERE album_id = ? AND user = ?');
+            $res = $stmt->execute([$albumId, $userId]);
+            $ownRow = $res ? $res->fetch() : false;
+            if ($ownRow === false) {
+                // Not owned by this user; we do not attempt shared albums here
+                return [];
+            }
+
+            // Fetch file ids
+            $stmt2 = $this->db->prepare('SELECT file_id FROM *PREFIX*photos_albums_files WHERE album_id = ?');
+            $res2 = $stmt2->execute([$albumId]);
+            $rows = $res2 ? $res2->fetchAll() : [];
+            $ids = [];
+            foreach ($rows as $row) {
+                if (isset($row['file_id'])) {
+                    $ids[] = (int)$row['file_id'];
+                }
+            }
+            return $ids;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
      * Retrieve cluster metadata tracked by the album creator for a given user, sorted by start date.
      *
      * @param string $userId
