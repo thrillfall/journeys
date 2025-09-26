@@ -135,6 +135,7 @@ Album titles are generated from the **resolved place name** and the **date range
     <command>OCA\Journeys\Command\RemoveAllAlbumsCommand</command>
     <command>OCA\Journeys\Command\ShowLatestClusterEndCommand</command>
     <command>OCA\Journeys\Command\RenderClusterVideoCommand</command>
+    <command>OCA\Journeys\Command\ListClustersCommand</command>
   </commands>
   <background-jobs>
     <job>OCA\Journeys\BackgroundJob\DailyClusteringJob</job>

@@ -28,7 +28,7 @@ class RenderClusterVideoCommand extends Command {
         $this
             ->setDescription('Render a video (mp4) for a specific cluster using ffmpeg. Images only for now. If --output is omitted, the file is saved to the user\'s Documents/Journeys Movies folder.')
             ->addArgument('user', InputArgument::REQUIRED, 'User ID')
-            ->addArgument('cluster', InputArgument::REQUIRED, 'Cluster number (1-based, as listed by journeys:list-clusters)')
+            ->addArgument('album-id', InputArgument::REQUIRED, 'Photos album id for the cluster (as listed by journeys:list-clusters)')
             ->addOption('min-gap-seconds', null, InputOption::VALUE_REQUIRED, 'Minimum seconds between selected images (burst dedupe)', 5)
             ->addOption('duration-seconds', null, InputOption::VALUE_REQUIRED, 'Per-image duration (seconds)', 2.5)
             ->addOption('width', null, InputOption::VALUE_REQUIRED, 'Output width (height auto, maintains aspect)', 1920)
@@ -39,7 +39,13 @@ class RenderClusterVideoCommand extends Command {
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
         $user = (string)$input->getArgument('user');
-        $clusterIndex = max(1, (int)$input->getArgument('cluster')) - 1;
+        $albumIdArg = $input->getArgument('album-id');
+        $albumId = is_scalar($albumIdArg) ? (string)$albumIdArg : '';
+        if ($albumId === '') {
+            $output->writeln('<error>Missing album id</error>');
+            return Command::FAILURE;
+        }
+
         $minGap = max(0, (int)$input->getOption('min-gap-seconds'));
         $duration = (float)$input->getOption('duration-seconds');
         $width = (int)$input->getOption('width');
@@ -50,12 +56,12 @@ class RenderClusterVideoCommand extends Command {
         $maxImages = $maxImagesOption > 0 ? $maxImagesOption : 80;
 
         try {
-            $selection = $this->imageProvider->getSelectedImages($user, $clusterIndex, $minGap, $maxImages);
+            $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, (int)$albumId, $minGap, $maxImages);
         } catch (NoImagesFoundException) {
             $output->writeln('<comment>No images found for user.</comment>');
             return Command::SUCCESS;
         } catch (ClusterNotFoundException $e) {
-            $output->writeln(sprintf('<error>Cluster %d not found. %s</error>', $clusterIndex + 1, $e->getMessage()));
+            $output->writeln(sprintf('<error>Cluster for album id %s not found. %s</error>', $albumId, $e->getMessage()));
             return Command::FAILURE;
         } catch (\Throwable $e) {
             $output->writeln('<error>Failed to select images: ' . $e->getMessage() . '</error>');
