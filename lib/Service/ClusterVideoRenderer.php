@@ -36,16 +36,27 @@ class ClusterVideoRenderer {
             throw new \InvalidArgumentException('No files provided for rendering');
         }
 
-        $listPath = $workingDir . '/list.ffconcat';
         $tmpOut = $outputPath ?: ($workingDir . '/output.mp4');
 
-        $this->writeConcatList($listPath, $files, $durationPerImage);
-
-        try {
-            $this->runFfmpeg($listPath, $tmpOut, $width, $fps, $outputHandler);
-        } finally {
-            @unlink($listPath);
+        $portraitFiles = $this->filterPortraitFiles($files);
+        if (empty($portraitFiles)) {
+            throw new \RuntimeException('No portrait images available for rendering');
         }
+
+        $durationPerImage = max(0.5, $durationPerImage);
+        $transitionDuration = min(0.8, max(0.2, $durationPerImage * 0.3));
+        [$targetWidth, $targetHeight] = $this->determineOutputDimensions($width, $portraitFiles);
+
+        $this->runFfmpeg(
+            $portraitFiles,
+            $tmpOut,
+            $targetWidth,
+            $targetHeight,
+            $fps,
+            $durationPerImage,
+            $transitionDuration,
+            $outputHandler,
+        );
 
         if ($outputPath !== null && $outputPath !== '') {
             return [
@@ -62,52 +73,119 @@ class ClusterVideoRenderer {
         ];
     }
 
-    /**
-     * @param string $listPath
-     * @param array<int, string> $files
-     * @param float $durationPerImage
-     * @return void
-     */
-    private function writeConcatList(string $listPath, array $files, float $durationPerImage): void {
-        $list = fopen($listPath, 'w');
-        if ($list === false) {
-            throw new \RuntimeException('Failed to create ffconcat list file');
+    private function runFfmpeg(
+        array $files,
+        string $outputPath,
+        int $width,
+        int $height,
+        int $fps,
+        float $durationPerImage,
+        float $transitionDuration,
+        ?callable $outputHandler,
+    ): void {
+        if (empty($files)) {
+            throw new \RuntimeException('No files provided to ffmpeg');
         }
-        fwrite($list, "ffconcat version 1.0\n");
+
+        $width = $this->makeEven($width);
+        $height = $this->makeEven($height);
+
+        $count = count($files);
+        $holdDuration = $durationPerImage;
+        $clipDuration = $holdDuration + $transitionDuration;
+        $totalDurationSeconds = $count === 1
+            ? $clipDuration
+            : max(0.1, $holdDuration * $count + $transitionDuration);
+
+        $cmd = ['ffmpeg', '-y', '-hide_banner', '-nostats', '-loglevel', 'error'];
+
         foreach ($files as $file) {
-            fwrite($list, sprintf("file '%s'\n", str_replace("'", "'\\''", $file)));
-            fwrite($list, sprintf("duration %.3f\n", max(0.1, $durationPerImage)));
+            $cmd[] = '-loop';
+            $cmd[] = '1';
+            $cmd[] = '-t';
+            $cmd[] = $this->formatFloat($clipDuration);
+            $cmd[] = '-i';
+            $cmd[] = $file;
         }
-        fclose($list);
 
-        // ffconcat requires last file repeated without duration
-        $last = end($files);
-        if ($last !== false) {
-            file_put_contents($listPath, sprintf("file '%s'\n", str_replace("'", "'\\''", $last)), FILE_APPEND);
-        }
-    }
+        [$filterGraph, $outputLabel] = $this->buildFilterGraph(
+            $count,
+            $width,
+            $height,
+            $fps,
+            $holdDuration,
+            $transitionDuration,
+            $clipDuration,
+        );
 
-    private function runFfmpeg(string $listPath, string $outputPath, int $width, int $fps, ?callable $outputHandler): void {
-        $vf = sprintf('scale=%d:-2,format=yuv420p', max(320, $width));
-        $cmd = [
-            'ffmpeg', '-y',
-            '-f', 'concat', '-safe', '0', '-i', $listPath,
-            '-an',
-            '-r', (string)$fps,
-            '-vf', $vf,
-            '-pix_fmt', 'yuv420p',
-            '-movflags', '+faststart',
-            $outputPath,
-        ];
+        $cmd[] = '-filter_complex';
+        $cmd[] = $filterGraph;
+        $cmd[] = '-map';
+        $cmd[] = $outputLabel;
+        $cmd[] = '-progress';
+        $cmd[] = 'pipe:1';
+        $cmd[] = '-an';
+        $cmd[] = '-r';
+        $cmd[] = (string)$fps;
+        $cmd[] = '-pix_fmt';
+        $cmd[] = 'yuv420p';
+        $cmd[] = '-movflags';
+        $cmd[] = '+faststart';
+        $cmd[] = $outputPath;
 
         $process = new Process($cmd);
         $process->setTimeout(null);
         $process->setIdleTimeout(null);
-        if ($outputHandler !== null) {
-            $process->run($outputHandler);
-        } else {
-            $process->run();
-        }
+        $progressBuffer = '';
+        $lastPercent = -1;
+        $process->run(function (string $type, string $buffer) use ($outputHandler, &$progressBuffer, &$lastPercent, $totalDurationSeconds): void {
+            if ($type === Process::OUT) {
+                $progressBuffer .= $buffer;
+                while (($newlinePos = strpos($progressBuffer, "\n")) !== false) {
+                    $line = substr($progressBuffer, 0, $newlinePos);
+                    $progressBuffer = substr($progressBuffer, $newlinePos + 1);
+                    $trimmed = trim($line);
+                    if ($trimmed === '') {
+                        continue;
+                    }
+
+                    $handled = false;
+                    if (str_contains($trimmed, '=')) {
+                        [$key, $value] = explode('=', $trimmed, 2);
+                        $key = trim($key);
+                        $value = trim($value);
+
+                        if ($key === 'out_time_ms' && $value !== '') {
+                            $seconds = ((float)$value) / 1000000.0;
+                            $ratio = min(1.0, max(0.0, $seconds / $totalDurationSeconds));
+                            $percent = (int) floor($ratio * 100);
+                            if ($percent > $lastPercent) {
+                                $lastPercent = $percent;
+                                if ($outputHandler !== null) {
+                                    $outputHandler(Process::OUT, sprintf("Progress: %d%%\n", $percent));
+                                }
+                            }
+                            $handled = true;
+                        } elseif ($key === 'progress') {
+                            if ($value === 'end') {
+                                if ($outputHandler !== null) {
+                                    $outputHandler(Process::OUT, "Progress: 100%\n");
+                                }
+                            }
+                            $handled = true;
+                        } elseif ($this->shouldSuppressProgressKey($key)) {
+                            $handled = true;
+                        }
+                    }
+
+                    // Suppress all other metrics; only percentages should surface
+                }
+            } elseif ($type === Process::ERR) {
+                if ($outputHandler !== null && !$this->shouldSuppressWarning($buffer)) {
+                    $outputHandler($type, $buffer);
+                }
+            }
+        });
 
         if (!$process->isSuccessful()) {
             throw new \RuntimeException('ffmpeg failed: ' . $process->getErrorOutput());
@@ -147,6 +225,11 @@ class ClusterVideoRenderer {
         return '/Documents/Journeys Movies/' . $fileName;
     }
 
+    private function determineOutputHeight(int $width): int {
+        $height = (int) round($width * 9 / 16);
+        return $this->makeEven(max(2, $height));
+    }
+
     private function determineFileName(?string $preferredFileName): string {
         $fallback = sprintf('Journey-%s.mp4', date('Ymd-His'));
         if ($preferredFileName === null || trim($preferredFileName) === '') {
@@ -172,5 +255,196 @@ class ClusterVideoRenderer {
         // Collapse consecutive spaces or hyphens
         $fileName = preg_replace('/\s+/', ' ', $fileName) ?? $fileName;
         return $fileName;
+    }
+
+    /**
+     * @param string $key
+     * @return bool
+     */
+    private function shouldSuppressProgressKey(string $key): bool {
+        return in_array($key, ['frame', 'fps', 'stream_0_0_q', 'bitrate', 'total_size', 'out_time', 'dup_frames', 'drop_frames', 'speed'], true);
+    }
+
+    /**
+     * @param string $buffer
+     * @return bool
+     */
+    private function shouldSuppressWarning(string $buffer): bool {
+        $needles = [
+            'deprecated pixel format used',
+            'Past duration',
+        ];
+
+        foreach ($needles as $needle) {
+            if (stripos($buffer, $needle) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function buildFilterGraph(
+        int $count,
+        int $width,
+        int $height,
+        int $fps,
+        float $holdDuration,
+        float $transitionDuration,
+        float $clipDuration,
+    ): array {
+        $filterParts = [];
+        $frameCount = max(2, (int) round($clipDuration * $fps));
+
+        for ($i = 0; $i < $count; $i++) {
+            $motions = $this->buildKenBurnsExpressions($i, $frameCount);
+            $filterParts[] = sprintf(
+                '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
+                'crop=%2$d:%3$d,' .
+                'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1[k%1$d]',
+                $i,
+                $width,
+                $height,
+                $motions['z'],
+                $motions['x'],
+                $motions['y'],
+                $frameCount,
+                $fps,
+            );
+        }
+
+        if ($count === 1) {
+            $filterParts[] = '[k0]format=yuv420p[vout]';
+            return [implode(';', $filterParts), '[vout]'];
+        }
+
+        $totalDuration = $holdDuration * $count + $transitionDuration;
+        $prev = 'k0';
+        for ($i = 1; $i < $count; $i++) {
+            $out = ($i === $count - 1) ? 'mix_last' : sprintf('mix%d', $i);
+            $offset = $holdDuration * $i;
+            $filterParts[] = sprintf(
+                '[%1$s][k%2$d]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
+                $prev,
+                $i,
+                $this->formatFloat($transitionDuration),
+                $this->formatFloat($offset),
+                $out,
+            );
+            $prev = $out;
+        }
+
+        $finalLabel = $prev === 'k0' ? 'k0' : 'mix_last';
+        $filterParts[] = sprintf('[%s]trim=duration=%s,format=yuv420p[vout]',
+            $finalLabel,
+            $this->formatFloat($totalDuration),
+        );
+
+        return [implode(';', $filterParts), '[vout]'];
+    }
+
+    /**
+     * @param int $requestedWidth
+     * @param array<int, string> $files
+     * @return array{0:int,1:int}
+     */
+    private function determineOutputDimensions(int $requestedWidth, array $files): array {
+        $longEdge = max(320, $requestedWidth);
+        foreach ($files as $file) {
+            $info = @getimagesize($file);
+            if ($info === false || !isset($info[0], $info[1])) {
+                continue;
+            }
+
+            $imgWidth = (int) $info[0];
+            $imgHeight = (int) $info[1];
+            if ($imgWidth <= 0 || $imgHeight <= 0) {
+                continue;
+            }
+
+            $ratio = $imgWidth / $imgHeight;
+            if ($ratio >= 1.0) {
+                $targetWidth = $this->makeEven($longEdge);
+                $targetHeight = $this->makeEven(max(2, (int) round($targetWidth / $ratio)));
+                $targetHeight = max(2, $targetHeight);
+            } else {
+                $targetHeight = $this->makeEven($longEdge);
+                $targetWidth = $this->makeEven(max(2, (int) round($targetHeight * $ratio)));
+                if ($targetWidth < 320) {
+                    $targetWidth = $this->makeEven(320);
+                }
+            }
+
+            return [$targetWidth, $targetHeight];
+        }
+
+        $targetWidth = $this->makeEven(max(320, $requestedWidth));
+        $targetHeight = $this->determineOutputHeight($targetWidth);
+        return [$targetWidth, $targetHeight];
+    }
+
+    /**
+     * @param array<int, string> $files
+     * @return array<int, string>
+     */
+    private function filterPortraitFiles(array $files): array {
+        $result = [];
+        foreach ($files as $file) {
+            $info = @getimagesize($file);
+            if ($info === false || !isset($info[0], $info[1])) {
+                continue;
+            }
+
+            $width = (int) $info[0];
+            $height = (int) $info[1];
+            if ($width > 0 && $height > 0 && $height > $width) {
+                $result[] = $file;
+            }
+        }
+
+        return $result;
+    }
+
+    private function buildKenBurnsExpressions(int $index, int $frameCount): array {
+        $zoomStart = 1.0;
+        $zoomEnd = 1.1;
+        $denominator = max(1, $frameCount - 1);
+        $zoomDelta = ($zoomEnd - $zoomStart) / $denominator;
+        $z = sprintf("'min(%s,%s+on*%s)'",
+            $this->formatFloat($zoomEnd),
+            $this->formatFloat($zoomStart),
+            $this->formatFloat($zoomDelta),
+        );
+
+        $progress = $denominator > 0 ? sprintf('(on/%d)', $denominator) : '0';
+
+        switch ($index % 4) {
+            case 0:
+                $x = sprintf("'(iw-iw/zoom)*%s'", $progress);
+                $y = "'(ih-ih/zoom)/2'";
+                break;
+            case 1:
+                $x = sprintf("'(iw-iw/zoom)*(1-%s)'", $progress);
+                $y = "'(ih-ih/zoom)/2'";
+                break;
+            case 2:
+                $x = "'(iw-iw/zoom)/2'";
+                $y = sprintf("'(ih-ih/zoom)*%s'", $progress);
+                break;
+            default:
+                $x = "'(iw-iw/zoom)/2'";
+                $y = sprintf("'(ih-ih/zoom)*(1-%s)'", $progress);
+                break;
+        }
+
+        return ['z' => $z, 'x' => $x, 'y' => $y];
+    }
+
+    private function makeEven(int $value): int {
+        return ($value % 2 === 0) ? $value : $value + 1;
+    }
+
+    private function formatFloat(float $value): string {
+        return number_format($value, 6, '.', '');
     }
 }
