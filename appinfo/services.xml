@@ -18,8 +18,10 @@
     <service id="OCA\Journeys\Service\ClusterVideoFilePreparer">
       <argument type="service" id="OCP\Files\IRootFolder"/>
     </service>
+    <service id="OCA\Journeys\Service\ClusterVideoMusicProvider"/>
     <service id="OCA\Journeys\Service\ClusterVideoRenderer">
       <argument type="service" id="OCP\Files\IRootFolder"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusterVideoMusicProvider"/>
     </service>
     <service id="OCA\Journeys\Service\SimplePlaceResolver">
       <argument type="service" id="OCP\IDBConnection"/>

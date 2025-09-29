@@ -218,7 +218,18 @@ class PersonalSettingsController extends Controller {
         } catch (ClusterNotFoundException $e) {
             return new JSONResponse(['error' => $e->getMessage()], 404);
         } catch (\Throwable $e) {
-            return new JSONResponse(['error' => 'Failed to render video', 'detail' => $e->getMessage()], 500);
+            $detail = $e->getMessage();
+            if ($this->isFfmpegMissingError($detail)) {
+                return new JSONResponse([
+                    'error' => 'Video rendering is unavailable because ffmpeg is not installed on the server. Please ask your administrator to install ffmpeg and try again.',
+                    'detail' => $detail,
+                ], 500);
+            }
+
+            return new JSONResponse([
+                'error' => 'Failed to render video',
+                'detail' => $detail,
+            ], 500);
         }
 
         return new JSONResponse([
@@ -228,5 +239,22 @@ class PersonalSettingsController extends Controller {
             'imageCount' => $result['imageCount'],
             'clusterName' => $result['clusterName'],
         ]);
+    }
+
+    private function isFfmpegMissingError(string $message): bool {
+        $normalized = strtolower($message);
+        if (str_contains($normalized, 'ffmpeg failed') && str_contains($normalized, 'not found')) {
+            return true;
+        }
+
+        if (str_contains($normalized, 'ffmpeg') && str_contains($normalized, 'no such file or directory')) {
+            return true;
+        }
+
+        if (str_contains($normalized, 'unable to find') && str_contains($normalized, 'ffmpeg')) {
+            return true;
+        }
+
+        return false;
     }
 }

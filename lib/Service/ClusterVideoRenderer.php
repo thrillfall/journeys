@@ -7,6 +7,7 @@ use Symfony\Component\Process\Process;
 class ClusterVideoRenderer {
     public function __construct(
         private IRootFolder $rootFolder,
+        private ClusterVideoMusicProvider $musicProvider,
     ) {}
 
     /**
@@ -47,6 +48,8 @@ class ClusterVideoRenderer {
         $transitionDuration = min(0.8, max(0.2, $durationPerImage * 0.3));
         [$targetWidth, $targetHeight] = $this->determineOutputDimensions($width, $portraitFiles);
 
+        $audioTrack = $this->musicProvider->pickRandomTrack();
+
         $this->runFfmpeg(
             $portraitFiles,
             $tmpOut,
@@ -55,6 +58,7 @@ class ClusterVideoRenderer {
             $fps,
             $durationPerImage,
             $transitionDuration,
+            $audioTrack,
             $outputHandler,
         );
 
@@ -81,6 +85,7 @@ class ClusterVideoRenderer {
         int $fps,
         float $durationPerImage,
         float $transitionDuration,
+        ?string $audioTrack,
         ?callable $outputHandler,
     ): void {
         if (empty($files)) {
@@ -108,6 +113,15 @@ class ClusterVideoRenderer {
             $cmd[] = $file;
         }
 
+        $audioInputIndex = null;
+        if ($audioTrack !== null) {
+            $cmd[] = '-stream_loop';
+            $cmd[] = '-1';
+            $cmd[] = '-i';
+            $cmd[] = $audioTrack;
+            $audioInputIndex = count($files);
+        }
+
         [$filterGraph, $outputLabel] = $this->buildFilterGraph(
             $count,
             $width,
@@ -122,9 +136,19 @@ class ClusterVideoRenderer {
         $cmd[] = $filterGraph;
         $cmd[] = '-map';
         $cmd[] = $outputLabel;
+        if ($audioInputIndex !== null) {
+            $cmd[] = '-map';
+            $cmd[] = sprintf('%d:a:0', $audioInputIndex);
+            $cmd[] = '-shortest';
+            $cmd[] = '-c:a';
+            $cmd[] = 'aac';
+            $cmd[] = '-b:a';
+            $cmd[] = '192k';
+        } else {
+            $cmd[] = '-an';
+        }
         $cmd[] = '-progress';
         $cmd[] = 'pipe:1';
-        $cmd[] = '-an';
         $cmd[] = '-r';
         $cmd[] = (string)$fps;
         $cmd[] = '-pix_fmt';
@@ -447,4 +471,5 @@ class ClusterVideoRenderer {
     private function formatFloat(float $value): string {
         return number_format($value, 6, '.', '');
     }
+
 }
