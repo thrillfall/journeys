@@ -46,7 +46,7 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 5): array {
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2): array {
         // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
         $purgedAlbums = 0;
         if ($fromScratch) {

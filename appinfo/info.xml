@@ -31,7 +31,13 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
-  <h3>0.7.2 (2025-09-29)</h3>
+  <h3>0.7.3 (2025-10-07)</h3>
+    <ul>
+      <li><b>CLI cleanup:</b> Removed the deprecated <code>--home-aware</code> flag; home-aware clustering remains enabled by default and can still be disabled with <code>--no-home-aware</code>.</li>
+      <li><b>Granularity:</b> Added <code>--min-cluster-size</code> option to control the minimum images required for journey albums (replaces the positional argument) and raised the default to 5 photos.</li>
+      <li><b>Recency threshold:</b> Default skip window for recent clusters is now 48 hours (was 5 days) to surface new journeys sooner.</li>
+    </ul>
+    <h3>0.7.2 (2025-09-29)</h3>
     <ul>
       <li><b>Audio:</b> Journey videos now include (one of three randomly selected) soundtrack by mobygratis .</li>
     </ul>
@@ -133,7 +139,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.7.2</version>
+  <version>0.7.3</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

@@ -18,21 +18,21 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 ## 🚀 OCC Command Usage
 
 ```sh
-php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [minClusterSize] [--from-scratch] [--home-aware ...]
+php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--from-scratch]
 ```
 
 **Arguments:**
 - `user` — The user to cluster images for (**required**)
 - `maxTimeGap` — Max allowed time gap in hours (optional, default: 24)
 - `maxDistanceKm` — Maximum allowed distance in kilometers between consecutive images in a cluster (default: 50.0)
-- `minClusterSize` — Minimum images per cluster (optional, default: 3)
+- `--min-cluster-size` — Minimum images per cluster (optional, default: 5)
 
 **How time gap influences clustering:**  
 The `maxTimeGap` defines the largest allowed time (in hours) between two consecutive images for them to be grouped into the same journey. If the gap between two images exceeds this value, a new journey (album) is started. Smaller values create more, shorter journeys; larger values group more images together.
 
 **Example:**
 ```sh
-php occ journeys:cluster-create-albums admin 24 100 5
+php occ journeys:cluster-create-albums admin 24 100 --min-cluster-size=5
 ```
 
 ## 🎥 Video rendering (>= 0.7.2)
@@ -68,7 +68,7 @@ Home-aware mode adapts clustering based on whether photos are taken near your ho
 
 
 ```sh
-php occ journeys:cluster-create-albums <user> --home-aware [--home-lat <lat> --home-lon <lon> --home-radius <km>] \
+php occ journeys:cluster-create-albums <user> [--home-lat <lat> --home-lon <lon> --home-radius <km>] \
   [--near-time-gap <hours>] [--near-distance-km <km>] \
   [--away-time-gap <hours>] [--away-distance-km <km>]
 ```
@@ -92,7 +92,7 @@ Notes:
 
 - By default, clustering runs incrementally: it only considers images taken after the latest previously created cluster. This keeps runtime low and avoids recreating existing albums.
 - Use `--from-scratch` to purge previously created cluster albums and recluster all images from a clean slate.
-- To avoid creating incomplete trips, clusters whose last image is within the past 5 days are skipped; they will be picked up in a future run once the trip is likely complete.
+- To avoid creating incomplete trips, clusters whose last image is within the past 48 hours are skipped (configurable via `--recent-cutoff-days`); they will be picked up in a future run once the trip is likely complete.
 
 ## 🔔 Notifications (>= 0.5.4)
 

@@ -51,10 +51,9 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addArgument('user', InputArgument::REQUIRED, 'The ID of the user for whom to cluster images and create albums.')
             ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours', 24)
             ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers (default: 50.0)', 50.0)
-            ->addArgument('minClusterSize', InputArgument::OPTIONAL, 'Minimum images per cluster', 3)
-            ->addOption('home-aware', null, InputOption::VALUE_NONE, '[Deprecated] Enable home-aware clustering (now enabled by default)')
             ->addOption('no-home-aware', null, InputOption::VALUE_NONE, 'Disable home-aware clustering')
             ->addOption('from-scratch', null, InputOption::VALUE_NONE, 'Recluster all images from scratch (purges previously created cluster albums)')
+            ->addOption('min-cluster-size', null, InputOption::VALUE_REQUIRED, 'Minimum images per cluster (default: 5)', 5)
             ->addOption('home-lat', null, InputOption::VALUE_REQUIRED, 'Home latitude')
             ->addOption('home-lon', null, InputOption::VALUE_REQUIRED, 'Home longitude')
             ->addOption('home-radius', null, InputOption::VALUE_REQUIRED, 'Home radius in km (default: 50)', 50)
@@ -62,7 +61,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addOption('near-distance-km', null, InputOption::VALUE_REQUIRED, 'Near-home max distance between consecutive photos in km (default: 3)', 3)
             ->addOption('away-time-gap', null, InputOption::VALUE_REQUIRED, 'Away-from-home max time gap in hours (default: 36)', 36)
             ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (default: 50)', 50)
-            ->addOption('recent-cutoff-days', null, InputOption::VALUE_REQUIRED, 'Skip clusters whose last image is within the past N days (default: 5, 0 disables)', 5);
+            ->addOption('recent-cutoff-days', null, InputOption::VALUE_REQUIRED, 'Skip clusters whose last image is within the past N days (default: 2, 0 disables)', 2);
     }
 
 
@@ -70,14 +69,11 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $user = $input->getArgument('user');
         $maxTimeGap = (int)$input->getArgument('maxTimeGap') * 3600; // convert hours to seconds
         $maxDistanceKm = (float)$input->getArgument('maxDistanceKm');
-        $minClusterSize = (int)$input->getArgument('minClusterSize');
+        $minClusterSize = max(1, (int)$input->getOption('min-cluster-size'));
         // Home-aware is enabled by default; allow explicit opt-out with --no-home-aware
         $homeAware = true;
         if ($input->getOption('no-home-aware')) {
             $homeAware = false;
-        } elseif ($input->getOption('home-aware')) {
-            // kept for backward compatibility; explicit enable is redundant
-            $homeAware = true;
         }
         $homeLat = $input->getOption('home-lat');
         $homeLon = $input->getOption('home-lon');
