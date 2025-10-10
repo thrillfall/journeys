@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.4] - 2025-10-10
+### Added
+- Portrait videos now include occasional 3-wide landscape stacks with horizontal slides.
+
+### Changed
+- Stack rows pause at center (~2s) and slide in/out faster.
+- Video selection keeps landscape images; the renderer mixes them automatically.
+
 ## [0.7.1] - 2025-09-26
 ### Fixed
 - Trim rendered MP4 files to the expected duration so playback ends when the slideshow does.
