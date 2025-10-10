@@ -18,12 +18,10 @@ class VideoStorySelector {
     public function selectImages(string $userId, array $clusterImages, int $minGapSeconds = 5, int $maxImages = 80): array {
         if (empty($clusterImages)) return [];
 
-        // Filter out landscape images to optimize for mobile (portrait-first). Keep square.
-        // If dimensions are unavailable, keep the image to avoid over-filtering.
+        // Keep both portrait and landscape images. Portrait-first mixing is handled by the renderer,
+        // which inserts occasional 3-wide landscape stacks. Do not filter by orientation here.
         $clusterImages = array_values(array_filter($clusterImages, function($img) {
-            if (!($img instanceof Image)) return false;
-            if ($img->w === null || $img->h === null) return true;
-            return $img->h >= $img->w; // keep portrait or square, drop landscape
+            return $img instanceof Image;
         }));
         if (empty($clusterImages)) return [];
 

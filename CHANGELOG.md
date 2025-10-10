@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.7.4] - 2025-10-10
+## [0.7.5] - 2025-10-10
 ### Added
 - Portrait videos now include occasional 3-wide landscape stacks with horizontal slides.
 
