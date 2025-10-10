@@ -149,7 +149,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.7.4</version>
+  <version>0.7.5</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
