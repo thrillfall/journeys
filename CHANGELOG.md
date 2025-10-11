@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.7] - 2025-10-11
+### Changed
+- Tuning: faster slide-in/out with ~2s center pause for 3-wide stacks.
+- Fix: prevent FFmpeg pad error in stack segments by scaling with `force_original_aspect_ratio=decrease` before padding.
+- Docs/version sync.
+
 ## [0.7.5] - 2025-10-10
 ### Added
 - Portrait videos now include occasional 3-wide landscape stacks with horizontal slides.

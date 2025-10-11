@@ -387,7 +387,7 @@ class ClusterVideoRenderer {
 
                 // Prepare each row: scale to width, pad to row height
                 $filterParts[] = sprintf(
-                    '[%1$d:v]scale=%2$d:-1,setsar=1[sc%3$da];' .
+                    '[%1$d:v]scale=%2$d:%4$d:force_original_aspect_ratio=decrease,setsar=1[sc%3$da];' .
                     '[sc%3$da]pad=%2$d:%4$d:(ow-iw)/2:(oh-ih)/2:black[%5$s]',
                     $inputIndex,
                     $width,
@@ -396,7 +396,7 @@ class ClusterVideoRenderer {
                     $p1,
                 );
                 $filterParts[] = sprintf(
-                    '[%1$d:v]scale=%2$d:-1,setsar=1[sc%3$db];' .
+                    '[%1$d:v]scale=%2$d:%4$d:force_original_aspect_ratio=decrease,setsar=1[sc%3$db];' .
                     '[sc%3$db]pad=%2$d:%4$d:(ow-iw)/2:(oh-ih)/2:black[%5$s]',
                     $inputIndex + 1,
                     $width,
@@ -405,7 +405,7 @@ class ClusterVideoRenderer {
                     $p2,
                 );
                 $filterParts[] = sprintf(
-                    '[%1$d:v]scale=%2$d:-1,setsar=1[sc%3$dc];' .
+                    '[%1$d:v]scale=%2$d:%4$d:force_original_aspect_ratio=decrease,setsar=1[sc%3$dc];' .
                     '[sc%3$dc]pad=%2$d:%4$d:(ow-iw)/2:(oh-ih)/2:black[%5$s]',
                     $inputIndex + 2,
                     $width,
