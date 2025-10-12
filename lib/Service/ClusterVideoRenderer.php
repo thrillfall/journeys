@@ -415,8 +415,8 @@ class ClusterVideoRenderer {
                 );
 
                 // Slide expressions with center pause:
-                // Split holdDuration into in, hold(center), out. Aim for 2s hold at center, clamp if too short.
-                $centerHold = min(2.0, max(0.0, $holdDuration - 0.8)); // leave at least ~0.4s for in and out each
+                // Split holdDuration into in, hold(center), out. Aim for 2.25s hold at center, clamp if too short.
+                $centerHold = min(2.25, max(0.0, $holdDuration - 0.8)); // leave at least ~0.4s for in and out each
                 $minSlide = 0.4;
                 $slideTime = max($minSlide * 2, $holdDuration - $centerHold);
                 if ($slideTime < ($minSlide * 2)) {

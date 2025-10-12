@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.8] - 2025-10-12
+### Changed
+- Selection: coverage-first, two-pass selection spreads picks across the whole journey timeline.
+
 ## [0.7.7] - 2025-10-11
 ### Changed
 - Tuning: faster slide-in/out with ~2s center pause for 3-wide stacks.

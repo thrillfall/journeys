@@ -28,43 +28,26 @@ class VideoStorySelector {
         // Ensure sorted by datetaken
         usort($clusterImages, fn($a,$b) => strtotime($a->datetaken) <=> strtotime($b->datetaken));
 
-        $selected = [];
+        // First pass: burst de-duplication across the whole cluster (no early cap)
+        $candidates = [];
         $lastTs = null;
-
         foreach ($clusterImages as $img) {
             $ts = strtotime($img->datetaken);
             if ($ts === false) continue;
-
-            // Burst dedupe: enforce minimum time gap
-            if ($lastTs !== null && ($ts - $lastTs) < $minGapSeconds) {
-                continue;
-            }
-
-            // Placeholder for face preference: accept all for now.
-            // Future: integrate Recognize/system tags to require face presence.
-            $selected[] = $img;
+            if ($lastTs !== null && ($ts - $lastTs) < $minGapSeconds) continue;
+            $candidates[] = $img;
             $lastTs = $ts;
-
-            if (count($selected) >= $maxImages) break;
         }
 
-        // If too few images after burst filtering, fallback to evenly spacing
-        if (count($selected) < min(12, count($clusterImages))) {
-            $target = min(max(12, count($selected)), min(80, count($clusterImages)));
-            $even = $this->evenlySample($clusterImages, $target);
-            // Merge unique by path
-            $seen = [];
-            foreach ($selected as $s) { $seen[$s->path] = true; }
-            foreach ($even as $e) {
-                if (!isset($seen[$e->path])) {
-                    $selected[] = $e;
-                    $seen[$e->path] = true;
-                }
-                if (count($selected) >= $target) break;
-            }
+        // Second pass: evenly sample candidates to spread coverage over the full journey
+        if (!empty($candidates)) {
+            $target = max(1, min($maxImages, count($candidates)));
+            return $this->evenlySample($candidates, $target);
         }
 
-        return $selected;
+        // Fallback: evenly sample from the full cluster if no candidates after burst filtering
+        $fallbackTarget = max(1, min($maxImages, count($clusterImages)));
+        return $this->evenlySample($clusterImages, $fallbackTarget);
     }
 
     /**
