@@ -8,7 +8,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗺️ Location & Time Clustering:** Group images by when and where they were taken
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
-- **🎥 Video Rendering:** Render any Journey album to an MP4 via personal settings or OCC command. Portrait videos use Ken Burns transitions and may include occasional 3‑wide landscape stacks with a short center pause.
+- **🎥 Video Rendering:** Render any Journey album to an MP4 via personal settings or OCC command. Portrait videos use Ken Burns transitions and may include occasional 3‑wide landscape stacks with a short center pause. Background music is sourced at 128kbps and gently fades out at the end.
 
 ## Requirements
 - The Memories app must be installed and enabled.
@@ -45,7 +45,7 @@ php occ journeys:cluster-create-albums admin 24 100 --min-cluster-size=5
   ```
 
 - The rendered file is saved to `Documents/Journeys Movies/` in the user’s storage (or to a custom path when `--output` is provided).
-- Each render stitches in background music by randomly picking **three** tracks from [Mobygratis](https://mobygratis.com) and combining them into the soundtrack.
+- Each render stitches in background music selected from the bundled list (128kbps sources) and applies a short fade‑out at the end of the video.
 
 ### Landscape stacks in portrait videos (>= 0.7.4)
 

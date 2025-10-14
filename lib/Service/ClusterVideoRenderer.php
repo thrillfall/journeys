@@ -153,13 +153,30 @@ class ClusterVideoRenderer {
             $clipDuration,
         );
 
+        // If we have an audio input, append an audio fade-out filter graph and map it by label
+        $audioMapLabel = null;
+        if ($audioInputIndex !== null) {
+            $fadeDur = min(5.0, max(0.5, $totalDurationSeconds * 0.08));
+            $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
+            // Build audio chain: trim to total duration (avoid overrun), reset PTS, apply fade-out
+            $audioLabel = 'afout';
+            $filterGraph .= ';' . sprintf('[%1$d:a:0]atrim=0:%2$s,asetpts=PTS-STARTPTS,afade=t=out:st=%3$s:d=%4$s[%5$s]',
+                $audioInputIndex,
+                $this->formatFloat($totalDurationSeconds),
+                $this->formatFloat($fadeStart),
+                $this->formatFloat($fadeDur),
+                $audioLabel,
+            );
+            $audioMapLabel = '[' . $audioLabel . ']';
+        }
+
         $cmd[] = '-filter_complex';
         $cmd[] = $filterGraph;
         $cmd[] = '-map';
         $cmd[] = $outputLabel;
         if ($audioInputIndex !== null) {
             $cmd[] = '-map';
-            $cmd[] = sprintf('%d:a:0', $audioInputIndex);
+            $cmd[] = $audioMapLabel ?? sprintf('%d:a:0', $audioInputIndex);
             $cmd[] = '-shortest';
             $cmd[] = '-c:a';
             $cmd[] = 'aac';

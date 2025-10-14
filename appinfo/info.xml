@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.7.9 (2025-10-14)</h3>
+    <ul>
+      <li><b>Audio:</b> Updated soundtrack sources to 128kbps and added gentle fade‑out at the end of videos.</li>
+    </ul>
   <h3>0.7.8 (2025-10-12)</h3>
     <ul>
       <li><b>Selection:</b> Coverage-first, two-pass image selection spreads picks across the whole journey.</li>
@@ -153,7 +157,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.7.8</version>
+  <version>0.7.9</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

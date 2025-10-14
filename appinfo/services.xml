@@ -42,6 +42,9 @@
       <argument type="service" id="OCP\IUserSession"/>
       <argument type="service" id="OCA\Journeys\Service\ClusteringManager"/>
       <argument type="service" id="OCP\IConfig"/>
+      <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusterVideoJobRunner"/>
+      <argument type="service" id="OCP\BackgroundJob\IJobList"/>
     </service>
   </services>
 </container>
