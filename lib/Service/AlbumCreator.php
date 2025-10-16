@@ -89,6 +89,7 @@ class AlbumCreator {
      * @return void
      */
     public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null): ?int {
+        $albumName = $this->sanitizeAlbumTitle($albumName);
         // Always attempt to create a new album; do not reuse by name to avoid collisions with manually created albums
         try {
             $album = $this->albumMapper->create($userId, $albumName, $location);
@@ -205,6 +206,16 @@ class AlbumCreator {
         if ($insResult === false) {
             throw new \RuntimeException('Failed to insert tracking row for cluster album');
         }
+    }
+
+    /**
+     * Sanitize album titles to avoid filesystem/path issues in Photos and user folders.
+     * Replaces forward and back slashes with a hyphen and normalizes whitespace.
+     */
+    private function sanitizeAlbumTitle(string $title): string {
+        $title = str_replace(["/", "\\"], ' - ', $title);
+        $title = preg_replace('/\s{2,}/', ' ', $title) ?? $title;
+        return trim($title);
     }
 
     /**

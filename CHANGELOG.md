@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.10] - 2025-10-16
+### Fixed
+- Sanitize album titles before creation to replace slashes and backslashes (e.g., `New Zealand/Aotearoa`) with a safe separator. Prevents album/folder path issues in Photos.
+
 ## [0.7.8] - 2025-10-12
 ### Changed
 - Selection: coverage-first, two-pass selection spreads picks across the whole journey timeline.
