@@ -241,6 +241,71 @@ class PersonalSettingsController extends Controller {
         ]);
     }
 
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    public function renderClusterVideoLandscape(): JSONResponse {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new JSONResponse(['error' => 'No user'], 401);
+        }
+
+        $albumIdParam = $this->request->getParam('albumId');
+        if ($albumIdParam === null || $albumIdParam === '') {
+            return new JSONResponse(['error' => 'Missing albumId'], 400);
+        }
+
+        $albumId = (int)$albumIdParam;
+        if ($albumId <= 0) {
+            return new JSONResponse(['error' => 'Invalid albumId'], 400);
+        }
+
+        $userId = $user->getUID();
+        $minGap = max(0, (int)($this->request->getParam('minGapSeconds') ?? 5));
+        $duration = (float)($this->request->getParam('durationSeconds') ?? 2.5);
+        $width = (int)($this->request->getParam('width') ?? 1920);
+        $fps = (int)($this->request->getParam('fps') ?? 30);
+        $maxImages = (int)($this->request->getParam('maxImages') ?? 80);
+
+        try {
+            $result = $this->clusterVideoJobRunner->renderForAlbumLandscape(
+                $userId,
+                $albumId,
+                $minGap,
+                $duration,
+                $width,
+                $fps,
+                $maxImages > 0 ? $maxImages : 80,
+            );
+        } catch (NoImagesFoundException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], 404);
+        } catch (ClusterNotFoundException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], 404);
+        } catch (\Throwable $e) {
+            $detail = $e->getMessage();
+            if ($this->isFfmpegMissingError($detail)) {
+                return new JSONResponse([
+                    'error' => 'Video rendering is unavailable because ffmpeg is not installed on the server. Please ask your administrator to install ffmpeg and try again.',
+                    'detail' => $detail,
+                ], 500);
+            }
+
+            return new JSONResponse([
+                'error' => 'Failed to render video',
+                'detail' => $detail,
+            ], 500);
+        }
+
+        return new JSONResponse([
+            'success' => true,
+            'path' => $result['path'],
+            'storedInUserFiles' => $result['storedInUserFiles'],
+            'imageCount' => $result['imageCount'],
+            'clusterName' => $result['clusterName'],
+        ]);
+    }
+
     private function isFfmpegMissingError(string $message): bool {
         $normalized = strtolower($message);
         if (str_contains($normalized, 'ffmpeg failed') && str_contains($normalized, 'not found')) {

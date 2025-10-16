@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.11] - 2025-10-16
+### Added
+- Dedicated landscape video renderer with Ken Burns motion and crossfade stitching, separate from portrait pipeline.
+- OCC command: `journeys:render-cluster-video-landscape` and a "Render Landscape" button in the personal settings UI.
+
+### Fixed
+- Rendering would stall after first image in landscape experiments; timing and stitching now mirror portrait (per-image hold+transition, `xfade` offsets, final trim).
+- Progress output now shown during OCC runs via ffmpeg `-progress` parsing (e.g., `Progress: 42%`).
+
 ## [0.7.10] - 2025-10-16
 ### Fixed
 - Sanitize album titles before creation to replace slashes and backslashes (e.g., `New Zealand/Aotearoa`) with a safe separator. Prevents album/folder path issues in Photos.

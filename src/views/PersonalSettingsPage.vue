@@ -69,6 +69,13 @@
 										>
 											{{ renderingClusterId === cluster.id ? t('journeys', 'Rendering...') : t('journeys', 'Render Video') }}
 										</button>
+										<button
+											@click="renderClusterLandscape(cluster)"
+											:disabled="isProcessing || renderingLandscapeId === cluster.id"
+											style="margin-left: 0.5em;"
+										>
+											{{ renderingLandscapeId === cluster.id ? t('journeys', 'Rendering...') : t('journeys', 'Render Landscape') }}
+										</button>
 									</td>
 								</tr>
 							</tbody>
@@ -96,6 +103,7 @@ export default {
 			error: null,
 			clusters: [],
 			renderingClusterId: null,
+			renderingLandscapeId: null,
 			minClusterSize: 3, // default
 			maxTimeGap: 86400, // default (24h)
 			maxDistanceKm: 100.0, // default
@@ -211,6 +219,36 @@ export default {
 				showError(message)
 			} finally {
 				this.renderingClusterId = null
+			}
+		},
+		async renderClusterLandscape(cluster) {
+			if (!cluster || !cluster.id) {
+				return
+			}
+			this.error = null
+			this.renderingLandscapeId = cluster.id
+			try {
+				const resp = await axios.post(generateUrl('/apps/journeys/personal_settings/render_cluster_video_landscape'), {
+					albumId: cluster.id,
+				})
+				if (resp.data && resp.data.success) {
+					const path = resp.data.path
+					const imageCount = resp.data.imageCount
+					const clusterName = resp.data.clusterName || cluster.name
+					showSuccess(this.t('journeys', 'Video rendering started for {name} ({count} images)', {
+						name: clusterName,
+						count: imageCount,
+					}))
+				} else if (resp.data && resp.data.error) {
+					showError(resp.data.error)
+				} else {
+					showError(this.t('journeys', 'Failed to render video.'))
+				}
+			} catch (e) {
+				const message = e?.response?.data?.error || e?.message || this.t('journeys', 'Failed to render video.')
+				showError(message)
+			} finally {
+				this.renderingLandscapeId = null
 			}
 		},
 		formatDateRange(range) {

@@ -31,5 +31,10 @@ return [
             'url' => '/personal_settings/render_cluster_video',
             'verb' => 'POST',
         ],
+        [
+            'name' => 'personal_settings#renderClusterVideoLandscape',
+            'url' => '/personal_settings/render_cluster_video_landscape',
+            'verb' => 'POST',
+        ],
     ],
 ];

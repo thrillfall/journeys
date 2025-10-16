@@ -10,6 +10,7 @@ class ClusterVideoJobRunner {
         private ClusterVideoImageProvider $imageProvider,
         private ClusterVideoFilePreparer $filePreparer,
         private ClusterVideoRenderer $videoRenderer,
+        private ClusterVideoRendererLandscape $videoRendererLandscape,
     ) {}
 
     /**
@@ -63,6 +64,69 @@ class ClusterVideoJobRunner {
 
         try {
             $result = $this->videoRenderer->render(
+                $user,
+                $outputPath,
+                $durationPerImage,
+                $width,
+                $fps,
+                $workingDir,
+                $filePaths,
+                $outputHandler,
+                $preferredFileName,
+            );
+        } finally {
+            $this->filePreparer->cleanup($workingDir);
+        }
+
+        if (!is_array($result) || !isset($result['path'])) {
+            throw new \RuntimeException('Video rendering did not return a path.');
+        }
+
+        return [
+            'path' => (string)$result['path'],
+            'storedInUserFiles' => (bool)($result['storedInUserFiles'] ?? false),
+            'imageCount' => $copied,
+            'clusterName' => $selection->clusterName,
+            'clusterIndex' => $selection->clusterIndex,
+        ];
+    }
+
+    /**
+     * @return array{path:string,storedInUserFiles:bool,imageCount:int,clusterName:string,clusterIndex:int}
+     */
+    public function renderForAlbumLandscape(
+        string $user,
+        int $albumId,
+        int $minGapSeconds = 5,
+        float $durationPerImage = 2.5,
+        int $width = 1920,
+        int $fps = 30,
+        int $maxImages = 80,
+        ?string $outputPath = null,
+        ?callable $outputHandler = null,
+    ): array {
+        $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, $albumId, $minGapSeconds, $maxImages);
+
+        if (empty($selection->selectedImages)) {
+            throw new NoImagesFoundException('No suitable images found for this cluster.');
+        }
+
+        $preparation = $this->filePreparer->prepare($user, $selection->selectedImages);
+        $workingDir = $preparation['workingDir'] ?? null;
+        $filePaths = $preparation['files'] ?? [];
+        $copied = (int)($preparation['copied'] ?? count($filePaths));
+
+        if ($workingDir === null || $workingDir === '' || empty($filePaths) || $copied === 0) {
+            if ($workingDir !== null && $workingDir !== '') {
+                $this->filePreparer->cleanup($workingDir);
+            }
+            throw new NoImagesFoundException('No readable files to render.');
+        }
+
+        $preferredFileName = $this->buildPreferredFileName($selection) . ' (landscape)';
+
+        try {
+            $result = $this->videoRendererLandscape->render(
                 $user,
                 $outputPath,
                 $durationPerImage,

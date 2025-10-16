@@ -157,7 +157,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.7.10</version>
+  <version>0.7.11</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
@@ -173,6 +173,7 @@ Album titles are generated from the **resolved place name** and the **date range
     <command>OCA\Journeys\Command\RemoveAllAlbumsCommand</command>
     <command>OCA\Journeys\Command\ShowLatestClusterEndCommand</command>
     <command>OCA\Journeys\Command\RenderClusterVideoCommand</command>
+    <command>OCA\Journeys\Command\RenderClusterVideoLandscapeCommand</command>
     <command>OCA\Journeys\Command\ListClustersCommand</command>
   </commands>
   <background-jobs>
