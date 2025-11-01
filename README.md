@@ -9,6 +9,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
 - **🎥 Video Rendering:** Render any Journey album to an MP4 via personal settings or OCC command. Portrait videos use Ken Burns transitions and may include occasional 3‑wide landscape stacks with a short center pause. Background music is sourced at 128kbps and gently fades out at the end.
+ - **⚡ Auto-generation (cron-only, >= 0.8.0):** New away-from-home albums found by the daily cron job can automatically trigger video rendering. Enable this in personal settings and choose the orientation (portrait/landscape). Rendering runs as a separate Nextcloud background job so clustering is not blocked.
 
 ## Requirements
 - The Memories app must be installed and enabled.
@@ -46,6 +47,12 @@ php occ journeys:cluster-create-albums admin 24 100 --min-cluster-size=5
 
 - The rendered file is saved to `Documents/Journeys Movies/` in the user’s storage (or to a custom path when `--output` is provided).
 - Each render stitches in background music selected from the bundled list (128kbps sources) and applies a short fade‑out at the end of the video.
+
+### Automatic rendering (cron-only, >= 0.8.0)
+
+- When enabled in personal settings, the daily cron job will enqueue a render for each newly created away-from-home album.
+- Orientation honors the user preference (portrait/landscape).
+- Rendering is performed by a separate Nextcloud background job.
 
 ### Landscape stacks in portrait videos (>= 0.7.4)
 

@@ -11,15 +11,6 @@ use Psr\Log\LoggerInterface;
 
 class ClusteringManager {
 
-    /**
-     * Delegates home location detection to HomeLocationDetector.
-     * @param Image[] $images
-     * @return array|null
-     */
-    public function detectHomeLocation(array $images): ?array {
-        return $this->homeLocationDetector->detect($images);
-    }
-
     private $imageFetcher;
     private $clusterer;
     private $albumCreator;

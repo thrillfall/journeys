@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2025-11-01
+### Added
+- Automatic video generation for new away-from-home clusters during the daily cron job.
+- Rendering runs as a separate Nextcloud background job; clustering no longer blocks on rendering.
+- Personal Settings: toggle to auto-generate videos and choose orientation (portrait/landscape).
+- Home name (from stored JSON) is displayed next to the home coordinate fields.
+
+### Changed
+- Home-aware is default; removed the "Enable home-aware clustering" checkbox from the UI.
+
+### Notes
+- Auto-generation is cron-only; UI and OCC-triggered clustering do not auto-render.
+
 ## [0.7.11] - 2025-10-16
 ### Added
 - Dedicated landscape video renderer with Ken Burns motion and crossfade stitching, separate from portrait pipeline.
