@@ -6,6 +6,7 @@ use OCA\Journeys\Service\HomeLocationDetector;
 use OCA\Journeys\Service\HomeService;
 use OCP\Notification\IManager as NotificationManager;
 use OCP\IURLGenerator;
+use OCP\IConfig;
 use Psr\Log\LoggerInterface;
 
 class ClusteringManager {
@@ -28,8 +29,11 @@ class ClusteringManager {
     private NotificationManager $notificationManager;
     private LoggerInterface $logger;
     private IURLGenerator $urlGenerator;
+    private ClusterVideoJobRunner $videoJobRunner;
+    private VideoRenderJobScheduler $videoScheduler;
+    private IConfig $config;
 
-    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator) {
+    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator, ClusterVideoJobRunner $videoJobRunner, VideoRenderJobScheduler $videoScheduler, IConfig $config) {
         $this->imageFetcher = $imageFetcher;
         $this->clusterer = $clusterer;
         $this->albumCreator = $albumCreator;
@@ -39,6 +43,9 @@ class ClusteringManager {
         $this->notificationManager = $notificationManager;
         $this->logger = $logger;
         $this->urlGenerator = $urlGenerator;
+        $this->videoJobRunner = $videoJobRunner;
+        $this->videoScheduler = $videoScheduler;
+        $this->config = $config;
     }
 
     /**
@@ -46,7 +53,7 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2): array {
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false): array {
         // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
         $purgedAlbums = 0;
         if ($fromScratch) {
@@ -170,6 +177,27 @@ class ClusteringManager {
                 $albumName = sprintf('Journey %d %s (%s)', $i+1, $monthYear, $range);
             }
             $albumId = $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd);
+            // Auto-generate video for far-away clusters only when triggered by cron
+            if ($cronContext && $albumId !== null && $effectiveHomeAware && $home !== null) {
+                try {
+                    $autoGen = (bool)((int)$this->config->getUserValue($userId, 'journeys', 'autoGenerateVideos', 0));
+                    if ($autoGen) {
+                        $orientation = $this->config->getUserValue($userId, 'journeys', 'videoOrientation', 'portrait');
+                        try {
+                            $this->videoScheduler->enqueueIfAway($userId, (int)$albumId, $cluster, $home, $orientation === 'landscape' ? 'landscape' : 'portrait');
+                        } catch (\Throwable $e) {
+                            // Log but do not interrupt album creation flow
+                            try {
+                                $this->logger->warning('Journeys: enqueue video render job failed', [
+                                    'exception' => $e->getMessage(),
+                                ]);
+                            } catch (\Throwable $ignored) {}
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // ignore configuration errors
+                }
+            }
             $clusterSummaries[] = [
                 'albumName' => $albumName,
                 'imageCount' => count($cluster),
@@ -245,4 +273,6 @@ class ClusteringManager {
         }
         return $msg;
     }
+
+    // away-cluster detection moved to VideoRenderJobScheduler
 }

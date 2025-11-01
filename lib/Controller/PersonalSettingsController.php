@@ -45,7 +45,7 @@ class PersonalSettingsController extends Controller {
         $minClusterSize = (int)($this->request->getParam('minClusterSize') ?? 3);
         $maxTimeGap = (int)($this->request->getParam('maxTimeGap') ?? 86400);
         $maxDistanceKm = (float)($this->request->getParam('maxDistanceKm') ?? 100.0);
-        $homeAware = filter_var($this->request->getParam('homeAwareEnabled') ?? false, FILTER_VALIDATE_BOOLEAN);
+        $homeAware = true;
         $homeLat = $this->request->getParam('homeLat');
         $homeLon = $this->request->getParam('homeLon');
         $homeRadiusKm = $this->request->getParam('homeRadiusKm');
@@ -61,10 +61,28 @@ class PersonalSettingsController extends Controller {
         $this->userConfig->setUserValue($userId, 'journeys', 'minClusterSize', $minClusterSize);
         $this->userConfig->setUserValue($userId, 'journeys', 'maxTimeGap', $maxTimeGap);
         $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
-        $this->userConfig->setUserValue($userId, 'journeys', 'homeAwareEnabled', $homeAware ? '1' : '0');
+        // home-aware is always enabled by default; no flag persisted
+        $autoGenerateVideos = filter_var($this->request->getParam('autoGenerateVideos') ?? false, FILTER_VALIDATE_BOOLEAN);
+        $videoOrientation = (string)($this->request->getParam('videoOrientation') ?? 'portrait');
+        $videoOrientation = in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait';
+        $this->userConfig->setUserValue($userId, 'journeys', 'autoGenerateVideos', $autoGenerateVideos ? '1' : '0');
+        $this->userConfig->setUserValue($userId, 'journeys', 'videoOrientation', $videoOrientation);
         if ($homeLat !== null && $homeLon !== null) {
             $this->userConfig->setUserValue($userId, 'journeys', 'homeLat', (string)(float)$homeLat);
             $this->userConfig->setUserValue($userId, 'journeys', 'homeLon', (string)(float)$homeLon);
+            // also persist combined JSON for compatibility with HomeService consumers
+            try {
+                $payload = json_encode([
+                    'lat' => (float)$homeLat,
+                    'lon' => (float)$homeLon,
+                    'radiusKm' => $homeRadiusKm !== null ? (float)$homeRadiusKm : 50.0,
+                ]);
+                if ($payload !== false) {
+                    $this->userConfig->setUserValue($userId, 'journeys', 'home', $payload);
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
         }
         if ($homeRadiusKm !== null) {
             $this->userConfig->setUserValue($userId, 'journeys', 'homeRadiusKm', (string)(float)$homeRadiusKm);
@@ -93,10 +111,28 @@ class PersonalSettingsController extends Controller {
             $this->userConfig->setUserValue($userId, 'journeys', 'minClusterSize', $minClusterSize);
             $this->userConfig->setUserValue($userId, 'journeys', 'maxTimeGap', $maxTimeGap);
             $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
-            $this->userConfig->setUserValue($userId, 'journeys', 'homeAwareEnabled', $homeAware ? '1' : '0');
+            // home-aware is always enabled by default; no flag persisted
+            $autoGenerateVideos = filter_var($this->request->getParam('autoGenerateVideos') ?? false, FILTER_VALIDATE_BOOLEAN);
+            $videoOrientation = (string)($this->request->getParam('videoOrientation') ?? 'portrait');
+            $videoOrientation = in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait';
+            $this->userConfig->setUserValue($userId, 'journeys', 'autoGenerateVideos', $autoGenerateVideos ? '1' : '0');
+            $this->userConfig->setUserValue($userId, 'journeys', 'videoOrientation', $videoOrientation);
             if ($homeLat !== null && $homeLon !== null) {
                 $this->userConfig->setUserValue($userId, 'journeys', 'homeLat', (string)(float)$homeLat);
                 $this->userConfig->setUserValue($userId, 'journeys', 'homeLon', (string)(float)$homeLon);
+                // also persist combined JSON for compatibility with HomeService consumers
+                try {
+                    $payload = json_encode([
+                        'lat' => (float)$homeLat,
+                        'lon' => (float)$homeLon,
+                        'radiusKm' => $homeRadiusKm !== null ? (float)$homeRadiusKm : 50.0,
+                    ]);
+                    if ($payload !== false) {
+                        $this->userConfig->setUserValue($userId, 'journeys', 'home', $payload);
+                    }
+                } catch (\Throwable $e) {
+                    // ignore
+                }
             }
             if ($homeRadiusKm !== null) {
                 $this->userConfig->setUserValue($userId, 'journeys', 'homeRadiusKm', (string)(float)$homeRadiusKm);
@@ -119,10 +155,46 @@ class PersonalSettingsController extends Controller {
         $minClusterSize = (int)($this->userConfig->getUserValue($userId, 'journeys', 'minClusterSize', 3));
         $maxTimeGap = (int)($this->userConfig->getUserValue($userId, 'journeys', 'maxTimeGap', 86400));
         $maxDistanceKm = (float)($this->userConfig->getUserValue($userId, 'journeys', 'maxDistanceKm', 100.0));
-        $homeAware = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'homeAwareEnabled', 0));
+        $homeAware = true;
         $homeLat = $this->userConfig->getUserValue($userId, 'journeys', 'homeLat', null);
         $homeLon = $this->userConfig->getUserValue($userId, 'journeys', 'homeLon', null);
         $homeRadiusKm = $this->userConfig->getUserValue($userId, 'journeys', 'homeRadiusKm', 50.0);
+        $homeName = null;
+        // fallback to combined 'home' JSON if individual keys are not set
+        if (($homeLat === null || $homeLat === '') || ($homeLon === null || $homeLon === '')) {
+            try {
+                $raw = $this->userConfig->getUserValue($userId, 'journeys', 'home', '');
+                if (is_string($raw) && $raw !== '') {
+                    $data = json_decode($raw, true);
+                    if (is_array($data) && isset($data['lat'], $data['lon'])) {
+                        $homeLat = (string)$data['lat'];
+                        $homeLon = (string)$data['lon'];
+                        if (!isset($homeRadiusKm) || $homeRadiusKm === null || $homeRadiusKm === '' || (float)$homeRadiusKm <= 0) {
+                            $homeRadiusKm = isset($data['radiusKm']) ? (float)$data['radiusKm'] : 50.0;
+                        }
+                        if (isset($data['name']) && is_string($data['name']) && $data['name'] !== '') {
+                            $homeName = $data['name'];
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+        if ($homeName === null) {
+            try {
+                $raw2 = $this->userConfig->getUserValue($userId, 'journeys', 'home', '');
+                if (is_string($raw2) && $raw2 !== '') {
+                    $data2 = json_decode($raw2, true);
+                    if (is_array($data2) && isset($data2['name']) && is_string($data2['name']) && $data2['name'] !== '') {
+                        $homeName = $data2['name'];
+                    }
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+        $autoGenerateVideos = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'autoGenerateVideos', 0));
+        $videoOrientation = (string)$this->userConfig->getUserValue($userId, 'journeys', 'videoOrientation', 'portrait');
         return new JSONResponse([
             'minClusterSize' => $minClusterSize,
             'maxTimeGap' => $maxTimeGap,
@@ -131,6 +203,9 @@ class PersonalSettingsController extends Controller {
             'homeLat' => $homeLat !== '' ? $homeLat : null,
             'homeLon' => $homeLon !== '' ? $homeLon : null,
             'homeRadiusKm' => (float)$homeRadiusKm,
+            'homeName' => $homeName,
+            'autoGenerateVideos' => $autoGenerateVideos,
+            'videoOrientation' => in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait',
         ]);
     }
 

@@ -17,24 +17,33 @@
 				</div>
 				<div class="settings-field">
 					<label>
-						<input type="checkbox" v-model="homeAwareEnabled" />
-						{{ t('journeys', 'Enable home-aware clustering') }}
+						<input type="checkbox" v-model="autoGenerateVideos" />
+						{{ t('journeys', 'Auto-generate videos for away clusters') }}
 					</label>
 				</div>
-				<template v-if="homeAwareEnabled">
-					<div class="settings-field">
-						<label :for="'homeLat'">{{ t('journeys', 'Home latitude') }}</label>
-						<input id="homeLat" type="number" step="0.000001" v-model.number="homeLat" />
-					</div>
-					<div class="settings-field">
-						<label :for="'homeLon'">{{ t('journeys', 'Home longitude') }}</label>
-						<input id="homeLon" type="number" step="0.000001" v-model.number="homeLon" />
-					</div>
-					<div class="settings-field">
-						<label :for="'homeRadiusKm'">{{ t('journeys', 'Home radius (km)') }}</label>
-						<input id="homeRadiusKm" type="number" min="1" step="1" v-model.number="homeRadiusKm" />
-					</div>
-				</template>
+				<div class="settings-field">
+					<label :for="'videoOrientation'">{{ t('journeys', 'Video orientation') }}</label>
+					<select id="videoOrientation" v-model="videoOrientation">
+						<option value="portrait">{{ t('journeys', 'Portrait') }}</option>
+						<option value="landscape">{{ t('journeys', 'Landscape') }}</option>
+					</select>
+				</div>
+				<div class="settings-field">
+					<label :for="'homeLat'">{{ t('journeys', 'Home latitude') }}</label>
+					<input id="homeLat" type="number" step="0.000001" v-model.number="homeLat" />
+				</div>
+				<div class="settings-field">
+					<label :for="'homeLon'">{{ t('journeys', 'Home longitude') }}</label>
+					<input id="homeLon" type="number" step="0.000001" v-model.number="homeLon" />
+				</div>
+				<div class="settings-field">
+					<label :for="'homeRadiusKm'">{{ t('journeys', 'Home radius (km)') }}</label>
+					<input id="homeRadiusKm" type="number" min="1" step="1" v-model.number="homeRadiusKm" />
+				</div>
+				<div class="settings-field" v-if="homeName">
+					<label>{{ t('journeys', 'Home location') }}</label>
+					<div>{{ homeName }}</div>
+				</div>
 				<div class="settings-buttons">
 					<button @click="saveSettings" :disabled="isProcessing">
 						{{ t('journeys', 'Save Settings') }}
@@ -107,10 +116,12 @@ export default {
 			minClusterSize: 3, // default
 			maxTimeGap: 86400, // default (24h)
 			maxDistanceKm: 100.0, // default
-			homeAwareEnabled: false,
 			homeLat: null,
 			homeLon: null,
 			homeRadiusKm: 50,
+			homeName: null,
+			autoGenerateVideos: false,
+			videoOrientation: 'portrait',
 		}
 	},
 	async mounted() {
@@ -120,10 +131,12 @@ export default {
 				this.minClusterSize = settingsResp.data.minClusterSize
 				this.maxTimeGap = settingsResp.data.maxTimeGap
 				this.maxDistanceKm = settingsResp.data.maxDistanceKm
-				this.homeAwareEnabled = !!settingsResp.data.homeAwareEnabled
 				this.homeLat = settingsResp.data.homeLat
 				this.homeLon = settingsResp.data.homeLon
 				this.homeRadiusKm = settingsResp.data.homeRadiusKm
+				this.homeName = settingsResp.data.homeName || null
+				this.autoGenerateVideos = !!settingsResp.data.autoGenerateVideos
+				this.videoOrientation = settingsResp.data.videoOrientation || 'portrait'
 			}
 		} catch (e) {
 			// ignore if not available
@@ -144,10 +157,11 @@ export default {
 					minClusterSize: this.minClusterSize,
 					maxTimeGap: this.maxTimeGap,
 					maxDistanceKm: this.maxDistanceKm,
-					homeAwareEnabled: this.homeAwareEnabled,
 					homeLat: this.homeLat,
 					homeLon: this.homeLon,
 					homeRadiusKm: this.homeRadiusKm,
+					autoGenerateVideos: this.autoGenerateVideos,
+					videoOrientation: this.videoOrientation,
 				})
 				showSuccess(this.t('journeys', 'Settings saved.'))
 			} catch (e) {
@@ -164,10 +178,11 @@ export default {
 				minClusterSize: this.minClusterSize,
 				maxTimeGap: this.maxTimeGap,
 				maxDistanceKm: this.maxDistanceKm,
-				homeAwareEnabled: this.homeAwareEnabled,
 				homeLat: this.homeLat,
 				homeLon: this.homeLon,
 				homeRadiusKm: this.homeRadiusKm,
+				autoGenerateVideos: this.autoGenerateVideos,
+				videoOrientation: this.videoOrientation,
 			})
 				showSuccess(this.t('journeys', 'Clustering started successfully.'))
 				this.lastRun = resp.data.lastRun || new Date().toISOString()

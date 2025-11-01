@@ -28,7 +28,7 @@ class DailyClusteringJob extends TimedJob {
             try {
                 $uid = method_exists($user, 'getUID') ? $user->getUID() : (string)$user->getUID();
                 // Home-aware by default; let ClusteringManager detect home automatically per user
-                $result = $this->clusteringManager->clusterForUser($uid, 24 * 3600, 50.0, 3, true, null, null, false, 5);
+                $result = $this->clusteringManager->clusterForUser($uid, 24 * 3600, 50.0, 3, true, null, null, false, 5, true);
                 if (isset($result['error'])) {
                     $this->logger->warning('Journeys daily job: clustering error', [ 'user' => $uid, 'error' => $result['error'] ]);
                 } else {

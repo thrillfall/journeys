@@ -1,3 +1,6 @@
+    <service id="OCA\Journeys\Service\VideoRenderJobScheduler">
+      <argument type="service" id="OCP\BackgroundJob\IJobList"/>
+    </service>
 <?xml version="1.0" ?>
 <container xmlns="http://symfony.com/schema/dic/services"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -23,6 +26,20 @@
       <argument type="service" id="OCP\Files\IRootFolder"/>
       <argument type="service" id="OCA\Journeys\Service\ClusterVideoMusicProvider"/>
     </service>
+    <service id="OCA\Journeys\Service\ClusterVideoRendererLandscape">
+      <argument type="service" id="OCP\Files\IRootFolder"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusterVideoMusicProvider"/>
+    </service>
+    <service id="OCA\Journeys\Service\ClusterVideoJobRunner">
+      <argument type="service" id="OCA\Journeys\Service\ClusterVideoImageProvider"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusterVideoFilePreparer"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusterVideoRenderer"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusterVideoRendererLandscape"/>
+    </service>
+    <service id="OCA\Journeys\Service\HomeService">
+      <argument type="service" id="OCP\IConfig"/>
+      <argument type="service" id="OCA\Journeys\Service\HomeLocationDetector"/>
+    </service>
     <service id="OCA\Journeys\Service\SimplePlaceResolver">
       <argument type="service" id="OCP\IDBConnection"/>
     </service>
@@ -35,6 +52,14 @@
       <argument type="service" id="OCA\Journeys\Service\Clusterer"/>
       <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
       <argument type="service" id="OCA\Journeys\Service\ClusterLocationResolver"/>
+      <argument type="service" id="OCA\Journeys\Service\HomeLocationDetector"/>
+      <argument type="service" id="OCA\Journeys\Service\HomeService"/>
+      <argument type="service" id="OCP\Notification\IManager"/>
+      <argument type="service" id="Psr\Log\LoggerInterface"/>
+      <argument type="service" id="OCP\IURLGenerator"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusterVideoJobRunner"/>
+      <argument type="service" id="OCA\Journeys\Service\VideoRenderJobScheduler"/>
+      <argument type="service" id="OCP\IConfig"/>
     </service>
     <service id="OCA\Journeys\Controller\PersonalSettingsController">
       <argument>%app_id%</argument>
@@ -44,7 +69,6 @@
       <argument type="service" id="OCP\IConfig"/>
       <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
       <argument type="service" id="OCA\Journeys\Service\ClusterVideoJobRunner"/>
-      <argument type="service" id="OCP\BackgroundJob\IJobList"/>
     </service>
   </services>
 </container>
