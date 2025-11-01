@@ -229,6 +229,20 @@ class PersonalSettingsController extends Controller {
 
         $userId = $user->getUID();
         $tracked = $this->albumCreator->getTrackedClusters($userId);
+        // Sort latest-first by end_dt (fallback start_dt, then id)
+        usort($tracked, function(array $a, array $b) {
+            $aEnd = isset($a['end_dt']) ? strtotime((string)$a['end_dt']) : 0;
+            $bEnd = isset($b['end_dt']) ? strtotime((string)$b['end_dt']) : 0;
+            if ($aEnd !== $bEnd) {
+                return $bEnd <=> $aEnd;
+            }
+            $aStart = isset($a['start_dt']) ? strtotime((string)$a['start_dt']) : 0;
+            $bStart = isset($b['start_dt']) ? strtotime((string)$b['start_dt']) : 0;
+            if ($aStart !== $bStart) {
+                return $bStart <=> $aStart;
+            }
+            return (int)($b['album_id'] ?? 0) <=> (int)($a['album_id'] ?? 0);
+        });
 
         $clusters = array_map(function (array $cluster) use ($userId) {
             $imageCount = 0;

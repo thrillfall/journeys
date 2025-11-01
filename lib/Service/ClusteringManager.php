@@ -203,7 +203,8 @@ class ClusteringManager {
         return [
             'clustersCreated' => $created,
             'lastRun' => date('c'),
-            'clusters' => $clusterSummaries,
+            // Latest-first for backend UI
+            'clusters' => array_reverse($clusterSummaries),
             'purgedAlbums' => $purgedAlbums
         ];
     }
