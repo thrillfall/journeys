@@ -109,13 +109,15 @@ class AlbumCreator {
             return null;
         }
         foreach ($images as $image) {
-            $fileId = $this->getFileIdForImage($userId, $image);
-            if ($fileId !== null) {
-                try {
-                    $this->albumMapper->addFile($album->getId(), $fileId, $userId);
-                } catch (\Throwable $e) {
-                    // Ignore if image is already in album or other non-fatal errors
-                }
+            // Use direct fileid from Memories index for all storage sources
+            $fileId = isset($image->fileid) ? (int)$image->fileid : null;
+            if ($fileId === null || $fileId <= 0) {
+                continue;
+            }
+            try {
+                $this->albumMapper->addFile($album->getId(), $fileId, $userId);
+            } catch (\Throwable $e) {
+                // Ignore if image is already in album or other non-fatal errors
             }
         }
         // Track this album as clusterer-created for reliable purge and incremental boundary detection

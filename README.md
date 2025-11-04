@@ -19,7 +19,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 ## 🚀 OCC Command Usage
 
 ```sh
-php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--from-scratch]
+php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--from-scratch] [--include-group-folders]
 ```
 
 **Arguments:**
@@ -27,6 +27,7 @@ php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--fr
 - `maxTimeGap` — Max allowed time gap in hours (optional, default: 24)
 - `maxDistanceKm` — Maximum allowed distance in kilometers between consecutive images in a cluster (default: 50.0)
 - `--min-cluster-size` — Minimum images per cluster (optional, default: 5)
+ - `--include-group-folders` — Include photos from Group Folders and other mounts in clustering (optional, default: off)
 
 **How time gap influences clustering:**  
 The `maxTimeGap` defines the largest allowed time (in hours) between two consecutive images for them to be grouped into the same journey. If the gap between two images exceeds this value, a new journey (album) is started. Smaller values create more, shorter journeys; larger values group more images together.

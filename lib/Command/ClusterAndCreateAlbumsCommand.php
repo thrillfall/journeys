@@ -61,7 +61,8 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addOption('near-distance-km', null, InputOption::VALUE_REQUIRED, 'Near-home max distance between consecutive photos in km (default: 3)', 3)
             ->addOption('away-time-gap', null, InputOption::VALUE_REQUIRED, 'Away-from-home max time gap in hours (default: 36)', 36)
             ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (default: 50)', 50)
-            ->addOption('recent-cutoff-days', null, InputOption::VALUE_REQUIRED, 'Skip clusters whose last image is within the past N days (default: 2, 0 disables)', 2);
+            ->addOption('recent-cutoff-days', null, InputOption::VALUE_REQUIRED, 'Skip clusters whose last image is within the past N days (default: 2, 0 disables)', 2)
+            ->addOption('include-group-folders', null, InputOption::VALUE_NONE, 'Include images from Group Folders and other mounts');
     }
 
 
@@ -84,6 +85,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $awayDistanceKm = (float)$input->getOption('away-distance-km');
         $fromScratch = (bool)$input->getOption('from-scratch');
         $recentCutoffDays = max(0, (int)$input->getOption('recent-cutoff-days'));
+        $includeGroupFolders = (bool)$input->getOption('include-group-folders');
 
         $home = null;
         $thresholds = null;
@@ -99,7 +101,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
                 $output->writeln(sprintf('<info>Using provided home:</info> lat=%.5f, lon=%.5f, radius=%.1f km', $home['lat'], $home['lon'], $home['radiusKm']));
             } else {
                 // Resolve via HomeService and inform user about the source
-                $images = $this->imageFetcher->fetchImagesForUser($user);
+                $images = $this->imageFetcher->fetchImagesForUser($user, $includeGroupFolders);
                 $resolved = $this->homeService->resolveHome($user, $images, null, (float)$homeRadius, true);
                 $home = $resolved['home'];
                 if ($home !== null) {
@@ -125,7 +127,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
         }
 
         // Delegate clustering and album creation to ClusteringManager (home-aware optional)
-        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds, $fromScratch, $recentCutoffDays);
+        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds, $fromScratch, $recentCutoffDays, false, $includeGroupFolders);
 
         if (isset($result['error'])) {
             $output->writeln('<error>' . $result['error'] . '</error>');

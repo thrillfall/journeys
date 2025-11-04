@@ -50,6 +50,7 @@ class PersonalSettingsController extends Controller {
         $homeLon = $this->request->getParam('homeLon');
         $homeRadiusKm = $this->request->getParam('homeRadiusKm');
         $home = null;
+        $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
         if ($homeAware && $homeLat !== null && $homeLon !== null) {
             $home = [
                 'lat' => (float)$homeLat,
@@ -61,6 +62,7 @@ class PersonalSettingsController extends Controller {
         $this->userConfig->setUserValue($userId, 'journeys', 'minClusterSize', $minClusterSize);
         $this->userConfig->setUserValue($userId, 'journeys', 'maxTimeGap', $maxTimeGap);
         $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
+        $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
         // home-aware is always enabled by default; no flag persisted
         $autoGenerateVideos = filter_var($this->request->getParam('autoGenerateVideos') ?? false, FILTER_VALIDATE_BOOLEAN);
         $videoOrientation = (string)($this->request->getParam('videoOrientation') ?? 'portrait');
@@ -87,7 +89,7 @@ class PersonalSettingsController extends Controller {
         if ($homeRadiusKm !== null) {
             $this->userConfig->setUserValue($userId, 'journeys', 'homeRadiusKm', (string)(float)$homeRadiusKm);
         }
-        $result = $this->clusteringManager->clusterForUser($userId, $maxTimeGap, $maxDistanceKm, $minClusterSize, $homeAware, $home, null);
+        $result = $this->clusteringManager->clusterForUser($userId, $maxTimeGap, $maxDistanceKm, $minClusterSize, $homeAware, $home, null, false, 2, false, $includeGroupFolders);
         return new JSONResponse($result);
     }
 
@@ -111,6 +113,8 @@ class PersonalSettingsController extends Controller {
             $this->userConfig->setUserValue($userId, 'journeys', 'minClusterSize', $minClusterSize);
             $this->userConfig->setUserValue($userId, 'journeys', 'maxTimeGap', $maxTimeGap);
             $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
+            $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
+            $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
             // home-aware is always enabled by default; no flag persisted
             $autoGenerateVideos = filter_var($this->request->getParam('autoGenerateVideos') ?? false, FILTER_VALIDATE_BOOLEAN);
             $videoOrientation = (string)($this->request->getParam('videoOrientation') ?? 'portrait');
@@ -160,6 +164,7 @@ class PersonalSettingsController extends Controller {
         $homeLon = $this->userConfig->getUserValue($userId, 'journeys', 'homeLon', null);
         $homeRadiusKm = $this->userConfig->getUserValue($userId, 'journeys', 'homeRadiusKm', 50.0);
         $homeName = null;
+        $includeGroupFolders = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeGroupFolders', 0));
         // fallback to combined 'home' JSON if individual keys are not set
         if (($homeLat === null || $homeLat === '') || ($homeLon === null || $homeLon === '')) {
             try {
@@ -199,6 +204,7 @@ class PersonalSettingsController extends Controller {
             'minClusterSize' => $minClusterSize,
             'maxTimeGap' => $maxTimeGap,
             'maxDistanceKm' => $maxDistanceKm,
+            'includeGroupFolders' => $includeGroupFolders,
             'homeAwareEnabled' => $homeAware,
             'homeLat' => $homeLat !== '' ? $homeLat : null,
             'homeLon' => $homeLon !== '' ? $homeLon : null,

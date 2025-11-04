@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.2] - 2025-11-04
+### Added
+- Optional inclusion of Group Folders and other mounts in clustering.
+  - Personal Settings: new "Include Group Folders" toggle (default: off).
+  - OCC: `--include-group-folders` flag.
+
+### Changed
+- Album assignment now uses `fileid` (mount-agnostic) instead of path, fixing empty albums when clustering images from Group Folders or other mounts.
+
 ## [0.8.0] - 2025-11-01
 ### Added
 - Automatic video generation for new away-from-home clusters during the daily cron job.

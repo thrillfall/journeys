@@ -31,6 +31,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.8.2 (2025-11-04)</h3>
+    <ul>
+      <li><b>Group Folders (optional):</b> Added UI toggle and <code>--include-group-folders</code> CLI flag to include photos from Group Folders and other mounts in clustering (default: off).</li>
+      <li><b>Album assignment:</b> Albums now add photos by <code>fileid</code> (mount-agnostic) instead of path, fixing empty albums when clustering Group Folder images.</li>
+    </ul>
   <h3>0.8.1 (2025-11-01)</h3>
     <ul>
       <li>Latest-first cluster order in settings; minor UI polish; internal job scheduling refactor.</li>
@@ -161,7 +166,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.8.1</version>
+  <version>0.8.2</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

@@ -17,6 +17,12 @@
 				</div>
 				<div class="settings-field">
 					<label>
+						<input type="checkbox" v-model="includeGroupFolders" />
+						{{ t('journeys', 'Include Group Folders') }}
+					</label>
+				</div>
+				<div class="settings-field">
+					<label>
 						<input type="checkbox" v-model="autoGenerateVideos" />
 						{{ t('journeys', 'Auto-generate videos for away clusters') }}
 					</label>
@@ -120,6 +126,7 @@ export default {
 			homeLon: null,
 			homeRadiusKm: 50,
 			homeName: null,
+			includeGroupFolders: false,
 			autoGenerateVideos: false,
 			videoOrientation: 'portrait',
 		}
@@ -131,6 +138,7 @@ export default {
 				this.minClusterSize = settingsResp.data.minClusterSize
 				this.maxTimeGap = settingsResp.data.maxTimeGap
 				this.maxDistanceKm = settingsResp.data.maxDistanceKm
+				this.includeGroupFolders = !!settingsResp.data.includeGroupFolders
 				this.homeLat = settingsResp.data.homeLat
 				this.homeLon = settingsResp.data.homeLon
 				this.homeRadiusKm = settingsResp.data.homeRadiusKm
@@ -157,6 +165,7 @@ export default {
 					minClusterSize: this.minClusterSize,
 					maxTimeGap: this.maxTimeGap,
 					maxDistanceKm: this.maxDistanceKm,
+					includeGroupFolders: this.includeGroupFolders,
 					homeLat: this.homeLat,
 					homeLon: this.homeLon,
 					homeRadiusKm: this.homeRadiusKm,
@@ -178,6 +187,7 @@ export default {
 				minClusterSize: this.minClusterSize,
 				maxTimeGap: this.maxTimeGap,
 				maxDistanceKm: this.maxDistanceKm,
+				includeGroupFolders: this.includeGroupFolders,
 				homeLat: this.homeLat,
 				homeLon: this.homeLon,
 				homeRadiusKm: this.homeRadiusKm,

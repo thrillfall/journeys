@@ -7,23 +7,38 @@ class ImageFetcher {
     /**
      * Fetch all images indexed by Memories for a given user, with location and time_taken
      * @param string $user
+     * @param bool $includeGroupFolders
      * @return Image[]
      */
-    public function fetchImagesForUser(string $user): array {
+    public function fetchImagesForUser(string $user, bool $includeGroupFolders = false): array {
         // Get the DB connection from the server container
         $server = \OC::$server;
         $db = $server->getDatabaseConnection();
 
-        $storageId = 'home::' . $user;
-        $sql = "
-            SELECT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
-            FROM oc_memories m
-            JOIN oc_filecache f ON m.fileid = f.fileid
-            JOIN oc_storages s ON f.storage = s.numeric_id
-            WHERE s.id = ? AND f.path LIKE 'files/%' AND m.datetaken IS NOT NULL
-        ";
-        $stmt = $db->prepare($sql);
-        $result = $stmt->execute([$storageId]);
+        $params = [];
+        if ($includeGroupFolders) {
+            $sql = "
+                SELECT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
+                FROM oc_memories m
+                JOIN oc_filecache f ON m.fileid = f.fileid
+                JOIN oc_storages s ON f.storage = s.numeric_id
+                JOIN oc_mounts mo ON mo.storage_id = s.numeric_id AND mo.user_id = ?
+                WHERE m.datetaken IS NOT NULL
+            ";
+            $stmt = $db->prepare($sql);
+            $result = $stmt->execute([$user]);
+        } else {
+            $storageId = 'home::' . $user;
+            $sql = "
+                SELECT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
+                FROM oc_memories m
+                JOIN oc_filecache f ON m.fileid = f.fileid
+                JOIN oc_storages s ON f.storage = s.numeric_id
+                WHERE s.id = ? AND f.path LIKE 'files/%' AND m.datetaken IS NOT NULL
+            ";
+            $stmt = $db->prepare($sql);
+            $result = $stmt->execute([$storageId]);
+        }
         $rows = $result->fetchAll();
         $images = [];
         foreach ($rows as $row) {
