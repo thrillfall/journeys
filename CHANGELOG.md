@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2025-11-05
+### Added
+- Personal Settings: separate, clearly grouped controls for near-home and away-from-home thresholds (time gap and distance).
+- OCC: When arguments/options are omitted, the CLI now falls back to the user's saved settings (including near/away thresholds).
+- OCC: Prints the effective settings at the start of each run.
+
+### Changed
+- Daily background job reads per-user settings from the UI for both global and near/away thresholds.
+- More detailed debug logs for clustering: when a cluster ends (time vs distance) and the thresholds used per near/away segment.
+
 ## [0.8.2] - 2025-11-04
 ### Added
 - Optional inclusion of Group Folders and other mounts in clustering.

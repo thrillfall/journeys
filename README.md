@@ -24,10 +24,12 @@ php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--fr
 
 **Arguments:**
 - `user` — The user to cluster images for (**required**)
-- `maxTimeGap` — Max allowed time gap in hours (optional, default: 24)
-- `maxDistanceKm` — Maximum allowed distance in kilometers between consecutive images in a cluster (default: 50.0)
-- `--min-cluster-size` — Minimum images per cluster (optional, default: 5)
- - `--include-group-folders` — Include photos from Group Folders and other mounts in clustering (optional, default: off)
+- `maxTimeGap` — Max allowed time gap in hours (optional; if omitted, uses your Personal Settings value)
+- `maxDistanceKm` — Maximum allowed distance in kilometers between consecutive images in a cluster (optional; if omitted, uses your Personal Settings value)
+- `--min-cluster-size` — Minimum images per cluster (optional; if omitted, uses your Personal Settings value)
+  - `--include-group-folders` — Include photos from Group Folders and other mounts in clustering (optional, default: off)
+
+**Note:** When arguments/options are omitted, the command falls back to the user's saved values from Personal Settings. The command prints the effective settings at the start of the run.
 
 **How time gap influences clustering:**  
 The `maxTimeGap` defines the largest allowed time (in hours) between two consecutive images for them to be grouped into the same journey. If the gap between two images exceeds this value, a new journey (album) is started. Smaller values create more, shorter journeys; larger values group more images together.
@@ -36,6 +38,8 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
 ```sh
 php occ journeys:cluster-create-albums admin 24 100 --min-cluster-size=5
 ```
+
+When arguments/options are omitted, the command falls back to the user's saved values from Personal Settings. The command prints the effective settings at the start of the run.
 
 ## 🎥 Video rendering (>= 0.7.2)
 
@@ -91,10 +95,10 @@ Flags:
 
 - `--home-lat`, `--home-lon` Provide home coordinates (optional; otherwise auto-detected)
 - `--home-radius` Home radius in km (default: 50)
-- `--near-time-gap` Near-home max time gap in hours (default: 6)
-- `--near-distance-km` Near-home max distance in km (default: 3)
-- `--away-time-gap` Away-from-home max time gap in hours (default: 36)
-- `--away-distance-km` Away-from-home max distance in km (default: 50)
+- `--near-time-gap` Near-home max time gap in hours (optional; if omitted, uses your Personal Settings value)
+- `--near-distance-km` Near-home max distance in km (optional; if omitted, uses your Personal Settings value)
+- `--away-time-gap` Away-from-home max time gap in hours (optional; if omitted, uses your Personal Settings value)
+- `--away-distance-km` Away-from-home max distance in km (optional; if omitted, uses your Personal Settings value)
 
 Notes:
 

@@ -63,6 +63,15 @@ class PersonalSettingsController extends Controller {
         $this->userConfig->setUserValue($userId, 'journeys', 'maxTimeGap', $maxTimeGap);
         $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
         $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
+        // Optional home-aware thresholds
+        $nearTimeGap = (int)($this->request->getParam('nearTimeGap') ?? 21600);
+        $nearDistanceKm = (float)($this->request->getParam('nearDistanceKm') ?? 3.0);
+        $awayTimeGap = (int)($this->request->getParam('awayTimeGap') ?? 129600);
+        $awayDistanceKm = (float)($this->request->getParam('awayDistanceKm') ?? 50.0);
+        $this->userConfig->setUserValue($userId, 'journeys', 'nearTimeGap', $nearTimeGap);
+        $this->userConfig->setUserValue($userId, 'journeys', 'nearDistanceKm', $nearDistanceKm);
+        $this->userConfig->setUserValue($userId, 'journeys', 'awayTimeGap', $awayTimeGap);
+        $this->userConfig->setUserValue($userId, 'journeys', 'awayDistanceKm', $awayDistanceKm);
         // home-aware is always enabled by default; no flag persisted
         $autoGenerateVideos = filter_var($this->request->getParam('autoGenerateVideos') ?? false, FILTER_VALIDATE_BOOLEAN);
         $videoOrientation = (string)($this->request->getParam('videoOrientation') ?? 'portrait');
@@ -115,6 +124,15 @@ class PersonalSettingsController extends Controller {
             $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
             $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
             $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
+            // Optional home-aware thresholds
+            $nearTimeGap = (int)($this->request->getParam('nearTimeGap') ?? 21600);
+            $nearDistanceKm = (float)($this->request->getParam('nearDistanceKm') ?? 3.0);
+            $awayTimeGap = (int)($this->request->getParam('awayTimeGap') ?? 129600);
+            $awayDistanceKm = (float)($this->request->getParam('awayDistanceKm') ?? 50.0);
+            $this->userConfig->setUserValue($userId, 'journeys', 'nearTimeGap', $nearTimeGap);
+            $this->userConfig->setUserValue($userId, 'journeys', 'nearDistanceKm', $nearDistanceKm);
+            $this->userConfig->setUserValue($userId, 'journeys', 'awayTimeGap', $awayTimeGap);
+            $this->userConfig->setUserValue($userId, 'journeys', 'awayDistanceKm', $awayDistanceKm);
             // home-aware is always enabled by default; no flag persisted
             $autoGenerateVideos = filter_var($this->request->getParam('autoGenerateVideos') ?? false, FILTER_VALIDATE_BOOLEAN);
             $videoOrientation = (string)($this->request->getParam('videoOrientation') ?? 'portrait');
@@ -163,6 +181,10 @@ class PersonalSettingsController extends Controller {
         $homeLat = $this->userConfig->getUserValue($userId, 'journeys', 'homeLat', null);
         $homeLon = $this->userConfig->getUserValue($userId, 'journeys', 'homeLon', null);
         $homeRadiusKm = $this->userConfig->getUserValue($userId, 'journeys', 'homeRadiusKm', 50.0);
+        $nearTimeGap = (int)$this->userConfig->getUserValue($userId, 'journeys', 'nearTimeGap', 21600);
+        $nearDistanceKm = (float)$this->userConfig->getUserValue($userId, 'journeys', 'nearDistanceKm', 3.0);
+        $awayTimeGap = (int)$this->userConfig->getUserValue($userId, 'journeys', 'awayTimeGap', 129600);
+        $awayDistanceKm = (float)$this->userConfig->getUserValue($userId, 'journeys', 'awayDistanceKm', 50.0);
         $homeName = null;
         $includeGroupFolders = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeGroupFolders', 0));
         // fallback to combined 'home' JSON if individual keys are not set
@@ -212,6 +234,10 @@ class PersonalSettingsController extends Controller {
             'homeName' => $homeName,
             'autoGenerateVideos' => $autoGenerateVideos,
             'videoOrientation' => in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait',
+            'nearTimeGap' => $nearTimeGap,
+            'nearDistanceKm' => $nearDistanceKm,
+            'awayTimeGap' => $awayTimeGap,
+            'awayDistanceKm' => $awayDistanceKm,
         ]);
     }
 

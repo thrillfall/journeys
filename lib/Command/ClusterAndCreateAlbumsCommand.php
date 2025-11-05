@@ -49,28 +49,54 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $this
             ->setDescription('Clusters images by location and creates albums in the Photos app (incremental by default, home-aware enabled by default).')
             ->addArgument('user', InputArgument::REQUIRED, 'The ID of the user for whom to cluster images and create albums.')
-            ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours', 24)
-            ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers (default: 50.0)', 50.0)
+            ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours (if omitted, use UI setting)')
+            ->addArgument('maxDistanceKm', InputArgument::OPTIONAL, 'Max allowed distance in kilometers (if omitted, use UI setting)')
             ->addOption('no-home-aware', null, InputOption::VALUE_NONE, 'Disable home-aware clustering')
             ->addOption('from-scratch', null, InputOption::VALUE_NONE, 'Recluster all images from scratch (purges previously created cluster albums)')
-            ->addOption('min-cluster-size', null, InputOption::VALUE_REQUIRED, 'Minimum images per cluster (default: 5)', 5)
+            ->addOption('min-cluster-size', null, InputOption::VALUE_REQUIRED, 'Minimum images per cluster (if omitted, use UI setting)')
             ->addOption('home-lat', null, InputOption::VALUE_REQUIRED, 'Home latitude')
             ->addOption('home-lon', null, InputOption::VALUE_REQUIRED, 'Home longitude')
             ->addOption('home-radius', null, InputOption::VALUE_REQUIRED, 'Home radius in km (default: 50)', 50)
-            ->addOption('near-time-gap', null, InputOption::VALUE_REQUIRED, 'Near-home max time gap in hours (default: 6)', 6)
-            ->addOption('near-distance-km', null, InputOption::VALUE_REQUIRED, 'Near-home max distance between consecutive photos in km (default: 3)', 3)
-            ->addOption('away-time-gap', null, InputOption::VALUE_REQUIRED, 'Away-from-home max time gap in hours (default: 36)', 36)
-            ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (default: 50)', 50)
+            ->addOption('near-time-gap', null, InputOption::VALUE_REQUIRED, 'Near-home max time gap in hours (if omitted, use UI setting)')
+            ->addOption('near-distance-km', null, InputOption::VALUE_REQUIRED, 'Near-home max distance between consecutive photos in km (if omitted, use UI setting)')
+            ->addOption('away-time-gap', null, InputOption::VALUE_REQUIRED, 'Away-from-home max time gap in hours (if omitted, use UI setting)')
+            ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (if omitted, use UI setting)')
             ->addOption('recent-cutoff-days', null, InputOption::VALUE_REQUIRED, 'Skip clusters whose last image is within the past N days (default: 2, 0 disables)', 2)
-            ->addOption('include-group-folders', null, InputOption::VALUE_NONE, 'Include images from Group Folders and other mounts');
+            ->addOption('include-group-folders', null, InputOption::VALUE_NONE, 'Include images from Group Folders and other mounts (if omitted, use UI setting)');
     }
 
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
         $user = $input->getArgument('user');
-        $maxTimeGap = (int)$input->getArgument('maxTimeGap') * 3600; // convert hours to seconds
-        $maxDistanceKm = (float)$input->getArgument('maxDistanceKm');
-        $minClusterSize = max(1, (int)$input->getOption('min-cluster-size'));
+        $cfg = null;
+        try { $cfg = \OC::$server->get(\OCP\IConfig::class); } catch (\Throwable $e) { $cfg = null; }
+        $rawTimeGapHours = $input->getArgument('maxTimeGap');
+        $rawDistanceKm = $input->getArgument('maxDistanceKm');
+        $rawMinClusterSize = $input->getOption('min-cluster-size');
+        $maxTimeGap = null;
+        $maxDistanceKm = null;
+        $minClusterSize = null;
+        if ($rawTimeGapHours !== null && $rawTimeGapHours !== '') {
+            $maxTimeGap = (int)$rawTimeGapHours * 3600;
+        } elseif ($cfg) {
+            $maxTimeGap = (int)$cfg->getUserValue($user, 'journeys', 'maxTimeGap', 86400);
+        } else {
+            $maxTimeGap = 86400;
+        }
+        if ($rawDistanceKm !== null && $rawDistanceKm !== '') {
+            $maxDistanceKm = (float)$rawDistanceKm;
+        } elseif ($cfg) {
+            $maxDistanceKm = (float)$cfg->getUserValue($user, 'journeys', 'maxDistanceKm', 100.0);
+        } else {
+            $maxDistanceKm = 100.0;
+        }
+        if ($rawMinClusterSize !== null && $rawMinClusterSize !== '') {
+            $minClusterSize = max(1, (int)$rawMinClusterSize);
+        } elseif ($cfg) {
+            $minClusterSize = max(1, (int)$cfg->getUserValue($user, 'journeys', 'minClusterSize', 3));
+        } else {
+            $minClusterSize = 3;
+        }
         // Home-aware is enabled by default; allow explicit opt-out with --no-home-aware
         $homeAware = true;
         if ($input->getOption('no-home-aware')) {
@@ -79,13 +105,44 @@ class ClusterAndCreateAlbumsCommand extends Command {
         $homeLat = $input->getOption('home-lat');
         $homeLon = $input->getOption('home-lon');
         $homeRadius = (float)$input->getOption('home-radius');
-        $nearTimeGap = (int)$input->getOption('near-time-gap') * 3600;
-        $nearDistanceKm = (float)$input->getOption('near-distance-km');
-        $awayTimeGap = (int)$input->getOption('away-time-gap') * 3600;
-        $awayDistanceKm = (float)$input->getOption('away-distance-km');
+        $optNearTimeGap = $input->getOption('near-time-gap');
+        $optNearDistanceKm = $input->getOption('near-distance-km');
+        $optAwayTimeGap = $input->getOption('away-time-gap');
+        $optAwayDistanceKm = $input->getOption('away-distance-km');
+        if ($optNearTimeGap !== null && $optNearTimeGap !== '') {
+            $nearTimeGap = (int)$optNearTimeGap * 3600;
+        } elseif ($cfg) {
+            $nearTimeGap = (int)$cfg->getUserValue($user, 'journeys', 'nearTimeGap', 21600);
+        } else {
+            $nearTimeGap = 21600;
+        }
+        if ($optNearDistanceKm !== null && $optNearDistanceKm !== '') {
+            $nearDistanceKm = (float)$optNearDistanceKm;
+        } elseif ($cfg) {
+            $nearDistanceKm = (float)$cfg->getUserValue($user, 'journeys', 'nearDistanceKm', 3.0);
+        } else {
+            $nearDistanceKm = 3.0;
+        }
+        if ($optAwayTimeGap !== null && $optAwayTimeGap !== '') {
+            $awayTimeGap = (int)$optAwayTimeGap * 3600;
+        } elseif ($cfg) {
+            $awayTimeGap = (int)$cfg->getUserValue($user, 'journeys', 'awayTimeGap', 129600);
+        } else {
+            $awayTimeGap = 129600;
+        }
+        if ($optAwayDistanceKm !== null && $optAwayDistanceKm !== '') {
+            $awayDistanceKm = (float)$optAwayDistanceKm;
+        } elseif ($cfg) {
+            $awayDistanceKm = (float)$cfg->getUserValue($user, 'journeys', 'awayDistanceKm', 50.0);
+        } else {
+            $awayDistanceKm = 50.0;
+        }
         $fromScratch = (bool)$input->getOption('from-scratch');
         $recentCutoffDays = max(0, (int)$input->getOption('recent-cutoff-days'));
         $includeGroupFolders = (bool)$input->getOption('include-group-folders');
+        if (!$includeGroupFolders && $cfg) {
+            $includeGroupFolders = (bool)((int)$cfg->getUserValue($user, 'journeys', 'includeGroupFolders', 0));
+        }
 
         $home = null;
         $thresholds = null;
@@ -124,8 +181,13 @@ class ClusterAndCreateAlbumsCommand extends Command {
                     $thresholds = null;
                 }
             }
+            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, minClusterSize=%d, recentCutoffDays=%d', $homeAware ? 'true' : 'false', $includeGroupFolders ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
+            $output->writeln(sprintf('  near: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$thresholds['near']['timeGap'], (int)$thresholds['near']['timeGap']/3600.0, (float)$thresholds['near']['distanceKm']));
+            $output->writeln(sprintf('  away: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$thresholds['away']['timeGap'], (int)$thresholds['away']['timeGap']/3600.0, (float)$thresholds['away']['distanceKm']));
+        } else {
+            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, minClusterSize=%d, recentCutoffDays=%d', 'false', $includeGroupFolders ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
+            $output->writeln(sprintf('  global: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$maxTimeGap, (int)$maxTimeGap/3600.0, (float)$maxDistanceKm));
         }
-
         // Delegate clustering and album creation to ClusteringManager (home-aware optional)
         $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds, $fromScratch, $recentCutoffDays, false, $includeGroupFolders);
 

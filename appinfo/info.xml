@@ -31,6 +31,13 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.9.0 (2025-11-05)</h3>
+    <ul>
+      <li><b>UI:</b> Separate, clearly grouped near-home and away-from-home thresholds in Personal Settings.</li>
+      <li><b>CLI:</b> When arguments are omitted, OCC now falls back to the user's saved settings (including near/away thresholds) and prints the effective settings at the start of a run.</li>
+      <li><b>Cron:</b> Daily clustering job honors per-user settings from the UI for both global and near/away thresholds.</li>
+      <li><b>Debug logging:</b> Added detailed logs for cluster splits (time vs distance) and per-segment thresholds (near/away) at debug level.</li>
+    </ul>
   <h3>0.8.2 (2025-11-04)</h3>
     <ul>
       <li><b>Group Folders (optional):</b> Added UI toggle and <code>--include-group-folders</code> CLI flag to include photos from Group Folders and other mounts in clustering (default: off).</li>
@@ -166,7 +173,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.8.2</version>
+  <version>0.9.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

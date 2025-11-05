@@ -111,10 +111,23 @@ class ClusteringManager {
         if ($effectiveHomeAware) {
             // Determine home and thresholds
             // At this point $home is either provided, loaded from config, or detected earlier
-            $thresholds = $thresholds ?? [
-                'near' => ['timeGap' => 21600, 'distanceKm' => 3.0],   // 6h, 3km
-                'away' => ['timeGap' => 129600, 'distanceKm' => 50.0], // 36h, 50km
-            ];
+            if ($thresholds === null) {
+                try {
+                    $nearT = (int)$this->config->getUserValue($userId, 'journeys', 'nearTimeGap', 21600);
+                    $nearD = (float)$this->config->getUserValue($userId, 'journeys', 'nearDistanceKm', 3.0);
+                    $awayT = (int)$this->config->getUserValue($userId, 'journeys', 'awayTimeGap', 129600);
+                    $awayD = (float)$this->config->getUserValue($userId, 'journeys', 'awayDistanceKm', 50.0);
+                    $thresholds = [
+                        'near' => ['timeGap' => $nearT > 0 ? $nearT : 21600, 'distanceKm' => $nearD > 0 ? $nearD : 3.0],
+                        'away' => ['timeGap' => $awayT > 0 ? $awayT : 129600, 'distanceKm' => $awayD > 0 ? $awayD : 50.0],
+                    ];
+                } catch (\Throwable $e) {
+                    $thresholds = [
+                        'near' => ['timeGap' => 21600, 'distanceKm' => 3.0],
+                        'away' => ['timeGap' => 129600, 'distanceKm' => 50.0],
+                    ];
+                }
+            }
             // If 'near' thresholds are still at built-in defaults, align them with the non-home-aware thresholds
             if (
                 isset($thresholds['near']['timeGap'], $thresholds['near']['distanceKm']) &&

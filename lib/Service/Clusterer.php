@@ -2,8 +2,14 @@
 namespace OCA\Journeys\Service;
 
 use OCA\Journeys\Model\Image;
+use Psr\Log\LoggerInterface;
 
 class Clusterer {
+    private $logger;
+
+    public function __construct(?LoggerInterface $logger = null) {
+        $this->logger = $logger;
+    }
     /**
      * Threshold-based time & location clustering with time-only fallback for missing locations.
      *
@@ -18,6 +24,7 @@ class Clusterer {
         $prev = null;
         // Anchor for spatial continuity: last image in the current cluster that has valid coordinates
         $prevGeo = null;
+        $dist = null;
         foreach ($images as $img) {
             if (empty($currentCluster)) {
                 $currentCluster[] = $img;
@@ -43,6 +50,27 @@ class Clusterer {
                     }
                 }
                 if ($shouldSplit) {
+                    if ($this->logger !== null) {
+                        try {
+                            $reason = ($timeGap > $maxTimeGap) ? 'time_gap_exceeded' : 'distance_exceeded';
+                            $context = [
+                                'reason' => $reason,
+                                'prev_datetaken' => $prev ? $prev->datetaken : null,
+                                'curr_datetaken' => $img->datetaken,
+                                'time_gap_seconds' => $timeGap,
+                                'max_time_gap_seconds' => $maxTimeGap,
+                            ];
+                            if ($reason === 'distance_exceeded') {
+                                $context['distance_km'] = $dist;
+                                $context['max_distance_km'] = $maxDistanceKm;
+                                $context['prev_geo'] = $prevGeo ? ['lat' => $prevGeo->lat, 'lon' => $prevGeo->lon] : null;
+                                $context['curr_geo'] = ['lat' => $img->lat, 'lon' => $img->lon];
+                            }
+                            $this->logger->debug('Journeys clustering: cluster ended', $context);
+                        } catch (\Throwable $e) {
+                            // ignore logging failures
+                        }
+                    }
                     $clusters[] = $currentCluster;
                     $currentCluster = [];
                     // Reset geo anchor for new cluster
@@ -115,6 +143,20 @@ class Clusterer {
         $segStart = 0;
         for ($i = 1; $i < count($images); $i++) {
             if ($flags[$i] !== $flags[$i - 1]) {
+                // Log boundary caused by near/away change
+                if ($this->logger !== null) {
+                    try {
+                        $this->logger->debug('Journeys clustering: near/away boundary', [
+                            'index_prev' => $i - 1,
+                            'index_curr' => $i,
+                            'prev_datetaken' => $images[$i - 1]->datetaken,
+                            'curr_datetaken' => $images[$i]->datetaken,
+                            'prev_near' => $flags[$i - 1],
+                            'curr_near' => $flags[$i],
+                            'home' => ['lat' => $home['lat'], 'lon' => $home['lon'], 'radiusKm' => $home['radiusKm']],
+                        ]);
+                    } catch (\Throwable $e) {}
+                }
                 $segments[] = [ 'start' => $segStart, 'end' => $i - 1, 'near' => $flags[$i - 1] ];
                 $segStart = $i;
             }
@@ -127,6 +169,15 @@ class Clusterer {
             $t = $seg['near']
                 ? ($thresholds['near'] ?? ['timeGap' => 21600, 'distanceKm' => 3.0])
                 : ($thresholds['away'] ?? ['timeGap' => 129600, 'distanceKm' => 50.0]);
+            if ($this->logger !== null) {
+                try {
+                    $this->logger->debug('Journeys clustering: segment thresholds', [
+                        'segment' => $seg,
+                        'timeGap' => (int)$t['timeGap'],
+                        'distanceKm' => (float)$t['distanceKm'],
+                    ]);
+                } catch (\Throwable $e) {}
+            }
             $clusters = $this->clusterImages($slice, (int)$t['timeGap'], (float)$t['distanceKm']);
             foreach ($clusters as $c) {
                 $allClusters[] = $c;

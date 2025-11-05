@@ -2,54 +2,96 @@
 	<div class="journeys_settings">
 		<NcSettingsSection :title="t('journeys', 'Journeys Album Clustering')"
 			:description="t('journeys', 'Configure and start clustering your photos into journeys (vacations/trips).')">
-			<div class="form-group clustering-settings-grid">
-				<div class="settings-field">
-					<label :for="'minClusterSize'">{{ t('journeys', 'Minimum Cluster Size') }}</label>
-					<input id="minClusterSize" type="number" min="1" v-model.number="minClusterSize" />
+			<div class="form-group">
+				<div class="grid-two">
+					<div class="settings-field">
+						<label :for="'minClusterSize'">{{ t('journeys', 'Minimum Cluster Size') }}</label>
+						<input id="minClusterSize" type="number" min="1" v-model.number="minClusterSize" />
+					</div>
+					<div class="settings-field">
+						<label :for="'maxTimeGap'">{{ t('journeys', 'Max Time Gap (seconds)') }}</label>
+						<input id="maxTimeGap" type="number" min="1" v-model.number="maxTimeGap" />
+					</div>
 				</div>
-				<div class="settings-field">
-					<label :for="'maxTimeGap'">{{ t('journeys', 'Max Time Gap (seconds)') }}</label>
-					<input id="maxTimeGap" type="number" min="1" v-model.number="maxTimeGap" />
+
+				<div class="grid-two" style="margin-top: 0.75rem;">
+					<div class="settings-field">
+						<label :for="'maxDistanceKm'">{{ t('journeys', 'Max Distance (km)') }}</label>
+						<input id="maxDistanceKm" type="number" min="0.1" step="0.1" v-model.number="maxDistanceKm" />
+					</div>
+					<div class="settings-field">
+						<label>
+							<input type="checkbox" v-model="includeGroupFolders" />
+							{{ t('journeys', 'Include Group Folders') }}
+						</label>
+					</div>
 				</div>
-				<div class="settings-field">
-					<label :for="'maxDistanceKm'">{{ t('journeys', 'Max Distance (km)') }}</label>
-					<input id="maxDistanceKm" type="number" min="0.1" step="0.1" v-model.number="maxDistanceKm" />
+
+				<div class="settings-group">
+					<h4>{{ t('journeys', 'Near-home thresholds') }}</h4>
+					<div class="grid-two">
+						<div class="settings-field">
+							<label :for="'nearTimeGap'">{{ t('journeys', 'Max Time Gap (seconds)') }}</label>
+							<input id="nearTimeGap" type="number" min="1" v-model.number="nearTimeGap" />
+						</div>
+						<div class="settings-field">
+							<label :for="'nearDistanceKm'">{{ t('journeys', 'Max Distance (km)') }}</label>
+							<input id="nearDistanceKm" type="number" min="0.1" step="0.1" v-model.number="nearDistanceKm" />
+						</div>
+					</div>
 				</div>
-				<div class="settings-field">
-					<label>
-						<input type="checkbox" v-model="includeGroupFolders" />
-						{{ t('journeys', 'Include Group Folders') }}
-					</label>
+
+				<div class="settings-group">
+					<h4>{{ t('journeys', 'Away-from-home thresholds') }}</h4>
+					<div class="grid-two">
+						<div class="settings-field">
+							<label :for="'awayTimeGap'">{{ t('journeys', 'Max Time Gap (seconds)') }}</label>
+							<input id="awayTimeGap" type="number" min="1" v-model.number="awayTimeGap" />
+						</div>
+						<div class="settings-field">
+							<label :for="'awayDistanceKm'">{{ t('journeys', 'Max Distance (km)') }}</label>
+							<input id="awayDistanceKm" type="number" min="0.1" step="0.1" v-model.number="awayDistanceKm" />
+						</div>
+					</div>
 				</div>
-				<div class="settings-field">
-					<label>
-						<input type="checkbox" v-model="autoGenerateVideos" />
-						{{ t('journeys', 'Auto-generate videos for away clusters') }}
-					</label>
+
+				<div class="settings-group">
+					<h4>{{ t('journeys', 'Video & home') }}</h4>
+					<div class="grid-two">
+						<div class="settings-field">
+							<label>
+								<input type="checkbox" v-model="autoGenerateVideos" />
+								{{ t('journeys', 'Auto-generate videos for away clusters') }}
+							</label>
+						</div>
+						<div class="settings-field">
+							<label :for="'videoOrientation'">{{ t('journeys', 'Video orientation') }}</label>
+							<select id="videoOrientation" v-model="videoOrientation">
+								<option value="portrait">{{ t('journeys', 'Portrait') }}</option>
+								<option value="landscape">{{ t('journeys', 'Landscape') }}</option>
+							</select>
+						</div>
+					</div>
+					<div class="grid-three" style="margin-top: 0.75rem;">
+						<div class="settings-field">
+							<label :for="'homeLat'">{{ t('journeys', 'Home latitude') }}</label>
+							<input id="homeLat" type="number" step="0.000001" v-model.number="homeLat" />
+						</div>
+						<div class="settings-field">
+							<label :for="'homeLon'">{{ t('journeys', 'Home longitude') }}</label>
+							<input id="homeLon" type="number" step="0.000001" v-model.number="homeLon" />
+						</div>
+						<div class="settings-field">
+							<label :for="'homeRadiusKm'">{{ t('journeys', 'Home radius (km)') }}</label>
+							<input id="homeRadiusKm" type="number" min="1" step="1" v-model.number="homeRadiusKm" />
+						</div>
+					</div>
+					<div class="settings-field" v-if="homeName" style="margin-top: 0.5rem;">
+						<label>{{ t('journeys', 'Home location') }}</label>
+						<div>{{ homeName }}</div>
+					</div>
 				</div>
-				<div class="settings-field">
-					<label :for="'videoOrientation'">{{ t('journeys', 'Video orientation') }}</label>
-					<select id="videoOrientation" v-model="videoOrientation">
-						<option value="portrait">{{ t('journeys', 'Portrait') }}</option>
-						<option value="landscape">{{ t('journeys', 'Landscape') }}</option>
-					</select>
-				</div>
-				<div class="settings-field">
-					<label :for="'homeLat'">{{ t('journeys', 'Home latitude') }}</label>
-					<input id="homeLat" type="number" step="0.000001" v-model.number="homeLat" />
-				</div>
-				<div class="settings-field">
-					<label :for="'homeLon'">{{ t('journeys', 'Home longitude') }}</label>
-					<input id="homeLon" type="number" step="0.000001" v-model.number="homeLon" />
-				</div>
-				<div class="settings-field">
-					<label :for="'homeRadiusKm'">{{ t('journeys', 'Home radius (km)') }}</label>
-					<input id="homeRadiusKm" type="number" min="1" step="1" v-model.number="homeRadiusKm" />
-				</div>
-				<div class="settings-field" v-if="homeName">
-					<label>{{ t('journeys', 'Home location') }}</label>
-					<div>{{ homeName }}</div>
-				</div>
+
 				<div class="settings-buttons">
 					<button @click="saveSettings" :disabled="isProcessing">
 						{{ t('journeys', 'Save Settings') }}
@@ -61,7 +103,6 @@
 				<span v-if="error" class="error">{{ error }}</span>
 				<span v-if="lastRun">{{ t('journeys', 'Last run:') }} {{ lastRun }}</span>
 
-				<!-- Cluster summary table -->
 				<div v-if="clusters.length" class="cluster-summary">
 					<h3>{{ t('journeys', 'Clusters Created') }}</h3>
 					<div class="table-responsive">
@@ -122,6 +163,10 @@ export default {
 			minClusterSize: 3, // default
 			maxTimeGap: 86400, // default (24h)
 			maxDistanceKm: 100.0, // default
+			nearTimeGap: 21600, // default (6h)
+			nearDistanceKm: 3.0, // default
+			awayTimeGap: 129600, // default (36h)
+			awayDistanceKm: 50.0, // default
 			homeLat: null,
 			homeLon: null,
 			homeRadiusKm: 50,
@@ -145,6 +190,10 @@ export default {
 				this.homeName = settingsResp.data.homeName || null
 				this.autoGenerateVideos = !!settingsResp.data.autoGenerateVideos
 				this.videoOrientation = settingsResp.data.videoOrientation || 'portrait'
+				if (typeof settingsResp.data.nearTimeGap !== 'undefined') this.nearTimeGap = settingsResp.data.nearTimeGap
+				if (typeof settingsResp.data.nearDistanceKm !== 'undefined') this.nearDistanceKm = settingsResp.data.nearDistanceKm
+				if (typeof settingsResp.data.awayTimeGap !== 'undefined') this.awayTimeGap = settingsResp.data.awayTimeGap
+				if (typeof settingsResp.data.awayDistanceKm !== 'undefined') this.awayDistanceKm = settingsResp.data.awayDistanceKm
 			}
 		} catch (e) {
 			// ignore if not available
@@ -171,6 +220,10 @@ export default {
 					homeRadiusKm: this.homeRadiusKm,
 					autoGenerateVideos: this.autoGenerateVideos,
 					videoOrientation: this.videoOrientation,
+					nearTimeGap: this.nearTimeGap,
+					nearDistanceKm: this.nearDistanceKm,
+					awayTimeGap: this.awayTimeGap,
+					awayDistanceKm: this.awayDistanceKm,
 				})
 				showSuccess(this.t('journeys', 'Settings saved.'))
 			} catch (e) {
@@ -193,6 +246,10 @@ export default {
 				homeRadiusKm: this.homeRadiusKm,
 				autoGenerateVideos: this.autoGenerateVideos,
 				videoOrientation: this.videoOrientation,
+				nearTimeGap: this.nearTimeGap,
+				nearDistanceKm: this.nearDistanceKm,
+				awayTimeGap: this.awayTimeGap,
+				awayDistanceKm: this.awayDistanceKm,
 			})
 				showSuccess(this.t('journeys', 'Clustering started successfully.'))
 				this.lastRun = resp.data.lastRun || new Date().toISOString()
