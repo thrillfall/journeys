@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2025-11-05
+### Changed
+- Personal Settings: time thresholds are now configured in hours (supports decimals like 0.5 for 30 minutes).
+- Docs updated to reflect this change.
+
 ## [0.9.0] - 2025-11-05
 ### Added
 - Personal Settings: separate, clearly grouped controls for near-home and away-from-home thresholds (time gap and distance).

@@ -31,6 +31,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.9.1 (2025-11-05)</h3>
+    <ul>
+      <li><b>UX:</b> Time thresholds in Personal Settings are now configured in hours (allowing decimals, e.g. 0.5 = 30m).</li>
+      <li><b>Docs:</b> Brief documentation update to reflect the change.</li>
+    </ul>
   <h3>0.9.0 (2025-11-05)</h3>
     <ul>
       <li><b>UI:</b> Separate, clearly grouped near-home and away-from-home thresholds in Personal Settings.</li>
@@ -173,7 +178,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.9.0</version>
+  <version>0.9.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

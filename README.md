@@ -29,6 +29,8 @@ php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--fr
 - `--min-cluster-size` — Minimum images per cluster (optional; if omitted, uses your Personal Settings value)
   - `--include-group-folders` — Include photos from Group Folders and other mounts in clustering (optional, default: off)
 
+Note: Time thresholds are specified in hours and support decimals (e.g., 0.5 = 30 minutes).
+
 **Note:** When arguments/options are omitted, the command falls back to the user's saved values from Personal Settings. The command prints the effective settings at the start of the run.
 
 **How time gap influences clustering:**  
@@ -99,6 +101,8 @@ Flags:
 - `--near-distance-km` Near-home max distance in km (optional; if omitted, uses your Personal Settings value)
 - `--away-time-gap` Away-from-home max time gap in hours (optional; if omitted, uses your Personal Settings value)
 - `--away-distance-km` Away-from-home max distance in km (optional; if omitted, uses your Personal Settings value)
+
+Note: Time thresholds use hours and accept decimals (e.g., 1.5 = 1 hour 30 minutes).
 
 Notes:
 

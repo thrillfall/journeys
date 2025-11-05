@@ -43,7 +43,8 @@ class PersonalSettingsController extends Controller {
         }
         $userId = $user->getUID();
         $minClusterSize = (int)($this->request->getParam('minClusterSize') ?? 3);
-        $maxTimeGap = (int)($this->request->getParam('maxTimeGap') ?? 86400);
+        $maxTimeGapHours = (float)($this->request->getParam('maxTimeGap') ?? 24.0);
+        $maxTimeGap = (int)round($maxTimeGapHours * 3600);
         $maxDistanceKm = (float)($this->request->getParam('maxDistanceKm') ?? 100.0);
         $homeAware = true;
         $homeLat = $this->request->getParam('homeLat');
@@ -64,10 +65,12 @@ class PersonalSettingsController extends Controller {
         $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
         $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
         // Optional home-aware thresholds
-        $nearTimeGap = (int)($this->request->getParam('nearTimeGap') ?? 21600);
+        $nearTimeGapHours = (float)($this->request->getParam('nearTimeGap') ?? 6.0);
         $nearDistanceKm = (float)($this->request->getParam('nearDistanceKm') ?? 3.0);
-        $awayTimeGap = (int)($this->request->getParam('awayTimeGap') ?? 129600);
+        $awayTimeGapHours = (float)($this->request->getParam('awayTimeGap') ?? 36.0);
         $awayDistanceKm = (float)($this->request->getParam('awayDistanceKm') ?? 50.0);
+        $nearTimeGap = (int)round($nearTimeGapHours * 3600);
+        $awayTimeGap = (int)round($awayTimeGapHours * 3600);
         $this->userConfig->setUserValue($userId, 'journeys', 'nearTimeGap', $nearTimeGap);
         $this->userConfig->setUserValue($userId, 'journeys', 'nearDistanceKm', $nearDistanceKm);
         $this->userConfig->setUserValue($userId, 'journeys', 'awayTimeGap', $awayTimeGap);
@@ -125,10 +128,12 @@ class PersonalSettingsController extends Controller {
             $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
             $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
             // Optional home-aware thresholds
-            $nearTimeGap = (int)($this->request->getParam('nearTimeGap') ?? 21600);
+            $nearTimeGapHours = (float)($this->request->getParam('nearTimeGap') ?? 6.0);
             $nearDistanceKm = (float)($this->request->getParam('nearDistanceKm') ?? 3.0);
-            $awayTimeGap = (int)($this->request->getParam('awayTimeGap') ?? 129600);
+            $awayTimeGapHours = (float)($this->request->getParam('awayTimeGap') ?? 36.0);
             $awayDistanceKm = (float)($this->request->getParam('awayDistanceKm') ?? 50.0);
+            $nearTimeGap = (int)round($nearTimeGapHours * 3600);
+            $awayTimeGap = (int)round($awayTimeGapHours * 3600);
             $this->userConfig->setUserValue($userId, 'journeys', 'nearTimeGap', $nearTimeGap);
             $this->userConfig->setUserValue($userId, 'journeys', 'nearDistanceKm', $nearDistanceKm);
             $this->userConfig->setUserValue($userId, 'journeys', 'awayTimeGap', $awayTimeGap);
@@ -175,15 +180,18 @@ class PersonalSettingsController extends Controller {
         }
         $userId = $user->getUID();
         $minClusterSize = (int)($this->userConfig->getUserValue($userId, 'journeys', 'minClusterSize', 3));
-        $maxTimeGap = (int)($this->userConfig->getUserValue($userId, 'journeys', 'maxTimeGap', 86400));
+        $maxTimeGapSeconds = (int)($this->userConfig->getUserValue($userId, 'journeys', 'maxTimeGap', 86400));
+        $maxTimeGap = (float)$maxTimeGapSeconds / 3600.0;
         $maxDistanceKm = (float)($this->userConfig->getUserValue($userId, 'journeys', 'maxDistanceKm', 100.0));
         $homeAware = true;
         $homeLat = $this->userConfig->getUserValue($userId, 'journeys', 'homeLat', null);
         $homeLon = $this->userConfig->getUserValue($userId, 'journeys', 'homeLon', null);
         $homeRadiusKm = $this->userConfig->getUserValue($userId, 'journeys', 'homeRadiusKm', 50.0);
-        $nearTimeGap = (int)$this->userConfig->getUserValue($userId, 'journeys', 'nearTimeGap', 21600);
+        $nearTimeGapSeconds = (int)$this->userConfig->getUserValue($userId, 'journeys', 'nearTimeGap', 21600);
+        $nearTimeGap = (float)$nearTimeGapSeconds / 3600.0;
         $nearDistanceKm = (float)$this->userConfig->getUserValue($userId, 'journeys', 'nearDistanceKm', 3.0);
-        $awayTimeGap = (int)$this->userConfig->getUserValue($userId, 'journeys', 'awayTimeGap', 129600);
+        $awayTimeGapSeconds = (int)$this->userConfig->getUserValue($userId, 'journeys', 'awayTimeGap', 129600);
+        $awayTimeGap = (float)$awayTimeGapSeconds / 3600.0;
         $awayDistanceKm = (float)$this->userConfig->getUserValue($userId, 'journeys', 'awayDistanceKm', 50.0);
         $homeName = null;
         $includeGroupFolders = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeGroupFolders', 0));

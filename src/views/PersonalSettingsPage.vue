@@ -9,8 +9,8 @@
 						<input id="minClusterSize" type="number" min="1" v-model.number="minClusterSize" />
 					</div>
 					<div class="settings-field">
-						<label :for="'maxTimeGap'">{{ t('journeys', 'Max Time Gap (seconds)') }}</label>
-						<input id="maxTimeGap" type="number" min="1" v-model.number="maxTimeGap" />
+						<label :for="'maxTimeGap'">{{ t('journeys', 'Max Time Gap (hours)') }}</label>
+						<input id="maxTimeGap" type="number" min="0" step="0.1" v-model.number="maxTimeGap" />
 					</div>
 				</div>
 
@@ -31,8 +31,8 @@
 					<h4>{{ t('journeys', 'Near-home thresholds') }}</h4>
 					<div class="grid-two">
 						<div class="settings-field">
-							<label :for="'nearTimeGap'">{{ t('journeys', 'Max Time Gap (seconds)') }}</label>
-							<input id="nearTimeGap" type="number" min="1" v-model.number="nearTimeGap" />
+							<label :for="'nearTimeGap'">{{ t('journeys', 'Max Time Gap (hours)') }}</label>
+							<input id="nearTimeGap" type="number" min="0" step="0.1" v-model.number="nearTimeGap" />
 						</div>
 						<div class="settings-field">
 							<label :for="'nearDistanceKm'">{{ t('journeys', 'Max Distance (km)') }}</label>
@@ -45,8 +45,8 @@
 					<h4>{{ t('journeys', 'Away-from-home thresholds') }}</h4>
 					<div class="grid-two">
 						<div class="settings-field">
-							<label :for="'awayTimeGap'">{{ t('journeys', 'Max Time Gap (seconds)') }}</label>
-							<input id="awayTimeGap" type="number" min="1" v-model.number="awayTimeGap" />
+							<label :for="'awayTimeGap'">{{ t('journeys', 'Max Time Gap (hours)') }}</label>
+							<input id="awayTimeGap" type="number" min="0" step="0.1" v-model.number="awayTimeGap" />
 						</div>
 						<div class="settings-field">
 							<label :for="'awayDistanceKm'">{{ t('journeys', 'Max Distance (km)') }}</label>
