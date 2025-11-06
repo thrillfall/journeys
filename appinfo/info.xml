@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.9.2 (2025-11-06)</h3>
+    <ul>
+      <li><b>Notifications:</b> Don't filter out notifications from other apps.</li>
+    </ul>
   <h3>0.9.1 (2025-11-05)</h3>
     <ul>
       <li><b>UX:</b> Time thresholds in Personal Settings are now configured in hours (allowing decimals, e.g. 0.5 = 30m).</li>
@@ -178,7 +182,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.9.1</version>
+  <version>0.9.2</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

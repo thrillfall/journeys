@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.2] - 2025-11-06
+### Fixed
+- Notifications: don't filter out notifications from other apps.
+
 ## [0.9.1] - 2025-11-05
 ### Changed
 - Personal Settings: time thresholds are now configured in hours (supports decimals like 0.5 for 30 minutes).
