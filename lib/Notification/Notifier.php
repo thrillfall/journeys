@@ -23,7 +23,7 @@ class Notifier implements INotifier {
     public function prepare(INotification $notification, string $languageCode): INotification {
         if ($notification->getApp() !== 'journeys') {
             // Not our app
-            return $notification;
+            throw new UnknownNotificationException('app');
         }
         $subject = (string)$notification->getSubject();
         $params = (array)$notification->getSubjectParameters();
