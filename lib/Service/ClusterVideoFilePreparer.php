@@ -59,6 +59,7 @@ class ClusterVideoFilePreparer {
                 $files[] = $destinationPath;
                 $index++;
                 $copied++;
+                $this->maybeExtractGcamTrailer($destinationPath);
             } else {
                 if (is_resource($sourceStream)) {
                     fclose($sourceStream);
@@ -94,5 +95,124 @@ class ClusterVideoFilePreparer {
 
     private function normalizePath(string $path): string {
         return str_starts_with($path, 'files/') ? substr($path, 6) : $path;
+    }
+
+    private function maybeExtractGcamTrailer(string $imagePath): void {
+        $lower = strtolower($imagePath);
+        if (!str_ends_with($lower, '.jpg') && !str_ends_with($lower, '.jpeg')) {
+            return;
+        }
+        $outPath = substr($imagePath, 0, strrpos($imagePath, '.')) . '.mp4';
+        if (is_file($outPath)) {
+            return;
+        }
+        $size = @filesize($imagePath);
+        if (!is_int($size) || $size <= 0) {
+            return;
+        }
+        // Preferred: use MicroVideoOffset from EXIF if available (video length at end of file)
+        try {
+            if (function_exists('exif_read_data')) {
+                $exif = @exif_read_data($imagePath, null, true);
+                $offsetLen = null;
+                if (is_array($exif)) {
+                    // Try multiple sections just in case
+                    foreach ($exif as $section) {
+                        if (is_array($section) && isset($section['MicroVideoOffset']) && is_numeric($section['MicroVideoOffset'])) {
+                            $offsetLen = (int)$section['MicroVideoOffset'];
+                            break;
+                        }
+                    }
+                }
+                if (is_int($offsetLen) && $offsetLen > 0 && $offsetLen < $size) {
+                    $start = $size - $offsetLen;
+                    $src = @fopen($imagePath, 'rb');
+                    $dst = @fopen($outPath, 'wb');
+                    if ($src !== false && $dst !== false && @fseek($src, $start) === 0) {
+                        $remaining = $offsetLen;
+                        $chunk = 1024 * 1024;
+                        while ($remaining > 0) {
+                            $n = min($chunk, $remaining);
+                            $data = @fread($src, $n);
+                            if (!is_string($data) || $data === '') { break; }
+                            @fwrite($dst, $data);
+                            $remaining -= strlen($data);
+                        }
+                        fclose($src);
+                        fclose($dst);
+                        if (@filesize($outPath) > 0) {
+                            return; // success
+                        }
+                        @unlink($outPath);
+                    } else {
+                        if (is_resource($src)) { fclose($src); }
+                        if (is_resource($dst)) { fclose($dst); }
+                        @unlink($outPath);
+                    }
+                }
+            }
+        } catch (\Throwable) {}
+
+        $read = min(32 * 1024 * 1024, $size);
+        $fh = @fopen($imagePath, 'rb');
+        if ($fh === false) {
+            return;
+        }
+        try {
+            if (@fseek($fh, $size - $read) !== 0) {
+                return;
+            }
+            $buf = @fread($fh, $read);
+            if (!is_string($buf) || $buf === '') {
+                return;
+            }
+            // Find the last occurrence of 'ftyp' which should belong to the MP4 header
+            $pos = strrpos($buf, 'ftyp');
+            if ($pos === false) {
+                return;
+            }
+            // MP4 starts 4 bytes before 'ftyp' (box size header)
+            $candidateOffset = ($size - $read) + $pos - 4;
+            if ($candidateOffset < 0) {
+                return;
+            }
+            // Sanity check the ftyp box fields
+            $brand = substr($buf, $pos + 4, 8) ?: '';
+            $brandOk = str_contains($brand, 'isom') || str_contains($brand, 'mp42') || str_contains($brand, 'iso5') || str_contains($brand, 'avc1');
+            if (!$brandOk) {
+                return;
+            }
+            $globalOffset = $candidateOffset;
+            $src = @fopen($imagePath, 'rb');
+            $dst = @fopen($outPath, 'wb');
+            if ($src === false || $dst === false) {
+                if (is_resource($src)) { fclose($src); }
+                if (is_resource($dst)) { fclose($dst); }
+                @unlink($outPath);
+                return;
+            }
+            if (@fseek($src, $globalOffset) !== 0) {
+                fclose($src);
+                fclose($dst);
+                @unlink($outPath);
+                return;
+            }
+            $remaining = $size - $globalOffset;
+            $chunk = 1024 * 1024;
+            while ($remaining > 0) {
+                $n = min($chunk, $remaining);
+                $data = @fread($src, $n);
+                if (!is_string($data) || $data === '') { break; }
+                @fwrite($dst, $data);
+                $remaining -= strlen($data);
+            }
+            fclose($src);
+            fclose($dst);
+            if (!is_file($outPath) || @filesize($outPath) <= 0) {
+                @unlink($outPath);
+            }
+        } finally {
+            fclose($fh);
+        }
     }
 }

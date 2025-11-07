@@ -41,6 +41,8 @@ class ClusterVideoRenderer {
 
         // Build a sequence of render segments (portrait Ken Burns and occasional landscape stacks)
         $segments = $this->planSegments($files);
+        // Replace portrait image segments with video segments when a GCam trailer was extracted
+        $segments = $this->preferVideoWhereAvailable($segments);
         if (empty($segments)) {
             throw new \RuntimeException('No renderable images available (need at least one portrait or 3 landscapes)');
         }
@@ -106,7 +108,7 @@ class ClusterVideoRenderer {
 
         $cmd = ['ffmpeg', '-y', '-hide_banner', '-nostats', '-loglevel', 'error'];
 
-        // Register all inputs (portrait: 1 per segment, stack: 3 per segment)
+        // Register all inputs (portrait: 1 per segment, stack: 3 per segment, video: 1 per segment)
         $flatInputs = [];
         foreach ($segments as $seg) {
             if ($seg['type'] === 'kenburns') {
@@ -115,6 +117,11 @@ class ClusterVideoRenderer {
                 $cmd[] = '1';
                 $cmd[] = '-t';
                 $cmd[] = $this->formatFloat($clipDuration);
+                $cmd[] = '-i';
+                $cmd[] = $file;
+                $flatInputs[] = [$file];
+            } elseif ($seg['type'] === 'video') {
+                $file = $seg['inputs'][0];
                 $cmd[] = '-i';
                 $cmd[] = $file;
                 $flatInputs[] = [$file];
@@ -382,6 +389,23 @@ class ClusterVideoRenderer {
                 );
                 $segmentOutputLabels[] = sprintf('kseg%d', $si);
                 $inputIndex += 1;
+            } elseif ($seg['type'] === 'video') {
+                // Prepare video: scale/crop to canvas, normalize fps, then pad ONLY the transition tail with a cloned frame
+                // to guarantee overlap for xfade (no still time before fade, motion continues until fade starts)
+                $filterParts[] = sprintf(
+                    '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
+                    'crop=%2$d:%3$d,fps=%4$d,setsar=1,' .
+                    'tpad=stop_mode=clone:stop_duration=%5$s,trim=duration=%6$s,setpts=PTS-STARTPTS[vseg%7$d]',
+                    $inputIndex,
+                    $width,
+                    $height,
+                    $fps,
+                    $this->formatFloat($transitionDuration),
+                    $this->formatFloat($clipDuration),
+                    $si,
+                );
+                $segmentOutputLabels[] = sprintf('vseg%d', $si);
+                $inputIndex += 1;
             } elseif ($seg['type'] === 'stack') {
                 // Three inputs compose one sliding stack segment
                 $base = sprintf('base%d', $si);
@@ -495,6 +519,59 @@ class ClusterVideoRenderer {
         );
 
         return [implode(';', $filterParts), '[vout]'];
+    }
+
+    /**
+     * @param array<int,array{type:string,inputs:array<int,string>}> $segments
+     * @return array<int,array{type:string,inputs:array<int,string>}> 
+     */
+    private function preferVideoWhereAvailable(array $segments): array {
+        $out = [];
+        foreach ($segments as $seg) {
+            if (($seg['type'] ?? '') === 'kenburns' && !empty($seg['inputs'][0])) {
+                $img = (string)$seg['inputs'][0];
+                $lower = strtolower($img);
+                $mp4 = null;
+                if (str_ends_with($lower, '.jpg') || str_ends_with($lower, '.jpeg') || str_ends_with($lower, '.heic')) {
+                    $base = substr($img, 0, strrpos($img, '.'));
+                    if ($base !== false) {
+                        $candidate = $base . '.mp4';
+                        if ($this->isLikelyValidMp4($candidate)) {
+                            $mp4 = $candidate;
+                        }
+                    }
+                }
+                if ($mp4) {
+                    $out[] = ['type' => 'video', 'inputs' => [$mp4]];
+                } else {
+                    $out[] = $seg;
+                }
+            } else {
+                $out[] = $seg;
+            }
+        }
+        return $out;
+    }
+
+    private function isLikelyValidMp4(string $path): bool {
+        if (!is_file($path)) { return false; }
+        $size = @filesize($path);
+        if (!is_int($size) || $size < 10240) { return false; } // at least 10KB
+        $fh = @fopen($path, 'rb');
+        if ($fh === false) { return false; }
+        $head = '';
+        try {
+            $head = @fread($fh, 4096) ?: '';
+        } finally {
+            fclose($fh);
+        }
+        if ($head === '') { return false; }
+        // ftyp must be in the beginning chunk
+        $p = strpos($head, 'ftyp');
+        if ($p === false || $p > 64) { return false; }
+        $brand = substr($head, $p + 4, 8) ?: '';
+        $brandOk = str_contains($brand, 'isom') || str_contains($brand, 'mp42') || str_contains($brand, 'iso5') || str_contains($brand, 'avc1');
+        return $brandOk;
     }
 
     /**
