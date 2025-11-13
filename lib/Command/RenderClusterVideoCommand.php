@@ -34,7 +34,8 @@ class RenderClusterVideoCommand extends Command {
             ->addOption('width', null, InputOption::VALUE_REQUIRED, 'Output width (height auto, maintains aspect)', 1920)
             ->addOption('fps', null, InputOption::VALUE_REQUIRED, 'Output frames per second', 30)
             ->addOption('max-images', null, InputOption::VALUE_REQUIRED, 'Maximum number of images to include (faster render)', 80)
-            ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output mp4 path (absolute inside server)');
+            ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output mp4 path (absolute inside server)')
+            ->addOption('no-motion', null, InputOption::VALUE_NONE, 'Disable inclusion of GCam Motion Photos');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
@@ -54,6 +55,7 @@ class RenderClusterVideoCommand extends Command {
         $outPath = is_string($outputOption) && $outputOption !== '' ? $outputOption : null;
         $maxImagesOption = (int)$input->getOption('max-images');
         $maxImages = $maxImagesOption > 0 ? $maxImagesOption : 80;
+        $includeMotion = !(bool)$input->getOption('no-motion');
 
         try {
             $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, (int)$albumId, $minGap, $maxImages);
@@ -105,6 +107,7 @@ class RenderClusterVideoCommand extends Command {
                     $output->write($buffer);
                 },
                 $preferredFileName,
+                $includeMotion,
             );
             $output->writeln('<info>ffmpeg finished.</info>');
         } catch (\Throwable $e) {

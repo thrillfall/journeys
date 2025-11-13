@@ -72,6 +72,12 @@
 							</select>
 						</div>
 					</div>
+					<div class="settings-field" style="margin-top: 0.5rem;">
+						<label>
+							<input type="checkbox" v-model="includeMotionFromGCam" />
+							{{ t('journeys', 'Include motion from GCam photos (Live)') }}
+						</label>
+					</div>
 					<div class="grid-three" style="margin-top: 0.75rem;">
 						<div class="settings-field">
 							<label :for="'homeLat'">{{ t('journeys', 'Home latitude') }}</label>
@@ -173,6 +179,7 @@ export default {
 			homeName: null,
 			includeGroupFolders: false,
 			autoGenerateVideos: false,
+			includeMotionFromGCam: true,
 			videoOrientation: 'portrait',
 		}
 	},
@@ -189,6 +196,7 @@ export default {
 				this.homeRadiusKm = settingsResp.data.homeRadiusKm
 				this.homeName = settingsResp.data.homeName || null
 				this.autoGenerateVideos = !!settingsResp.data.autoGenerateVideos
+				this.includeMotionFromGCam = !!settingsResp.data.includeMotionFromGCam
 				this.videoOrientation = settingsResp.data.videoOrientation || 'portrait'
 				if (typeof settingsResp.data.nearTimeGap !== 'undefined') this.nearTimeGap = settingsResp.data.nearTimeGap
 				if (typeof settingsResp.data.nearDistanceKm !== 'undefined') this.nearDistanceKm = settingsResp.data.nearDistanceKm
@@ -219,6 +227,7 @@ export default {
 					homeLon: this.homeLon,
 					homeRadiusKm: this.homeRadiusKm,
 					autoGenerateVideos: this.autoGenerateVideos,
+					includeMotionFromGCam: this.includeMotionFromGCam,
 					videoOrientation: this.videoOrientation,
 					nearTimeGap: this.nearTimeGap,
 					nearDistanceKm: this.nearDistanceKm,
@@ -237,20 +246,21 @@ export default {
 			this.error = null
 			try {
 				const resp = await axios.post(generateUrl('/apps/journeys/personal_settings/start_clustering'), {
-				minClusterSize: this.minClusterSize,
-				maxTimeGap: this.maxTimeGap,
-				maxDistanceKm: this.maxDistanceKm,
-				includeGroupFolders: this.includeGroupFolders,
-				homeLat: this.homeLat,
-				homeLon: this.homeLon,
-				homeRadiusKm: this.homeRadiusKm,
-				autoGenerateVideos: this.autoGenerateVideos,
-				videoOrientation: this.videoOrientation,
-				nearTimeGap: this.nearTimeGap,
-				nearDistanceKm: this.nearDistanceKm,
-				awayTimeGap: this.awayTimeGap,
-				awayDistanceKm: this.awayDistanceKm,
-			})
+					minClusterSize: this.minClusterSize,
+					maxTimeGap: this.maxTimeGap,
+					maxDistanceKm: this.maxDistanceKm,
+					includeGroupFolders: this.includeGroupFolders,
+					homeLat: this.homeLat,
+					homeLon: this.homeLon,
+					homeRadiusKm: this.homeRadiusKm,
+					autoGenerateVideos: this.autoGenerateVideos,
+					includeMotionFromGCam: this.includeMotionFromGCam,
+					videoOrientation: this.videoOrientation,
+					nearTimeGap: this.nearTimeGap,
+					nearDistanceKm: this.nearDistanceKm,
+					awayTimeGap: this.awayTimeGap,
+					awayDistanceKm: this.awayDistanceKm,
+				})
 				showSuccess(this.t('journeys', 'Clustering started successfully.'))
 				this.lastRun = resp.data.lastRun || new Date().toISOString()
 				await this.fetchClusters()

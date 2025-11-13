@@ -80,6 +80,9 @@ class PersonalSettingsController extends Controller {
         $videoOrientation = (string)($this->request->getParam('videoOrientation') ?? 'portrait');
         $videoOrientation = in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait';
         $this->userConfig->setUserValue($userId, 'journeys', 'autoGenerateVideos', $autoGenerateVideos ? '1' : '0');
+        // New: includeMotionFromGCam toggle
+        $includeMotionFromGCam = filter_var($this->request->getParam('includeMotionFromGCam') ?? true, FILTER_VALIDATE_BOOLEAN);
+        $this->userConfig->setUserValue($userId, 'journeys', 'includeMotionFromGCam', $includeMotionFromGCam ? '1' : '0');
         $this->userConfig->setUserValue($userId, 'journeys', 'videoOrientation', $videoOrientation);
         if ($homeLat !== null && $homeLon !== null) {
             $this->userConfig->setUserValue($userId, 'journeys', 'homeLat', (string)(float)$homeLat);
@@ -143,6 +146,9 @@ class PersonalSettingsController extends Controller {
             $videoOrientation = (string)($this->request->getParam('videoOrientation') ?? 'portrait');
             $videoOrientation = in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait';
             $this->userConfig->setUserValue($userId, 'journeys', 'autoGenerateVideos', $autoGenerateVideos ? '1' : '0');
+            // New: includeMotionFromGCam toggle
+            $includeMotionFromGCam = filter_var($this->request->getParam('includeMotionFromGCam') ?? true, FILTER_VALIDATE_BOOLEAN);
+            $this->userConfig->setUserValue($userId, 'journeys', 'includeMotionFromGCam', $includeMotionFromGCam ? '1' : '0');
             $this->userConfig->setUserValue($userId, 'journeys', 'videoOrientation', $videoOrientation);
             if ($homeLat !== null && $homeLon !== null) {
                 $this->userConfig->setUserValue($userId, 'journeys', 'homeLat', (string)(float)$homeLat);
@@ -229,6 +235,7 @@ class PersonalSettingsController extends Controller {
             }
         }
         $autoGenerateVideos = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'autoGenerateVideos', 0));
+        $includeMotionFromGCam = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeMotionFromGCam', 1));
         $videoOrientation = (string)$this->userConfig->getUserValue($userId, 'journeys', 'videoOrientation', 'portrait');
         return new JSONResponse([
             'minClusterSize' => $minClusterSize,
@@ -241,6 +248,7 @@ class PersonalSettingsController extends Controller {
             'homeRadiusKm' => (float)$homeRadiusKm,
             'homeName' => $homeName,
             'autoGenerateVideos' => $autoGenerateVideos,
+            'includeMotionFromGCam' => $includeMotionFromGCam,
             'videoOrientation' => in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait',
             'nearTimeGap' => $nearTimeGap,
             'nearDistanceKm' => $nearDistanceKm,
@@ -341,6 +349,9 @@ class PersonalSettingsController extends Controller {
                 $width,
                 $fps,
                 $maxImages > 0 ? $maxImages : 80,
+                null,
+                null,
+                (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeMotionFromGCam', 1)),
             );
         } catch (NoImagesFoundException $e) {
             return new JSONResponse(['error' => $e->getMessage()], 404);

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2025-11-13
+### Added
+- GCam Motion toggle in Personal Settings: `Include motion from GCam photos (Live)`.
+- OCC: `--no-motion` flag for `journeys:render-cluster-video` to disable motion inclusion per run.
+
+### Fixed
+- Smooth timing for GCam Motion playback: probe trailer duration and time-stretch to match per-image hold with proper crossfades.
+
+
 ## [0.9.2] - 2025-11-06
 ### Fixed
 - Notifications: don't filter out notifications from other apps.

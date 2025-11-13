@@ -32,6 +32,7 @@ class ClusterVideoRenderer {
         array $files,
         ?callable $outputHandler = null,
         ?string $preferredFileName = null,
+        bool $includeMotion = true,
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -41,8 +42,10 @@ class ClusterVideoRenderer {
 
         // Build a sequence of render segments (portrait Ken Burns and occasional landscape stacks)
         $segments = $this->planSegments($files);
-        // Replace portrait image segments with video segments when a GCam trailer was extracted
-        $segments = $this->preferVideoWhereAvailable($segments);
+        // Replace portrait image segments with video segments when a GCam trailer was extracted (if enabled)
+        if ($includeMotion) {
+            $segments = $this->preferVideoWhereAvailable($segments);
+        }
         if (empty($segments)) {
             throw new \RuntimeException('No renderable images available (need at least one portrait or 3 landscapes)');
         }
@@ -390,16 +393,26 @@ class ClusterVideoRenderer {
                 $segmentOutputLabels[] = sprintf('kseg%d', $si);
                 $inputIndex += 1;
             } elseif ($seg['type'] === 'video') {
-                // Prepare video: scale/crop to canvas, normalize fps, then pad ONLY the transition tail with a cloned frame
-                // to guarantee overlap for xfade (no still time before fade, motion continues until fade starts)
+                // Prepare video: scale/crop to canvas, normalize fps, time-stretch to fill hold, then pad transition tail
+                $vidPath = $segments[$si]['inputs'][0] ?? '';
+                $dur = $this->probeVideoDuration(is_string($vidPath) ? $vidPath : '');
+                $dur = max(0.1, min($dur, 30.0));
+                $ptsFactor = 1.0;
+                if ($dur > 0.0) {
+                    // setpts factor >1 slows down; <1 speeds up
+                    $ptsFactor = $holdDuration / $dur;
+                    $ptsFactor = max(0.5, min(2.0, $ptsFactor));
+                }
                 $filterParts[] = sprintf(
                     '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
                     'crop=%2$d:%3$d,fps=%4$d,setsar=1,' .
-                    'tpad=stop_mode=clone:stop_duration=%5$s,trim=duration=%6$s,setpts=PTS-STARTPTS[vseg%7$d]',
+                    'setpts=%5$s*PTS,' .
+                    'tpad=stop_mode=clone:stop_duration=%6$s,trim=duration=%7$s,setpts=PTS-STARTPTS[vseg%8$d]',
                     $inputIndex,
                     $width,
                     $height,
                     $fps,
+                    $this->formatFloat($ptsFactor),
                     $this->formatFloat($transitionDuration),
                     $this->formatFloat($clipDuration),
                     $si,
@@ -762,6 +775,26 @@ class ClusterVideoRenderer {
 
     private function formatFloat(float $value): string {
         return number_format($value, 6, '.', '');
+    }
+
+    private function probeVideoDuration(string $path): float {
+        if ($path === '' || !is_file($path)) {
+            return 0.0;
+        }
+        try {
+            $cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', $path];
+            $proc = new Process($cmd);
+            $proc->setTimeout(5);
+            $proc->run();
+            if ($proc->isSuccessful()) {
+                $out = trim($proc->getOutput());
+                $val = (float) $out;
+                if ($val > 0 && is_finite($val)) {
+                    return $val;
+                }
+            }
+        } catch (\Throwable) {}
+        return 0.0;
     }
 
 }
