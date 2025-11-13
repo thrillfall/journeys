@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2025-11-13
+### Meta
+- Version bump.
+
 ## [0.10.0] - 2025-11-13
 ### Added
 - GCam Motion toggle in Personal Settings: `Include motion from GCam photos (Live)`.

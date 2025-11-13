@@ -30,6 +30,7 @@ class ClusterLocationResolver {
      */
     public function resolveClusterLocation(array $images, bool $preferBroaderLevel = true): ?string {
         $locations = [];
+        $sublocalities = [];
         foreach ($images as $img) {
             if ($img->lat !== null && $img->lon !== null) {
                 $places = $this->placeResolver->queryPoint($img->lat, $img->lon);
@@ -46,6 +47,15 @@ class ClusterLocationResolver {
                                 'admin_level' => $place['admin_level'],
                                 'name' => $this->getPlaceName($place['osm_id'])
                             ];
+                        } elseif ((int)$place['admin_level'] >= 9 && (int)$place['admin_level'] <= 12) {
+                            // Collect sublocality candidates (e.g., neighbourhood, suburb)
+                            $name = $this->getPlaceName($place['osm_id']);
+                            if ($name) {
+                                if (!isset($sublocalities[$name])) {
+                                    $sublocalities[$name] = 0;
+                                }
+                                $sublocalities[$name]++;
+                            }
                         }
                     }
                 }
@@ -69,22 +79,37 @@ class ClusterLocationResolver {
             $levelB = (int)explode('|', $b)[1];
             return $levelB <=> $levelA;
         });
+        $baseName = null;
         if ($preferBroaderLevel) {
             // Try to find the broadest level shared by most images
             foreach ($byName as $key => $count) {
                 if ($count >= count($images) / 2) { // majority
-                    return explode('|', $key)[0];
+                    $baseName = explode('|', $key)[0];
+                    break;
                 }
             }
             // Fallback: pick the broadest available
-            $broadestKey = array_key_first($byName);
-            return explode('|', $broadestKey)[0];
+            if ($baseName === null) {
+                $broadestKey = array_key_first($byName);
+                $baseName = explode('|', $broadestKey)[0];
+            }
         } else {
             // Original behavior (most common, possibly more specific)
             arsort($byName);
             $mostCommon = array_key_first($byName);
-            return explode('|', $mostCommon)[0];
+            $baseName = explode('|', $mostCommon)[0];
         }
+
+        // Append frequent sublocality for near-home style clusters: if a sublocality is present on ≥50% of images
+        if (!empty($sublocalities)) {
+            arsort($sublocalities);
+            $topSub = array_key_first($sublocalities);
+            $topCount = $sublocalities[$topSub];
+            if ($topCount >= (int)ceil(count($images) * 0.5)) {
+                return $baseName . ' — ' . $topSub;
+            }
+        }
+        return $baseName;
     }
 
     /**

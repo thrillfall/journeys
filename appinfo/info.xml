@@ -31,11 +31,9 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
-  <h3>0.10.0 (2025-11-13)</h3>
+  <h3>0.11.0 (2025-11-13)</h3>
     <ul>
-      <li><b>Settings:</b> GCam Motion toggle ("Include motion from GCam photos (Live)") in Personal Settings.</li>
-      <li><b>CLI:</b> <code>--no-motion</code> flag for <code>journeys:render-cluster-video</code> to disable motion inclusion per run.</li>
-      <li><b>Rendering:</b> Smooth timing for GCam Motion playback by probing trailer duration and time‑stretching to match per‑image hold with proper crossfades.</li>
+      <li><b>Meta:</b> Version bump.</li>
     </ul>
   <h3>0.9.2 (2025-11-06)</h3>
     <ul>
@@ -188,7 +186,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.10.0</version>
+  <version>0.11.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
