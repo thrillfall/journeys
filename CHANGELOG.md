@@ -3,8 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [0.11.0] - 2025-11-13
-### Meta
-- Version bump.
+### Changed
+- Near-home clusters: append frequent sublocality names to make album titles more specific.
 
 ## [0.10.0] - 2025-11-13
 ### Added

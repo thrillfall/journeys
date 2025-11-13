@@ -31,9 +31,13 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.11.1 (2025-11-13)</h3>
+    <ul>
+      <li><b>Meta:</b> Patch version bump.</li>
+    </ul>
   <h3>0.11.0 (2025-11-13)</h3>
     <ul>
-      <li><b>Meta:</b> Version bump.</li>
+      <li><b>Naming:</b> Near-home clusters now append frequent sublocality names to make album titles more specific.</li>
     </ul>
   <h3>0.9.2 (2025-11-06)</h3>
     <ul>
@@ -186,7 +190,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.11.0</version>
+  <version>0.11.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
