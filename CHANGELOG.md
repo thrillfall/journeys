@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2025-11-18
+### Added
+- Landscape video renderer now supports GCam Motion Photos (Live Photos from Google Camera).
+- Automatically extracts and uses embedded motion videos from landscape images when available.
+- CLI: `--no-motion` flag for `journeys:render-cluster-video-landscape` command to disable motion inclusion.
+
+### Changed
+- Landscape videos now seamlessly blend static images and motion clips with time-stretching and crossfades.
+
 ## [0.11.0] - 2025-11-13
 ### Changed
 - Near-home clusters: append frequent sublocality names to make album titles more specific.

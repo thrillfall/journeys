@@ -106,6 +106,7 @@ class ClusterVideoJobRunner {
         int $maxImages = 80,
         ?string $outputPath = null,
         ?callable $outputHandler = null,
+        bool $includeMotion = true,
     ): array {
         $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, $albumId, $minGapSeconds, $maxImages);
 
@@ -138,6 +139,7 @@ class ClusterVideoJobRunner {
                 $filePaths,
                 $outputHandler,
                 $preferredFileName,
+                $includeMotion,
             );
         } finally {
             $this->filePreparer->cleanup($workingDir);

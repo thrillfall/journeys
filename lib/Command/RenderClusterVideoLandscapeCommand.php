@@ -35,7 +35,8 @@ class RenderClusterVideoLandscapeCommand extends Command {
             ->addOption('fps', null, InputOption::VALUE_REQUIRED, 'Output frames per second', 30)
             ->addOption('max-images', null, InputOption::VALUE_REQUIRED, 'Maximum number of images to include (faster render)', 80)
             ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output mp4 path (absolute inside server)')
-            ->addOption('no-audio', null, InputOption::VALUE_NONE, 'Disable soundtrack');
+            ->addOption('no-audio', null, InputOption::VALUE_NONE, 'Disable soundtrack')
+            ->addOption('no-motion', null, InputOption::VALUE_NONE, 'Disable GCam motion video inclusion');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int {
@@ -56,6 +57,7 @@ class RenderClusterVideoLandscapeCommand extends Command {
         $maxImagesOption = (int)$input->getOption('max-images');
         $maxImages = $maxImagesOption > 0 ? $maxImagesOption : 80;
         $disableAudio = (bool)$input->getOption('no-audio');
+        $includeMotion = !(bool)$input->getOption('no-motion');
 
         try {
             $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, (int)$albumId, $minGap, $maxImages);
@@ -112,6 +114,7 @@ class RenderClusterVideoLandscapeCommand extends Command {
                     $output->write($buffer);
                 },
                 $preferredFileName,
+                $includeMotion,
             );
             $output->writeln('<info>ffmpeg finished.</info>');
         } catch (\Throwable $e) {

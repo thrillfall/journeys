@@ -20,6 +20,7 @@ class ClusterVideoRendererLandscape {
      * @param array<int, string> $files Absolute file paths (ordered)
      * @param callable(string, string):void|null $outputHandler
      * @param string|null $preferredFileName Suggested filename when storing into user files
+     * @param bool $includeMotion Replace landscape images with GCam motion videos when available
      * @return array{path: string, storedInUserFiles: bool}
      */
     public function render(
@@ -32,6 +33,7 @@ class ClusterVideoRendererLandscape {
         array $files,
         ?callable $outputHandler = null,
         ?string $preferredFileName = null,
+        bool $includeMotion = true,
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -41,6 +43,11 @@ class ClusterVideoRendererLandscape {
         $files = $this->filterLandscapeFiles($files);
         if (empty($files)) {
             throw new \RuntimeException('No landscape images available to render');
+        }
+
+        // Replace landscape images with GCam motion videos when available (if enabled)
+        if ($includeMotion) {
+            $files = $this->preferVideoWhereAvailable($files);
         }
 
         $tmpOut = $outputPath ?: ($workingDir . '/journey_landscape.mp4');
@@ -56,13 +63,28 @@ class ClusterVideoRendererLandscape {
         $holdDuration = max(0.5, $durationPerImage);
         $transitionDuration = min(0.8, max(0.2, $holdDuration * 0.3));
         $clipDuration = $holdDuration + $transitionDuration; // input lifespan to allow xfade overlap
+
+        // Build segments to distinguish images from videos
+        $segments = [];
         foreach ($files as $f) {
-            $cmd[] = '-loop';
-            $cmd[] = '1';
-            $cmd[] = '-t';
-            $cmd[] = $this->formatFloat($clipDuration);
-            $cmd[] = '-i';
-            $cmd[] = $f;
+            $isVideo = $this->isVideoFile($f);
+            $segments[] = ['type' => $isVideo ? 'video' : 'image', 'file' => $f];
+        }
+
+        // Register inputs based on type
+        foreach ($segments as $seg) {
+            if ($seg['type'] === 'image') {
+                $cmd[] = '-loop';
+                $cmd[] = '1';
+                $cmd[] = '-t';
+                $cmd[] = $this->formatFloat($clipDuration);
+                $cmd[] = '-i';
+                $cmd[] = $seg['file'];
+            } else {
+                // Video input (no loop needed)
+                $cmd[] = '-i';
+                $cmd[] = $seg['file'];
+            }
         }
 
         $audioInputIndex = null;
@@ -71,31 +93,59 @@ class ClusterVideoRendererLandscape {
             $cmd[] = '-1';
             $cmd[] = '-i';
             $cmd[] = $audioTrack;
-            $audioInputIndex = count($files);
+            $audioInputIndex = count($segments);
         }
 
-        // Build filter graph: per-image Ken Burns on 16:9 canvas, then xfade chain
+        // Build filter graph: per-segment Ken Burns (for images) or time-stretch (for videos) on 16:9 canvas, then xfade chain
         $parts = [];
         $prepLabels = [];
         $frameCount = max(2, (int) round($clipDuration * $fps));
-        for ($i = 0; $i < count($files); $i++) {
+        for ($i = 0; $i < count($segments); $i++) {
             $label = sprintf('kseg%d', $i);
-            $motion = $this->buildKenBurnsExpressions($i, $frameCount);
-            // Prepare 16:9 canvas first, then apply zoompan for motion variety
-            $parts[] = sprintf(
-                '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
-                'crop=%2$d:%3$d,' .
-                'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS[%9$s]',
-                $i,
-                $width,
-                $height,
-                $motion['z'],
-                $motion['x'],
-                $motion['y'],
-                $frameCount,
-                $fps,
-                $label,
-            );
+            $seg = $segments[$i];
+
+            if ($seg['type'] === 'image') {
+                $motion = $this->buildKenBurnsExpressions($i, $frameCount);
+                // Prepare 16:9 canvas first, then apply zoompan for motion variety
+                $parts[] = sprintf(
+                    '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
+                    'crop=%2$d:%3$d,' .
+                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS[%9$s]',
+                    $i,
+                    $width,
+                    $height,
+                    $motion['z'],
+                    $motion['x'],
+                    $motion['y'],
+                    $frameCount,
+                    $fps,
+                    $label,
+                );
+            } else {
+                // Video: scale/crop to canvas, normalize fps, time-stretch to fill hold, then pad transition tail
+                $dur = $this->probeVideoDuration($seg['file']);
+                $dur = max(0.1, min($dur, 30.0));
+                $ptsFactor = 1.0;
+                if ($dur > 0.0) {
+                    // setpts factor >1 slows down; <1 speeds up
+                    $ptsFactor = $holdDuration / $dur;
+                    $ptsFactor = max(0.5, min(2.0, $ptsFactor));
+                }
+                $parts[] = sprintf(
+                    '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
+                    'crop=%2$d:%3$d,fps=%4$d,setsar=1,' .
+                    'setpts=%5$s*PTS,' .
+                    'tpad=stop_mode=clone:stop_duration=%6$s,trim=duration=%7$s,setpts=PTS-STARTPTS[%8$s]',
+                    $i,
+                    $width,
+                    $height,
+                    $fps,
+                    $this->formatFloat($ptsFactor),
+                    $this->formatFloat($transitionDuration),
+                    $this->formatFloat($clipDuration),
+                    $label,
+                );
+            }
             $prepLabels[] = '[' . $label . ']';
         }
         if (count($prepLabels) === 1) {
@@ -128,7 +178,7 @@ class ClusterVideoRendererLandscape {
             $cmd[] = '-map';
             $cmd[] = sprintf('%d:a:0', $audioInputIndex);
             // Gentle fade-out at the end; match xfade total video duration
-            $totalDurationSeconds = $holdDuration * count($files) + $transitionDuration;
+            $totalDurationSeconds = $holdDuration * count($segments) + $transitionDuration;
             $fadeDur = min(5.0, max(0.5, $totalDurationSeconds * 0.08));
             $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
             $cmd[] = '-filter:a';
@@ -158,7 +208,7 @@ class ClusterVideoRendererLandscape {
         $process = new Process($cmd);
         $process->setTimeout(null);
         $process->setIdleTimeout(null);
-        $totalDurationSeconds = $holdDuration * count($files) + $transitionDuration;
+        $totalDurationSeconds = $holdDuration * count($segments) + $transitionDuration;
         $progressBuffer = '';
         $lastPercent = -1;
         $process->run(function (string $type, string $buffer) use ($outputHandler, &$progressBuffer, &$lastPercent, $totalDurationSeconds): void {
@@ -344,4 +394,74 @@ class ClusterVideoRendererLandscape {
 
     private function makeEven(int $value): int { return ($value % 2 === 0) ? $value : $value + 1; }
     private function formatFloat(float $v): string { return number_format($v, 6, '.', ''); }
+
+    /**
+     * Replace landscape images with GCam motion videos when available.
+     * @param array<int,string> $files
+     * @return array<int,string>
+     */
+    private function preferVideoWhereAvailable(array $files): array {
+        $out = [];
+        foreach ($files as $img) {
+            $lower = strtolower($img);
+            $mp4 = null;
+            if (str_ends_with($lower, '.jpg') || str_ends_with($lower, '.jpeg') || str_ends_with($lower, '.heic')) {
+                $base = substr($img, 0, strrpos($img, '.'));
+                if ($base !== false) {
+                    $candidate = $base . '.mp4';
+                    if ($this->isLikelyValidMp4($candidate)) {
+                        $mp4 = $candidate;
+                    }
+                }
+            }
+            $out[] = $mp4 ?: $img;
+        }
+        return $out;
+    }
+
+    private function isVideoFile(string $path): bool {
+        $lower = strtolower($path);
+        return str_ends_with($lower, '.mp4') || str_ends_with($lower, '.mov') || str_ends_with($lower, '.avi');
+    }
+
+    private function isLikelyValidMp4(string $path): bool {
+        if (!is_file($path)) { return false; }
+        $size = @filesize($path);
+        if (!is_int($size) || $size < 10240) { return false; } // at least 10KB
+        $fh = @fopen($path, 'rb');
+        if ($fh === false) { return false; }
+        $head = '';
+        try {
+            $head = @fread($fh, 4096) ?: '';
+        } finally {
+            fclose($fh);
+        }
+        if ($head === '') { return false; }
+        // ftyp must be in the beginning chunk
+        $p = strpos($head, 'ftyp');
+        if ($p === false || $p > 64) { return false; }
+        $brand = substr($head, $p + 4, 8) ?: '';
+        $brandOk = str_contains($brand, 'isom') || str_contains($brand, 'mp42') || str_contains($brand, 'iso5') || str_contains($brand, 'avc1');
+        return $brandOk;
+    }
+
+    private function probeVideoDuration(string $path): float {
+        if ($path === '' || !is_file($path)) {
+            return 0.0;
+        }
+        try {
+            $cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', $path];
+            $proc = new Process($cmd);
+            $proc->setTimeout(5);
+            $proc->run();
+            if ($proc->isSuccessful()) {
+                $out = trim($proc->getOutput());
+                $val = (float) $out;
+                if ($val > 0 && is_finite($val)) {
+                    return $val;
+                }
+            }
+        } catch (\Throwable) {}
+        return 0.0;
+    }
 }
