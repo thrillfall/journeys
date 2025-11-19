@@ -30,15 +30,15 @@ class RemoveAllAlbumsCommand extends Command
     protected function configure()
     {
         $this
-            ->setDescription('Removes all albums for a specific user using the Journeys album manager logic (not system tags).')
-            ->addArgument('user', InputArgument::REQUIRED, 'The user ID for which to remove all albums');
+            ->setDescription('Removes all Journeys-created cluster albums for a specific user.')
+            ->addArgument('user', InputArgument::REQUIRED, 'The user ID for which to remove all Journeys cluster albums');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $io = new SymfonyStyle($input, $output);
         $userId = $input->getArgument('user');
-        $io->title("Removing all albums for user '{$userId}' using Journeys album manager...");
+        $io->title("Removing all Journeys cluster albums for user '{$userId}'...");
 
         $user = $this->userManager->get($userId);
         if (!$user) {
@@ -46,10 +46,10 @@ class RemoveAllAlbumsCommand extends Command
             return 1;
         }
 
-        $deleted = $this->albumCreator->purgeAllAlbums($userId);
+        $deleted = $this->albumCreator->purgeClusterAlbums($userId);
         // Also reset the latest tracked end for cluster albums
         $this->albumCreator->resetLatestClusterEnd($userId);
-        $io->success("User <info>{$userId}</info>: Deleted <comment>{$deleted}</comment> albums and reset latest cluster end");
+        $io->success("User <info>{$userId}</info>: Deleted <comment>{$deleted}</comment> Journeys cluster albums and reset latest cluster end");
         return 0;
     }
 }

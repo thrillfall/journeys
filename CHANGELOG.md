@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.1] - 2025-11-19
+### Fixed
+- `journeys:remove-all-albums` command now only removes Journeys-created albums instead of all user albums. Manually-created albums are now preserved.
+
+### Removed
+- Removed dangerous `purgeAllAlbums()` method that deleted all user albums regardless of source.
+
 ## [0.12.0] - 2025-11-18
 ### Added
 - Landscape video renderer now supports GCam Motion Photos (Live Photos from Google Camera).

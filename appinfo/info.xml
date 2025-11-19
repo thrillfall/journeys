@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.12.1 (2025-11-19)</h3>
+    <ul>
+      <li><b>Fix:</b> <code>journeys:remove-all-albums</code> now only removes Journeys-created albums, preserving manually-created albums.</li>
+    </ul>
   <h3>0.12.0 (2025-11-18)</h3>
     <ul>
       <li><b>Video:</b> Landscape video renderer now supports GCam Motion Photos (Live Photos).</li>
@@ -195,7 +199,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.12.0</version>
+  <version>0.12.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
