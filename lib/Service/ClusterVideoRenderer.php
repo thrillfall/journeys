@@ -379,7 +379,7 @@ class ClusterVideoRenderer {
                 $filterParts[] = sprintf(
                     '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
                     'crop=%2$d:%3$d,' .
-                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1[kseg%9$d]',
+                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS[kseg%9$d]',
                     $inputIndex,
                     $width,
                     $height,

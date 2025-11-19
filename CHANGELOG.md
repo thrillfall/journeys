@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] - 2025-11-19
+### Fixed
+- Video rendering: Ken Burns effect now works correctly on still images that follow GCam motion videos in both portrait and landscape renderers. Fixed PTS (Presentation TimeStamp) normalization that was causing static images after motion clips.
+
 ## [0.12.1] - 2025-11-19
 ### Fixed
 - `journeys:remove-all-albums` command now only removes Journeys-created albums instead of all user albums. Manually-created albums are now preserved.
