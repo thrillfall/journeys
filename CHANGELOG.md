@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.1] - 2025-11-19
+### Added
+- CLI: `--ffmpeg-verbose` flag for `journeys:render-cluster-video` and `journeys:render-cluster-video-landscape` commands to enable detailed FFmpeg output for debugging rendering issues.
+
 ## [0.13.0] - 2025-11-19
 ### Fixed
 - Video rendering: Ken Burns effect now works correctly on still images that follow GCam motion videos in both portrait and landscape renderers. Fixed PTS (Presentation TimeStamp) normalization that was causing static images after motion clips.

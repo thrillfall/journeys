@@ -3,11 +3,13 @@ namespace OCA\Journeys\Service;
 
 use OCP\Files\IRootFolder;
 use Symfony\Component\Process\Process;
+use Psr\Log\LoggerInterface;
 
 class ClusterVideoRenderer {
     public function __construct(
         private IRootFolder $rootFolder,
         private ClusterVideoMusicProvider $musicProvider,
+        private LoggerInterface $logger,
     ) {}
 
     /**
@@ -33,18 +35,34 @@ class ClusterVideoRenderer {
         ?callable $outputHandler = null,
         ?string $preferredFileName = null,
         bool $includeMotion = true,
+        bool $verbose = false,
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
         }
 
+        $this->logger->info('ClusterVideoRenderer: Starting render', [
+            'app' => 'journeys',
+            'user' => $user,
+            'fileCount' => count($files),
+        ]);
+
         $tmpOut = $outputPath ?: ($workingDir . '/output.mp4');
 
         // Build a sequence of render segments (portrait Ken Burns and occasional landscape stacks)
         $segments = $this->planSegments($files);
+        $this->logger->info('ClusterVideoRenderer: Segments planned', [
+            'app' => 'journeys',
+            'segmentCount' => count($segments),
+        ]);
+
         // Replace portrait image segments with video segments when a GCam trailer was extracted (if enabled)
         if ($includeMotion) {
             $segments = $this->preferVideoWhereAvailable($segments);
+            $this->logger->info('ClusterVideoRenderer: After motion video replacement', [
+                'app' => 'journeys',
+                'segmentCount' => count($segments),
+            ]);
         }
         if (empty($segments)) {
             throw new \RuntimeException('No renderable images available (need at least one portrait or 3 landscapes)');
@@ -67,6 +85,7 @@ class ClusterVideoRenderer {
             $transitionDuration,
             $audioTrack,
             $outputHandler,
+            $verbose,
         );
 
         if ($outputPath !== null && $outputPath !== '') {
@@ -94,6 +113,7 @@ class ClusterVideoRenderer {
         float $transitionDuration,
         ?string $audioTrack,
         ?callable $outputHandler,
+        bool $verbose,
     ): void {
         if (empty($segments)) {
             throw new \RuntimeException('No files provided to ffmpeg');
@@ -109,7 +129,11 @@ class ClusterVideoRenderer {
             ? $clipDuration
             : max(0.1, $holdDuration * $segmentCount + $transitionDuration);
 
-        $cmd = ['ffmpeg', '-y', '-hide_banner', '-nostats', '-loglevel', 'error'];
+        $logLevel = $verbose ? 'info' : 'error';
+        $cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel];
+        if (!$verbose) {
+            $cmd[] = '-nostats';
+        }
 
         // Register all inputs (portrait: 1 per segment, stack: 3 per segment, video: 1 per segment)
         $flatInputs = [];
@@ -253,14 +277,23 @@ class ClusterVideoRenderer {
                     // Suppress all other metrics; only percentages should surface
                 }
             } elseif ($type === Process::ERR) {
-                if ($outputHandler !== null && !$this->shouldSuppressWarning($buffer)) {
-                    $outputHandler($type, $buffer);
+                if ($outputHandler !== null) {
+                    // In verbose mode, pass through all stderr; otherwise filter warnings
+                    if ($verbose || !$this->shouldSuppressWarning($buffer)) {
+                        $outputHandler($type, $buffer);
+                    }
                 }
             }
         });
 
         if (!$process->isSuccessful()) {
-            throw new \RuntimeException('ffmpeg failed: ' . $process->getErrorOutput());
+            $exitCode = $process->getExitCode();
+            $errorOutput = $process->getErrorOutput();
+            throw new \RuntimeException(sprintf(
+                'ffmpeg failed with exit code %d. Error output: %s',
+                $exitCode,
+                $errorOutput
+            ));
         }
     }
 

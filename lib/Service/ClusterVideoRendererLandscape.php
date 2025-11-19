@@ -34,6 +34,7 @@ class ClusterVideoRendererLandscape {
         ?callable $outputHandler = null,
         ?string $preferredFileName = null,
         bool $includeMotion = true,
+        bool $verbose = false,
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -57,7 +58,11 @@ class ClusterVideoRendererLandscape {
 
         $audioTrack = $this->musicProvider->pickRandomTrack();
 
-        $cmd = ['ffmpeg', '-y', '-hide_banner', '-nostats', '-loglevel', 'error'];
+        $logLevel = $verbose ? 'info' : 'error';
+        $cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel];
+        if (!$verbose) {
+            $cmd[] = '-nostats';
+        }
 
         // Mirror portrait timing: hold and transition
         $holdDuration = max(0.5, $durationPerImage);

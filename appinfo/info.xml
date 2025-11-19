@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.13.1 (2025-11-19)</h3>
+    <ul>
+      <li><b>Feature:</b> Added <code>--ffmpeg-verbose</code> CLI flag to both render commands for debugging.</li>
+    </ul>
   <h3>0.13.0 (2025-11-19)</h3>
     <ul>
       <li><b>Fix:</b> Ken Burns effect now works correctly on still images following GCam motion videos in both portrait and landscape renderers (PTS normalization).</li>
@@ -203,7 +207,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.13.0</version>
+  <version>0.13.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
