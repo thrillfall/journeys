@@ -312,14 +312,9 @@ class ClusterVideoRenderer {
         }
 
         $fileName = $this->determineFileName($preferredFileName);
-        try {
-            $existing = $movies->get($fileName);
-            if ($existing instanceof \OCP\Files\File) {
-                $existing->delete();
-            }
-        } catch (\Throwable) {
-            // ignore
-        }
+        // Always append timestamp to ensure unique filename and avoid conflicts
+        $baseName = preg_replace('/\.mp4$/i', '', $fileName);
+        $fileName = $baseName . ' ' . date('Ymd-His') . '.mp4';
 
         $destFile = $movies->newFile($fileName);
         $data = @file_get_contents($tmpOut);
@@ -426,28 +421,36 @@ class ClusterVideoRenderer {
                 $segmentOutputLabels[] = sprintf('kseg%d', $si);
                 $inputIndex += 1;
             } elseif ($seg['type'] === 'video') {
-                // Prepare video: scale/crop to canvas, normalize fps, time-stretch to fill hold, then pad transition tail
+                // Prepare video: scale/crop to canvas, normalize fps, time-stretch, then freeze-frame pad the rest
                 $vidPath = $segments[$si]['inputs'][0] ?? '';
                 $dur = $this->probeVideoDuration(is_string($vidPath) ? $vidPath : '');
                 $dur = max(0.1, min($dur, 30.0));
                 $ptsFactor = 1.0;
+                $stretchedDur = $dur;
                 if ($dur > 0.0) {
+                    // Time-stretch to fill holdDuration
                     // setpts factor >1 slows down; <1 speeds up
                     $ptsFactor = $holdDuration / $dur;
                     $ptsFactor = max(0.5, min(2.0, $ptsFactor));
+                    $stretchedDur = $dur * $ptsFactor;
                 }
+                // Calculate how many frames we need to pad (transition duration worth of frames)
+                $padFrames = max(0, (int)ceil(($clipDuration - $stretchedDur) * $fps));
+
                 $filterParts[] = sprintf(
                     '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
                     'crop=%2$d:%3$d,fps=%4$d,setsar=1,' .
-                    'setpts=%5$s*PTS,' .
-                    'tpad=stop_mode=clone:stop_duration=%6$s,trim=duration=%7$s,setpts=PTS-STARTPTS[vseg%8$d]',
+                    'trim=duration=%7$s,setpts=PTS-STARTPTS,' .
+                    'setpts=%5$s*PTS,setpts=PTS-STARTPTS,' .
+                    'tpad=stop_mode=clone:stop_duration=%8$d[vseg%9$d]',
                     $inputIndex,
                     $width,
                     $height,
                     $fps,
                     $this->formatFloat($ptsFactor),
-                    $this->formatFloat($transitionDuration),
                     $this->formatFloat($clipDuration),
+                    $this->formatFloat($dur),
+                    $padFrames,
                     $si,
                 );
                 $segmentOutputLabels[] = sprintf('vseg%d', $si);

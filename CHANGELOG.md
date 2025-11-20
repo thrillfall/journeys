@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.2] - 2025-11-20
+### Fixed
+- Video rendering no longer hangs when processing GCam motion clips. Fixed frame padding calculation to use exact frame counts instead of time-based duration.
+
+### Changed
+- Rendered videos now always include timestamp suffix (YYYYMMDD-HHMMSS) in filename to avoid file conflicts.
+
 ## [0.13.1] - 2025-11-19
 ### Added
 - CLI: `--ffmpeg-verbose` flag for `journeys:render-cluster-video` and `journeys:render-cluster-video-landscape` commands to enable detailed FFmpeg output for debugging rendering issues.
