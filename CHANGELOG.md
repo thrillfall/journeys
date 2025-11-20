@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.14.0] - 2025-11-20
+### Added
+- Video title overlay: Videos now display the cluster name on the first image for 4 seconds with smooth fade in/out animation.
+- Font size automatically scales to use 80% of video width with intelligent text wrapping at word boundaries and dashes.
+- Personal Settings: "Show cluster name title on videos" checkbox to toggle title display (enabled by default).
+- CLI: `--no-title` flag for both `journeys:render-cluster-video` and `journeys:render-cluster-video-landscape` commands to disable title overlay.
+
 ## [0.13.2] - 2025-11-20
 ### Fixed
 - Video rendering no longer hangs when processing GCam motion clips. Fixed frame padding calculation to use exact frame counts instead of time-based duration.

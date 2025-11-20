@@ -78,6 +78,12 @@
 							{{ t('journeys', 'Include motion from GCam photos (Live)') }}
 						</label>
 					</div>
+					<div class="settings-field" style="margin-top: 0.5rem;">
+						<label>
+							<input type="checkbox" v-model="showVideoTitle" />
+							{{ t('journeys', 'Show cluster name title on videos') }}
+						</label>
+					</div>
 					<div class="grid-three" style="margin-top: 0.75rem;">
 						<div class="settings-field">
 							<label :for="'homeLat'">{{ t('journeys', 'Home latitude') }}</label>
@@ -180,6 +186,7 @@ export default {
 			includeGroupFolders: false,
 			autoGenerateVideos: false,
 			includeMotionFromGCam: true,
+			showVideoTitle: true,
 			videoOrientation: 'portrait',
 		}
 	},
@@ -197,6 +204,7 @@ export default {
 				this.homeName = settingsResp.data.homeName || null
 				this.autoGenerateVideos = !!settingsResp.data.autoGenerateVideos
 				this.includeMotionFromGCam = !!settingsResp.data.includeMotionFromGCam
+				this.showVideoTitle = settingsResp.data.showVideoTitle !== undefined ? !!settingsResp.data.showVideoTitle : true
 				this.videoOrientation = settingsResp.data.videoOrientation || 'portrait'
 				if (typeof settingsResp.data.nearTimeGap !== 'undefined') this.nearTimeGap = settingsResp.data.nearTimeGap
 				if (typeof settingsResp.data.nearDistanceKm !== 'undefined') this.nearDistanceKm = settingsResp.data.nearDistanceKm
@@ -228,6 +236,7 @@ export default {
 					homeRadiusKm: this.homeRadiusKm,
 					autoGenerateVideos: this.autoGenerateVideos,
 					includeMotionFromGCam: this.includeMotionFromGCam,
+					showVideoTitle: this.showVideoTitle,
 					videoOrientation: this.videoOrientation,
 					nearTimeGap: this.nearTimeGap,
 					nearDistanceKm: this.nearDistanceKm,
@@ -255,6 +264,7 @@ export default {
 					homeRadiusKm: this.homeRadiusKm,
 					autoGenerateVideos: this.autoGenerateVideos,
 					includeMotionFromGCam: this.includeMotionFromGCam,
+					showVideoTitle: this.showVideoTitle,
 					videoOrientation: this.videoOrientation,
 					nearTimeGap: this.nearTimeGap,
 					nearDistanceKm: this.nearDistanceKm,

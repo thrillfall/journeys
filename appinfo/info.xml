@@ -31,6 +31,12 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.14.0 (2025-11-20)</h3>
+    <ul>
+      <li><b>Feature:</b> Videos now display cluster name as title overlay on the first image (4 seconds with fade in/out). Font size automatically scales to fit 80% of video width.</li>
+      <li><b>UI:</b> Added "Show cluster name title on videos" checkbox in Personal Settings to toggle title display (enabled by default).</li>
+      <li><b>CLI:</b> Added <code>--no-title</code> flag to both render commands to disable title overlay.</li>
+    </ul>
   <h3>0.13.2 (2025-11-20)</h3>
     <ul>
       <li><b>Fix:</b> Video rendering no longer hangs when processing GCam motion clips. Fixed frame padding calculation to use exact frame counts.</li>
@@ -212,7 +218,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.13.2</version>
+  <version>0.14.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

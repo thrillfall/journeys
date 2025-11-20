@@ -7,6 +7,7 @@ use OCA\Journeys\Model\ClusterVideoSelection;
 use OCA\Journeys\Service\ClusterVideoFilePreparer;
 use OCA\Journeys\Service\ClusterVideoImageProvider;
 use OCA\Journeys\Service\ClusterVideoRenderer;
+use OCP\IConfig;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -20,6 +21,7 @@ class RenderClusterVideoCommand extends Command {
         private ClusterVideoImageProvider $imageProvider,
         private ClusterVideoFilePreparer $filePreparer,
         private ClusterVideoRenderer $videoRenderer,
+        private IConfig $config,
     ) {
         parent::__construct(static::$defaultName);
     }
@@ -36,6 +38,7 @@ class RenderClusterVideoCommand extends Command {
             ->addOption('max-images', null, InputOption::VALUE_REQUIRED, 'Maximum number of images to include (faster render)', 80)
             ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output mp4 path (absolute inside server)')
             ->addOption('no-motion', null, InputOption::VALUE_NONE, 'Disable inclusion of GCam Motion Photos')
+            ->addOption('no-title', null, InputOption::VALUE_NONE, 'Disable cluster name title overlay (enabled by default)')
             ->addOption('ffmpeg-verbose', null, InputOption::VALUE_NONE, 'Enable verbose FFmpeg output');
     }
 
@@ -58,6 +61,15 @@ class RenderClusterVideoCommand extends Command {
         $maxImages = $maxImagesOption > 0 ? $maxImagesOption : 80;
         $includeMotion = !(bool)$input->getOption('no-motion');
         $verbose = (bool)$input->getOption('ffmpeg-verbose');
+
+        // Determine if title should be shown: CLI flag overrides user setting
+        $showTitle = true;
+        if ($input->getOption('no-title')) {
+            $showTitle = false;
+        } else {
+            // Read user's preference (default: true)
+            $showTitle = (bool)((int)$this->config->getUserValue($user, 'journeys', 'showVideoTitle', 1));
+        }
 
         try {
             $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, (int)$albumId, $minGap, $maxImages);
@@ -111,6 +123,7 @@ class RenderClusterVideoCommand extends Command {
                 $preferredFileName,
                 $includeMotion,
                 $verbose,
+                $showTitle ? $selection->clusterName : null,
             );
             $output->writeln('<info>ffmpeg finished.</info>');
         } catch (\Throwable $e) {

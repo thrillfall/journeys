@@ -10,6 +10,7 @@ class ClusterVideoRenderer {
         private IRootFolder $rootFolder,
         private ClusterVideoMusicProvider $musicProvider,
         private LoggerInterface $logger,
+        private VideoTitleFormatter $titleFormatter,
     ) {}
 
     /**
@@ -22,6 +23,7 @@ class ClusterVideoRenderer {
      * @param array<int, string> $files List of absolute file paths (ordered) to include
      * @param callable(string, string):void|null $outputHandler Callback to stream ffmpeg stdout/stderr
      * @param string|null $preferredFileName Suggested filename when storing into user files
+     * @param string|null $albumName Album name for title overlay (null to disable title)
      * @return array{path: string, storedInUserFiles: bool}
      */
     public function render(
@@ -36,6 +38,7 @@ class ClusterVideoRenderer {
         ?string $preferredFileName = null,
         bool $includeMotion = true,
         bool $verbose = false,
+        ?string $albumName = null,
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -86,6 +89,7 @@ class ClusterVideoRenderer {
             $audioTrack,
             $outputHandler,
             $verbose,
+            $albumName,
         );
 
         if ($outputPath !== null && $outputPath !== '') {
@@ -114,6 +118,7 @@ class ClusterVideoRenderer {
         ?string $audioTrack,
         ?callable $outputHandler,
         bool $verbose,
+        ?string $albumName,
     ): void {
         if (empty($segments)) {
             throw new \RuntimeException('No files provided to ffmpeg');
@@ -185,6 +190,7 @@ class ClusterVideoRenderer {
             $holdDuration,
             $transitionDuration,
             $clipDuration,
+            $albumName,
         );
 
         // If we have an audio input, append an audio fade-out filter graph and map it by label
@@ -392,6 +398,7 @@ class ClusterVideoRenderer {
         float $holdDuration,
         float $transitionDuration,
         float $clipDuration,
+        ?string $albumName,
     ): array {
         $filterParts = [];
         $frameCount = max(2, (int) round($clipDuration * $fps));
@@ -404,10 +411,11 @@ class ClusterVideoRenderer {
         foreach ($segments as $si => $seg) {
             if ($seg['type'] === 'kenburns') {
                 $motions = $this->buildKenBurnsExpressions($si, $frameCount);
+                $baseLabel = sprintf('kseg%d', $si);
                 $filterParts[] = sprintf(
                     '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
                     'crop=%2$d:%3$d,' .
-                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS[kseg%9$d]',
+                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS[kseg_base%9$d]',
                     $inputIndex,
                     $width,
                     $height,
@@ -418,7 +426,26 @@ class ClusterVideoRenderer {
                     $fps,
                     $si,
                 );
-                $segmentOutputLabels[] = sprintf('kseg%d', $si);
+
+                // Add album name overlay to first still image segment only
+                if ($si === 0 && $albumName !== null && $albumName !== '') {
+                    // Format album name for video overlay (calculates font size, wraps text, escapes for FFmpeg)
+                    $formatted = $this->titleFormatter->formatForVideo($albumName, $width, 0.8);
+                    // Build FFmpeg drawtext filter (4 seconds: fade in 0.5s, visible 3s, fade out 0.5s)
+                    $filterParts[] = $this->titleFormatter->buildDrawtextFilter(
+                        sprintf('kseg_base%d', $si),
+                        $baseLabel,
+                        $formatted['text'],
+                        $formatted['fontSize'],
+                        4.0,
+                        2 // shadow offset for portrait
+                    );
+                } else {
+                    // No text, just pass through
+                    $filterParts[] = sprintf('[kseg_base%d]null[%s]', $si, $baseLabel);
+                }
+
+                $segmentOutputLabels[] = $baseLabel;
                 $inputIndex += 1;
             } elseif ($seg['type'] === 'video') {
                 // Prepare video: scale/crop to canvas, normalize fps, time-stretch, then freeze-frame pad the rest

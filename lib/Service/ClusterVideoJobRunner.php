@@ -4,6 +4,7 @@ namespace OCA\Journeys\Service;
 use OCA\Journeys\Exception\ClusterNotFoundException;
 use OCA\Journeys\Exception\NoImagesFoundException;
 use OCA\Journeys\Model\ClusterVideoSelection;
+use OCP\IConfig;
 
 class ClusterVideoJobRunner {
     public function __construct(
@@ -11,6 +12,7 @@ class ClusterVideoJobRunner {
         private ClusterVideoFilePreparer $filePreparer,
         private ClusterVideoRenderer $videoRenderer,
         private ClusterVideoRendererLandscape $videoRendererLandscape,
+        private IConfig $config,
     ) {}
 
     /**
@@ -63,6 +65,9 @@ class ClusterVideoJobRunner {
 
         $preferredFileName = $this->buildPreferredFileName($selection);
 
+        // Read user's title preference (default: true)
+        $showTitle = (bool)((int)$this->config->getUserValue($user, 'journeys', 'showVideoTitle', 1));
+
         try {
             $result = $this->videoRenderer->render(
                 $user,
@@ -75,6 +80,8 @@ class ClusterVideoJobRunner {
                 $outputHandler,
                 $preferredFileName,
                 $includeMotion,
+                false, // verbose
+                $showTitle ? $selection->clusterName : null,
             );
         } finally {
             $this->filePreparer->cleanup($workingDir);
@@ -128,6 +135,9 @@ class ClusterVideoJobRunner {
 
         $preferredFileName = $this->buildPreferredFileName($selection) . ' (landscape)';
 
+        // Read user's title preference (default: true)
+        $showTitle = (bool)((int)$this->config->getUserValue($user, 'journeys', 'showVideoTitle', 1));
+
         try {
             $result = $this->videoRendererLandscape->render(
                 $user,
@@ -140,6 +150,8 @@ class ClusterVideoJobRunner {
                 $outputHandler,
                 $preferredFileName,
                 $includeMotion,
+                false, // verbose
+                $showTitle ? $selection->clusterName : null,
             );
         } finally {
             $this->filePreparer->cleanup($workingDir);

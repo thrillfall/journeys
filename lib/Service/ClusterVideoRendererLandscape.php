@@ -8,6 +8,7 @@ class ClusterVideoRendererLandscape {
     public function __construct(
         private IRootFolder $rootFolder,
         private ClusterVideoMusicProvider $musicProvider,
+        private VideoTitleFormatter $titleFormatter,
     ) {}
 
     /**
@@ -21,6 +22,7 @@ class ClusterVideoRendererLandscape {
      * @param callable(string, string):void|null $outputHandler
      * @param string|null $preferredFileName Suggested filename when storing into user files
      * @param bool $includeMotion Replace landscape images with GCam motion videos when available
+     * @param string|null $albumName Album name for title overlay (null to disable title)
      * @return array{path: string, storedInUserFiles: bool}
      */
     public function render(
@@ -35,6 +37,7 @@ class ClusterVideoRendererLandscape {
         ?string $preferredFileName = null,
         bool $includeMotion = true,
         bool $verbose = false,
+        ?string $albumName = null,
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -112,6 +115,7 @@ class ClusterVideoRendererLandscape {
             if ($seg['type'] === 'image') {
                 $motion = $this->buildKenBurnsExpressions($i, $frameCount);
                 // Prepare 16:9 canvas first, then apply zoompan for motion variety
+                $baseLabel = sprintf('kseg_base%d', $i);
                 $parts[] = sprintf(
                     '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
                     'crop=%2$d:%3$d,' .
@@ -124,8 +128,26 @@ class ClusterVideoRendererLandscape {
                     $motion['y'],
                     $frameCount,
                     $fps,
-                    $label,
+                    $baseLabel,
                 );
+
+                // Add album name overlay to first still image segment only
+                if ($i === 0 && $albumName !== null && $albumName !== '') {
+                    // Format album name for video overlay (calculates font size, wraps text, escapes for FFmpeg)
+                    $formatted = $this->titleFormatter->formatForVideo($albumName, $width, 0.8);
+                    // Build FFmpeg drawtext filter (4 seconds: fade in 0.5s, visible 3s, fade out 0.5s)
+                    $parts[] = $this->titleFormatter->buildDrawtextFilter(
+                        $baseLabel,
+                        $label,
+                        $formatted['text'],
+                        $formatted['fontSize'],
+                        4.0,
+                        3 // shadow offset for landscape
+                    );
+                } else {
+                    // No text, just pass through
+                    $parts[] = sprintf('[%s]null[%s]', $baseLabel, $label);
+                }
             } else {
                 // Video: scale/crop to canvas, normalize fps, time-stretch, then freeze-frame pad the rest
                 $dur = $this->probeVideoDuration($seg['file']);
@@ -480,4 +502,5 @@ class ClusterVideoRendererLandscape {
         } catch (\Throwable) {}
         return 0.0;
     }
+
 }
