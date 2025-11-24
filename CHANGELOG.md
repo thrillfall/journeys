@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.1] - 2025-11-24
+### Changed
+- Place resolution now automatically falls back to Memories tables when GIS functions are unavailable or fail.
+
+### Upgrade Notes
+- Drop existing Journeys albums and re-run clustering to rebuild album titles with the new fallback behavior.
+
 ## [0.15.0] - 2025-11-24
 ### Added
 - Video selection now prefers photos with faces when Recognize data is available, improving story highlights.

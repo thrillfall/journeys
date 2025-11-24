@@ -33,7 +33,7 @@ class ClusterLocationResolver {
         $sublocalities = [];
         foreach ($images as $img) {
             if ($img->lat !== null && $img->lon !== null) {
-                $places = $this->placeResolver->queryPoint($img->lat, $img->lon);
+                $places = $this->placeResolver->queryPoint($img->lat, $img->lon, $img->fileid ?? null);
                 if (!empty($places)) {
                     // Sort by admin_level ascending (more specific first)
                     usort($places, function($a, $b) {

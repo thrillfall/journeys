@@ -31,6 +31,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.15.1 (2025-11-24)</h3>
+    <ul>
+      <li><b>Fallback:</b> Place resolution now automatically falls back to Memories tables when GIS functions are unavailable or fail.</li>
+      <li><b>Upgrade note:</b> Drop existing Journeys albums and re-run clustering to rebuild album titles with the new fallback.</li>
+    </ul>
   <h3>0.15.0 (2025-11-24)</h3>
     <ul>
       <li><b>Selection:</b> Video image selection now prefers photos with faces when Recognize data is available.</li>
@@ -224,7 +229,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.15.0</version>
+  <version>0.15.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
