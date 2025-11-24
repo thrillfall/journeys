@@ -8,7 +8,12 @@
            http://symfony.com/schema/dic/services/services-1.0.xsd">
 
   <services>
-    <service id="OCA\Journeys\Service\ImageFetcher"/>
+    <service id="OCA\Journeys\Service\FacePresenceProvider">
+      <argument type="service" id="OCP\IDBConnection"/>
+    </service>
+    <service id="OCA\Journeys\Service\ImageFetcher">
+      <argument type="service" id="OCA\Journeys\Service\FacePresenceProvider"/>
+    </service>
     <service id="OCA\Journeys\Service\Clusterer"/>
     <service id="OCA\Journeys\Service\AlbumCreator"/>
     <service id="OCA\Journeys\Service\VideoStorySelector"/>
@@ -17,6 +22,7 @@
       <argument type="service" id="OCA\Journeys\Service\Clusterer"/>
       <argument type="service" id="OCA\Journeys\Service\VideoStorySelector"/>
       <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
+      <argument type="service" id="OCP\IConfig"/>
     </service>
     <service id="OCA\Journeys\Service\ClusterVideoFilePreparer">
       <argument type="service" id="OCP\Files\IRootFolder"/>

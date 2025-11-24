@@ -1,6 +1,7 @@
 <?php
 namespace OCA\Journeys\Command;
 
+use OCA\Journeys\Command\Traits\FaceBoostLoggingTrait;
 use OCA\Journeys\Exception\ClusterNotFoundException;
 use OCA\Journeys\Exception\NoImagesFoundException;
 use OCA\Journeys\Model\ClusterVideoSelection;
@@ -15,6 +16,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class RenderClusterVideoCommand extends Command {
+    use FaceBoostLoggingTrait;
     protected static $defaultName = 'journeys:render-cluster-video';
 
     public function __construct(
@@ -39,6 +41,7 @@ class RenderClusterVideoCommand extends Command {
             ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output mp4 path (absolute inside server)')
             ->addOption('no-motion', null, InputOption::VALUE_NONE, 'Disable inclusion of GCam Motion Photos')
             ->addOption('no-title', null, InputOption::VALUE_NONE, 'Disable cluster name title overlay (enabled by default)')
+            ->addOption('no-face-boost', null, InputOption::VALUE_NONE, 'Disable preferring images with faces when selecting frames')
             ->addOption('ffmpeg-verbose', null, InputOption::VALUE_NONE, 'Enable verbose FFmpeg output');
     }
 
@@ -71,8 +74,10 @@ class RenderClusterVideoCommand extends Command {
             $showTitle = (bool)((int)$this->config->getUserValue($user, 'journeys', 'showVideoTitle', 1));
         }
 
+        $boostFacesOverride = $input->getOption('no-face-boost') ? false : null;
+
         try {
-            $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, (int)$albumId, $minGap, $maxImages);
+            $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, (int)$albumId, $minGap, $maxImages, $boostFacesOverride);
         } catch (NoImagesFoundException) {
             $output->writeln('<comment>No images found for user.</comment>');
             return Command::SUCCESS;
@@ -88,6 +93,8 @@ class RenderClusterVideoCommand extends Command {
             $output->writeln('<comment>No suitable images found for this cluster.</comment>');
             return Command::SUCCESS;
         }
+
+        $this->logFaceBoost($output, $selection);
 
         try {
             $preparation = $this->filePreparer->prepare($user, $selection->selectedImages);

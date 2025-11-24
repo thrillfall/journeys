@@ -7,6 +7,7 @@ use OCA\Journeys\Exception\NoImagesFoundException;
 use OCA\Journeys\Model\ClusterVideoSelection;
 use OCA\Journeys\Model\Image;
 use OCA\Journeys\Service\AlbumCreator;
+use OCP\IConfig;
 
 class ClusterVideoImageProvider {
     public function __construct(
@@ -14,6 +15,7 @@ class ClusterVideoImageProvider {
         private Clusterer $clusterer,
         private VideoStorySelector $selector,
         private AlbumCreator $albumCreator,
+        private IConfig $config,
     ) {}
 
     /**
@@ -41,13 +43,22 @@ class ClusterVideoImageProvider {
         }
 
         $clusterImages = $clusters[$clusterIndex];
-        $selected = $this->selector->selectImages($user, $clusterImages, $minGapSeconds, $maxImages);
+        $boostFaces = (bool)((int)$this->config->getUserValue($user, 'journeys', 'boostFaces', 1));
+        $selected = $this->selector->selectImages($user, $clusterImages, $minGapSeconds, $maxImages, $boostFaces);
 
         $clusterStart = $this->createDateTimeImmutable($clusterImages[0]->datetaken ?? null);
         $clusterEnd = $this->createDateTimeImmutable($clusterImages[count($clusterImages) - 1]->datetaken ?? null);
         $metadata = $this->resolveClusterMetadata($user, $clusterStart, $clusterEnd, $clusterIndex);
         $clusterName = $this->buildClusterName($clusterStart, $clusterEnd, $clusterIndex, $metadata['name'] ?? null);
         $clusterLocation = $metadata['location'] ?? null;
+
+        $selectedCount = count($selected);
+        $facesSelected = 0;
+        foreach ($selected as $img) {
+            if ($img instanceof Image && $img->hasFaces === true) {
+                $facesSelected++;
+            }
+        }
 
         return new ClusterVideoSelection(
             $selected,
@@ -56,6 +67,9 @@ class ClusterVideoImageProvider {
             $clusterEnd,
             $clusterLocation,
             $clusterName,
+            $boostFaces,
+            $selectedCount,
+            $facesSelected,
         );
     }
 
@@ -70,7 +84,7 @@ class ClusterVideoImageProvider {
      * @return ClusterVideoSelection
      * @throws NoImagesFoundException
      */
-    public function getSelectedImagesForAlbumId(string $user, int $albumId, int $minGapSeconds, int $maxImages): ClusterVideoSelection {
+    public function getSelectedImagesForAlbumId(string $user, int $albumId, int $minGapSeconds, int $maxImages, ?bool $boostFacesOverride = null): ClusterVideoSelection {
         // Get fileids for the album (owned by this user)
         $fileIds = $this->albumCreator->getAlbumFileIdsForUser($user, $albumId);
         if (empty($fileIds)) {
@@ -85,7 +99,10 @@ class ClusterVideoImageProvider {
 
         usort($wanted, fn(Image $a, Image $b) => strtotime($a->datetaken) <=> strtotime($b->datetaken));
 
-        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $maxImages);
+        $boostFaces = $boostFacesOverride !== null
+            ? $boostFacesOverride
+            : (bool)((int)$this->config->getUserValue($user, 'journeys', 'boostFaces', 1));
+        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $maxImages, $boostFaces);
 
         $clusterStart = $this->createDateTimeImmutable($wanted[0]->datetaken ?? null);
         $clusterEnd = $this->createDateTimeImmutable($wanted[count($wanted) - 1]->datetaken ?? null);
@@ -109,6 +126,14 @@ class ClusterVideoImageProvider {
             $clusterName = $this->buildClusterName($clusterStart, $clusterEnd, $resolvedIndex, null);
         }
 
+        $selectedCount = count($selected);
+        $facesSelected = 0;
+        foreach ($selected as $img) {
+            if ($img instanceof Image && $img->hasFaces === true) {
+                $facesSelected++;
+            }
+        }
+
         return new ClusterVideoSelection(
             $selected,
             $resolvedIndex,
@@ -116,6 +141,9 @@ class ClusterVideoImageProvider {
             $clusterEnd,
             $clusterLocation,
             $clusterName,
+            $boostFaces,
+            $selectedCount,
+            $facesSelected,
         );
     }
 

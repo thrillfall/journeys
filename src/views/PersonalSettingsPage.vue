@@ -84,6 +84,12 @@
 							{{ t('journeys', 'Show cluster name title on videos') }}
 						</label>
 					</div>
+					<div class="settings-field" style="margin-top: 0.5rem;">
+						<label>
+							<input type="checkbox" v-model="boostFaces" />
+							{{ t('journeys', 'Prefer photos with people when building videos') }}
+						</label>
+					</div>
 					<div class="grid-three" style="margin-top: 0.75rem;">
 						<div class="settings-field">
 							<label :for="'homeLat'">{{ t('journeys', 'Home latitude') }}</label>
@@ -237,6 +243,7 @@ export default {
 					autoGenerateVideos: this.autoGenerateVideos,
 					includeMotionFromGCam: this.includeMotionFromGCam,
 					showVideoTitle: this.showVideoTitle,
+					boostFaces: this.boostFaces,
 					videoOrientation: this.videoOrientation,
 					nearTimeGap: this.nearTimeGap,
 					nearDistanceKm: this.nearDistanceKm,
@@ -265,6 +272,7 @@ export default {
 					autoGenerateVideos: this.autoGenerateVideos,
 					includeMotionFromGCam: this.includeMotionFromGCam,
 					showVideoTitle: this.showVideoTitle,
+					boostFaces: this.boostFaces,
 					videoOrientation: this.videoOrientation,
 					nearTimeGap: this.nearTimeGap,
 					nearDistanceKm: this.nearDistanceKm,

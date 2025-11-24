@@ -14,5 +14,8 @@ class ClusterVideoSelection {
         public DateTimeImmutable $clusterEnd,
         public ?string $clusterLocation,
         public string $clusterName,
+        public bool $boostFaces,
+        public int $selectedCount,
+        public int $facesSelected,
     ) {}
 }

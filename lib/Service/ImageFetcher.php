@@ -4,6 +4,9 @@ namespace OCA\Journeys\Service;
 use OCA\Journeys\Model\Image;
 
 class ImageFetcher {
+    public function __construct(
+        private FacePresenceProvider $facePresenceProvider,
+    ) {}
     /**
      * Fetch all images indexed by Memories for a given user, with location and time_taken
      * @param string $user
@@ -41,16 +44,26 @@ class ImageFetcher {
         }
         $rows = $result->fetchAll();
         $images = [];
-        foreach ($rows as $row) {
-            $images[] = new Image(
-                (int)$row['fileid'],
-                $row['path'],
-                $row['datetaken'],
-                $row['lat'],
-                $row['lon'],
-                isset($row['w']) ? (int)$row['w'] : null,
-                isset($row['h']) ? (int)$row['h'] : null,
-            );
+        if (!empty($rows)) {
+            $fileIds = [];
+            foreach ($rows as $row) {
+                $fileIds[] = (int)$row['fileid'];
+            }
+            $hasFaces = $this->facePresenceProvider->getHasFacesByFileIds($user, $fileIds);
+
+            foreach ($rows as $row) {
+                $fid = (int)$row['fileid'];
+                $images[] = new Image(
+                    $fid,
+                    $row['path'],
+                    $row['datetaken'],
+                    $row['lat'],
+                    $row['lon'],
+                    isset($row['w']) ? (int)$row['w'] : null,
+                    isset($row['h']) ? (int)$row['h'] : null,
+                    $hasFaces[$fid] ?? null,
+                );
+            }
         }
         return $images;
     }
@@ -86,16 +99,26 @@ class ImageFetcher {
         $result = $stmt->execute($params);
         $rows = $result->fetchAll();
         $images = [];
-        foreach ($rows as $row) {
-            $images[] = new Image(
-                (int)$row['fileid'],
-                $row['path'],
-                (string)$row['datetaken'],
-                $row['lat'] ?? null,
-                $row['lon'] ?? null,
-                isset($row['w']) ? (int)$row['w'] : null,
-                isset($row['h']) ? (int)$row['h'] : null,
-            );
+        if (!empty($rows)) {
+            $fileIdsActual = [];
+            foreach ($rows as $row) {
+                $fileIdsActual[] = (int)$row['fileid'];
+            }
+            $hasFaces = $this->facePresenceProvider->getHasFacesByFileIds($user, $fileIdsActual);
+
+            foreach ($rows as $row) {
+                $fid = (int)$row['fileid'];
+                $images[] = new Image(
+                    $fid,
+                    $row['path'],
+                    (string)$row['datetaken'],
+                    $row['lat'] ?? null,
+                    $row['lon'] ?? null,
+                    isset($row['w']) ? (int)$row['w'] : null,
+                    isset($row['h']) ? (int)$row['h'] : null,
+                    $hasFaces[$fid] ?? null,
+                );
+            }
         }
         return $images;
     }

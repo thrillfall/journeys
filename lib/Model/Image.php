@@ -9,6 +9,7 @@ class Image {
         public ?string $lat,
         public ?string $lon,
         public ?int $w = null,  // orientation-corrected width from Memories (optional)
-        public ?int $h = null   // orientation-corrected height from Memories (optional)
+        public ?int $h = null,  // orientation-corrected height from Memories (optional)
+        public ?bool $hasFaces = null,
     ) {}
 }

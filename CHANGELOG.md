@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.15.0] - 2025-11-24
+### Added
+- Video selection now prefers photos with faces when Recognize data is available, improving story highlights.
+- Personal Settings: "Prefer photos with people when building videos" checkbox (enabled by default) to control face boosting.
+- CLI: `--no-face-boost` flag for both `journeys:render-cluster-video` commands to disable face boosting per run.
+
 ## [0.14.0] - 2025-11-20
 ### Added
 - Video title overlay: Videos now display the cluster name on the first image for 4 seconds with smooth fade in/out animation.
