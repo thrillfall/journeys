@@ -27,7 +27,7 @@ class ClusterVideoImageProvider {
      * @throws ClusterNotFoundException if the requested cluster does not exist
      */
     public function getSelectedImages(string $user, int $clusterIndex, int $minGapSeconds, int $maxImages): ClusterVideoSelection {
-        $images = $this->imageFetcher->fetchImagesForUser($user);
+        $images = $this->imageFetcher->fetchImagesForUser($user, false, true);
         if (empty($images)) {
             throw new NoImagesFoundException('No images found for user.');
         }

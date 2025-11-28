@@ -62,7 +62,8 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addOption('away-time-gap', null, InputOption::VALUE_REQUIRED, 'Away-from-home max time gap in hours (if omitted, use UI setting)')
             ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (if omitted, use UI setting)')
             ->addOption('recent-cutoff-days', null, InputOption::VALUE_REQUIRED, 'Skip clusters whose last image is within the past N days (default: 2, 0 disables)', 2)
-            ->addOption('include-group-folders', null, InputOption::VALUE_NONE, 'Include images from Group Folders and other mounts (if omitted, use UI setting)');
+            ->addOption('include-group-folders', null, InputOption::VALUE_NONE, 'Include images from Group Folders and other mounts (if omitted, use UI setting)')
+            ->addOption('include-shared-images', null, InputOption::VALUE_NONE, 'Include images that are shared with the user (if omitted, use UI setting)');
     }
 
 
@@ -143,6 +144,10 @@ class ClusterAndCreateAlbumsCommand extends Command {
         if (!$includeGroupFolders && $cfg) {
             $includeGroupFolders = (bool)((int)$cfg->getUserValue($user, 'journeys', 'includeGroupFolders', 0));
         }
+        $includeSharedImages = (bool)$input->getOption('include-shared-images');
+        if (!$includeSharedImages && $cfg) {
+            $includeSharedImages = (bool)((int)$cfg->getUserValue($user, 'journeys', 'includeSharedImages', 0));
+        }
 
         $home = null;
         $thresholds = null;
@@ -158,7 +163,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
                 $output->writeln(sprintf('<info>Using provided home:</info> lat=%.5f, lon=%.5f, radius=%.1f km', $home['lat'], $home['lon'], $home['radiusKm']));
             } else {
                 // Resolve via HomeService and inform user about the source
-                $images = $this->imageFetcher->fetchImagesForUser($user, $includeGroupFolders);
+                $images = $this->imageFetcher->fetchImagesForUser($user, $includeGroupFolders, $includeSharedImages);
                 $resolved = $this->homeService->resolveHome($user, $images, null, (float)$homeRadius, true);
                 $home = $resolved['home'];
                 if ($home !== null) {
@@ -181,15 +186,23 @@ class ClusterAndCreateAlbumsCommand extends Command {
                     $thresholds = null;
                 }
             }
-            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, minClusterSize=%d, recentCutoffDays=%d', $homeAware ? 'true' : 'false', $includeGroupFolders ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
+            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, includeSharedImages=%s, minClusterSize=%d, recentCutoffDays=%d', $homeAware ? 'true' : 'false', $includeGroupFolders ? 'true' : 'false', $includeSharedImages ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
             $output->writeln(sprintf('  near: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$thresholds['near']['timeGap'], (int)$thresholds['near']['timeGap']/3600.0, (float)$thresholds['near']['distanceKm']));
             $output->writeln(sprintf('  away: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$thresholds['away']['timeGap'], (int)$thresholds['away']['timeGap']/3600.0, (float)$thresholds['away']['distanceKm']));
         } else {
-            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, minClusterSize=%d, recentCutoffDays=%d', 'false', $includeGroupFolders ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
+            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, includeSharedImages=%s, minClusterSize=%d, recentCutoffDays=%d', 'false', $includeGroupFolders ? 'true' : 'false', $includeSharedImages ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
             $output->writeln(sprintf('  global: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$maxTimeGap, (int)$maxTimeGap/3600.0, (float)$maxDistanceKm));
         }
         // Delegate clustering and album creation to ClusteringManager (home-aware optional)
-        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds, $fromScratch, $recentCutoffDays, false, $includeGroupFolders);
+        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds, $fromScratch, $recentCutoffDays, false, $includeGroupFolders, $includeSharedImages);
+        $stats = $this->imageFetcher->getLastFetchStats();
+        $output->writeln(sprintf(
+            '<info>Image sources:</info> total=%d (home=%d, groupOnly=%d, sharedOnly=%d)',
+            $stats['total'] ?? 0,
+            $stats['home'] ?? 0,
+            $stats['group'] ?? 0,
+            $stats['shared'] ?? 0,
+        ));
 
         if (isset($result['error'])) {
             $output->writeln('<error>' . $result['error'] . '</error>');

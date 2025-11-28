@@ -26,6 +26,12 @@
 						</label>
 					</div>
 				</div>
+				<div class="settings-field">
+					<label>
+						<input type="checkbox" v-model="includeSharedImages" />
+						{{ t('journeys', 'Include shared images') }}
+					</label>
+				</div>
 
 				<div class="settings-group">
 					<h4>{{ t('journeys', 'Near-home thresholds') }}</h4>
@@ -190,6 +196,7 @@ export default {
 			homeRadiusKm: 50,
 			homeName: null,
 			includeGroupFolders: false,
+			includeSharedImages: false,
 			autoGenerateVideos: false,
 			includeMotionFromGCam: true,
 			showVideoTitle: true,
@@ -204,6 +211,7 @@ export default {
 				this.maxTimeGap = settingsResp.data.maxTimeGap
 				this.maxDistanceKm = settingsResp.data.maxDistanceKm
 				this.includeGroupFolders = !!settingsResp.data.includeGroupFolders
+				this.includeSharedImages = !!settingsResp.data.includeSharedImages
 				this.homeLat = settingsResp.data.homeLat
 				this.homeLon = settingsResp.data.homeLon
 				this.homeRadiusKm = settingsResp.data.homeRadiusKm
@@ -237,6 +245,7 @@ export default {
 					maxTimeGap: this.maxTimeGap,
 					maxDistanceKm: this.maxDistanceKm,
 					includeGroupFolders: this.includeGroupFolders,
+					includeSharedImages: this.includeSharedImages,
 					homeLat: this.homeLat,
 					homeLon: this.homeLon,
 					homeRadiusKm: this.homeRadiusKm,
@@ -266,6 +275,7 @@ export default {
 					maxTimeGap: this.maxTimeGap,
 					maxDistanceKm: this.maxDistanceKm,
 					includeGroupFolders: this.includeGroupFolders,
+					includeSharedImages: this.includeSharedImages,
 					homeLat: this.homeLat,
 					homeLon: this.homeLon,
 					homeRadiusKm: this.homeRadiusKm,

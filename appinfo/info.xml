@@ -31,6 +31,12 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.16.0 (2025-11-28)</h3>
+    <ul>
+      <li><b>Shared images:</b> Personal settings toggle now includes shared-by-others mounts in clustering and video selection.</li>
+      <li><b>Diagnostics:</b> OCC clustering command prints per-source image counts (home, group, shared) to help verify coverage.</li>
+      <li><b>UI:</b> Personal settings warn when shared inclusion yields no matches.</li>
+    </ul>
   <h3>0.15.1 (2025-11-24)</h3>
     <ul>
       <li><b>Fallback:</b> Place resolution now automatically falls back to Memories tables when GIS functions are unavailable or fail.</li>
@@ -229,7 +235,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.15.1</version>
+  <version>0.16.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

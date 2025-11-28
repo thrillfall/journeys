@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.16.0] - 2025-11-28
+### Added
+- Personal Settings: new "Include shared images" toggle now includes shared mounts in clustering and video workflows.
+- CLI: `journeys:cluster` prints per-source image counts (home, group folders, shared) for easier debugging.
+
+### Changed
+- Surface a warning when shared inclusion yields no matches so users can verify share visibility.
+
 ## [0.15.1] - 2025-11-24
 ### Changed
 - Place resolution now automatically falls back to Memories tables when GIS functions are unavailable or fail.

@@ -52,6 +52,7 @@ class PersonalSettingsController extends Controller {
         $homeRadiusKm = $this->request->getParam('homeRadiusKm');
         $home = null;
         $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
+        $includeSharedImages = filter_var($this->request->getParam('includeSharedImages') ?? false, FILTER_VALIDATE_BOOLEAN);
         if ($homeAware && $homeLat !== null && $homeLon !== null) {
             $home = [
                 'lat' => (float)$homeLat,
@@ -64,6 +65,7 @@ class PersonalSettingsController extends Controller {
         $this->userConfig->setUserValue($userId, 'journeys', 'maxTimeGap', $maxTimeGap);
         $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
         $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
+        $this->userConfig->setUserValue($userId, 'journeys', 'includeSharedImages', $includeSharedImages ? '1' : '0');
         // Optional home-aware thresholds
         $nearTimeGapHours = (float)($this->request->getParam('nearTimeGap') ?? 6.0);
         $nearDistanceKm = (float)($this->request->getParam('nearDistanceKm') ?? 3.0);
@@ -110,7 +112,10 @@ class PersonalSettingsController extends Controller {
         if ($homeRadiusKm !== null) {
             $this->userConfig->setUserValue($userId, 'journeys', 'homeRadiusKm', (string)(float)$homeRadiusKm);
         }
-        $result = $this->clusteringManager->clusterForUser($userId, $maxTimeGap, $maxDistanceKm, $minClusterSize, $homeAware, $home, null, false, 2, false, $includeGroupFolders);
+        $result = $this->clusteringManager->clusterForUser($userId, $maxTimeGap, $maxDistanceKm, $minClusterSize, $homeAware, $home, null, false, 2, false, $includeGroupFolders, $includeSharedImages);
+        if (!empty($result['fetchStats']) && $includeSharedImages && ($result['fetchStats']['shared'] ?? 0) === 0) {
+            $result['warning'] = 'No shared images were included. Ensure the shared photos are visible under "Shared with you".';
+        }
         return new JSONResponse($result);
     }
 
@@ -135,7 +140,9 @@ class PersonalSettingsController extends Controller {
             $this->userConfig->setUserValue($userId, 'journeys', 'maxTimeGap', $maxTimeGap);
             $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
             $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
+            $includeSharedImages = filter_var($this->request->getParam('includeSharedImages') ?? false, FILTER_VALIDATE_BOOLEAN);
             $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
+            $this->userConfig->setUserValue($userId, 'journeys', 'includeSharedImages', $includeSharedImages ? '1' : '0');
             // Optional home-aware thresholds
             $nearTimeGapHours = (float)($this->request->getParam('nearTimeGap') ?? 6.0);
             $nearDistanceKm = (float)($this->request->getParam('nearDistanceKm') ?? 3.0);
@@ -213,6 +220,7 @@ class PersonalSettingsController extends Controller {
         $awayDistanceKm = (float)$this->userConfig->getUserValue($userId, 'journeys', 'awayDistanceKm', 50.0);
         $homeName = null;
         $includeGroupFolders = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeGroupFolders', 0));
+        $includeSharedImages = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeSharedImages', 0));
         // fallback to combined 'home' JSON if individual keys are not set
         if (($homeLat === null || $homeLat === '') || ($homeLon === null || $homeLon === '')) {
             try {
@@ -256,6 +264,7 @@ class PersonalSettingsController extends Controller {
             'maxTimeGap' => $maxTimeGap,
             'maxDistanceKm' => $maxDistanceKm,
             'includeGroupFolders' => $includeGroupFolders,
+            'includeSharedImages' => $includeSharedImages,
             'homeAwareEnabled' => $homeAware,
             'homeLat' => $homeLat !== '' ? $homeLat : null,
             'homeLon' => $homeLon !== '' ? $homeLon : null,
