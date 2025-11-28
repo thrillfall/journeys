@@ -44,7 +44,8 @@ class ClusterVideoImageProvider {
 
         $clusterImages = $clusters[$clusterIndex];
         $boostFaces = (bool)((int)$this->config->getUserValue($user, 'journeys', 'boostFaces', 1));
-        $selected = $this->selector->selectImages($user, $clusterImages, $minGapSeconds, $maxImages, $boostFaces);
+        $preferredOrientation = $this->resolvePreferredOrientation($user);
+        $selected = $this->selector->selectImages($user, $clusterImages, $minGapSeconds, $maxImages, $boostFaces, $preferredOrientation);
 
         $clusterStart = $this->createDateTimeImmutable($clusterImages[0]->datetaken ?? null);
         $clusterEnd = $this->createDateTimeImmutable($clusterImages[count($clusterImages) - 1]->datetaken ?? null);
@@ -102,7 +103,8 @@ class ClusterVideoImageProvider {
         $boostFaces = $boostFacesOverride !== null
             ? $boostFacesOverride
             : (bool)((int)$this->config->getUserValue($user, 'journeys', 'boostFaces', 1));
-        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $maxImages, $boostFaces);
+        $preferredOrientation = $this->resolvePreferredOrientation($user);
+        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $maxImages, $boostFaces, $preferredOrientation);
 
         $clusterStart = $this->createDateTimeImmutable($wanted[0]->datetaken ?? null);
         $clusterEnd = $this->createDateTimeImmutable($wanted[count($wanted) - 1]->datetaken ?? null);
@@ -145,6 +147,17 @@ class ClusterVideoImageProvider {
             $selectedCount,
             $facesSelected,
         );
+    }
+
+    private function resolvePreferredOrientation(string $user): string {
+        $default = 'portrait';
+        $value = $this->config->getUserValue($user, 'journeys', 'videoOrientation', $default);
+        if (!is_string($value) || $value === '') {
+            return $default;
+        }
+
+        $value = strtolower(trim($value));
+        return in_array($value, ['portrait', 'landscape'], true) ? $value : $default;
     }
 
     private function createDateTimeImmutable(?string $value): DateTimeImmutable {
