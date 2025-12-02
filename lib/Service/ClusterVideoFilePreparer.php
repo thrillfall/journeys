@@ -3,6 +3,7 @@ namespace OCA\Journeys\Service;
 
 use OCA\Journeys\Model\Image;
 use OCP\Files\File;
+use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 
 class ClusterVideoFilePreparer {
@@ -27,23 +28,20 @@ class ClusterVideoFilePreparer {
                 continue;
             }
 
-            $relativePath = $this->normalizePath($img->path);
-            try {
-                $node = $userFolder->get($relativePath);
-            } catch (\Throwable) {
+            $resolved = $this->resolveFileNode($userFolder, $img);
+            if ($resolved === null) {
                 continue;
             }
 
-            if (!($node instanceof File)) {
-                continue;
-            }
+            /** @var File $node */
+            [$node, $relativePath] = $resolved;
 
             $mime = strtolower($node->getMimeType() ?? '');
             if (str_starts_with($mime, 'image/') === false) {
                 continue;
             }
 
-            $extension = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION) ?: 'jpg');
+            $extension = strtolower(pathinfo($relativePath, PATHINFO_EXTENSION) ?: pathinfo($node->getName(), PATHINFO_EXTENSION) ?: 'jpg');
             if ($extension === '' || $extension === 'jpeg') {
                 $extension = 'jpg';
             }
@@ -95,6 +93,56 @@ class ClusterVideoFilePreparer {
 
     private function normalizePath(string $path): string {
         return str_starts_with($path, 'files/') ? substr($path, 6) : $path;
+    }
+
+    /**
+     * @return array{0:File,1:string}|null
+     */
+    private function resolveFileNode(Folder $userFolder, Image $img): ?array {
+        $fileId = $img->fileid ?? null;
+        if ($fileId === null) {
+            return null;
+        }
+
+        $userPrefix = rtrim($userFolder->getPath(), '/');
+        $candidates = [];
+
+        try {
+            $candidates = $userFolder->getById($fileId);
+        } catch (\Throwable) {
+            $candidates = [];
+        }
+
+        if (empty($candidates)) {
+            try {
+                $candidates = $this->rootFolder->getById($fileId);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        foreach ($candidates as $candidate) {
+            if (!($candidate instanceof File)) {
+                continue;
+            }
+
+            $candidatePath = $candidate->getPath();
+            if ($candidatePath === '' || !str_starts_with($candidatePath, $userPrefix . '/')) {
+                continue;
+            }
+
+            $relative = substr($candidatePath, strlen($userPrefix) + 1);
+            $relative = $relative !== false ? $relative : '';
+            $relative = $relative !== '' ? $this->normalizePath($relative) : $this->normalizePath($candidate->getName());
+
+            if ($relative === '') {
+                $relative = $candidate->getName();
+            }
+
+            return [$candidate, $relative];
+        }
+
+        return null;
     }
 
     private function maybeExtractGcamTrailer(string $imagePath): void {

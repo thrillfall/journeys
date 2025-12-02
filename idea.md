@@ -9,3 +9,6 @@
 
 # refactoring
 * replace if..else constructs. that is bad code style
+
+# ugs
+* exclude screenshot images from clusters
