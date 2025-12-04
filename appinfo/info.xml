@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.17.1 (2025-12-04)</h3>
+    <ul>
+      <li><b>Albums:</b> Detect and skip screenshot-style images (no EXIF, PNG/WebP, screen keywords) during clustering.</li>
+    </ul>
   <h3>0.17.0 (2025-12-04)</h3>
     <ul>
       <li><b>Video rendering:</b>Prefer fotos with faces for video generation</li>
@@ -240,7 +244,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.17.0</version>
+  <version>0.17.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.1] - 2025-12-04
+### Fixed
+- Clustering now skips screenshot-style images (missing EXIF camera metadata, PNG/WebP, screen keywords) so they no longer appear in albums or videos.
+
 ## [0.17.0] - 2025-12-04
 ### Changed
 - Video rendering now prefers photos with faces for video generation

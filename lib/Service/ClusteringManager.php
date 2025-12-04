@@ -52,6 +52,9 @@ class ClusteringManager {
         }
         $images = $this->imageFetcher->fetchImagesForUser($userId, $includeGroupFolders, $includeSharedImages);
         $fetchStats = $this->imageFetcher->getLastFetchStats();
+        $images = array_values(array_filter($images, static function ($img) {
+            return $img instanceof Image && $img->isUsable();
+        }));
         if (empty($images)) {
             return [
                 'error' => 'No images found for user',

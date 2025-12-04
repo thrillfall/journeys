@@ -10,5 +10,6 @@
 # refactoring
 * replace if..else constructs. that is bad code style
 
-# ugs
-* exclude screenshot images from clusters
+# bugs
+* [ ] exclude screenshot images from clusters
+* [ ] when changing an album name it does not reflect in the cluster names displayed in the UI and cli
