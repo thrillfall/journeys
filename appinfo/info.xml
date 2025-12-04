@@ -31,6 +31,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.17.0 (2025-12-04)</h3>
+    <ul>
+      <li><b>Video rendering:</b>Prefer fotos with faces for video generation</li>
+      <li><b>Settings:</b> "Prefer photos with people when building videos" now remembers its saved value after refresh.</li>
+    </ul>
   <h3>0.16.0 (2025-11-28)</h3>
     <ul>
       <li><b>Shared images:</b> Personal settings toggle now includes shared-by-others mounts in clustering and video selection.</li>
@@ -235,7 +240,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.16.0</version>
+  <version>0.17.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

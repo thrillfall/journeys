@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.0] - 2025-12-04
+### Changed
+- Video rendering now prefers photos with faces for video generation
+### Fixed
+- Personal Settings: "Prefer photos with people when building videos" checkbox now persists its saved value after page reloads.
+
 ## [0.16.0] - 2025-11-28
 ### Added
 - Personal Settings: new "Include shared images" toggle now includes shared mounts in clustering and video workflows.

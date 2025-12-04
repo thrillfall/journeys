@@ -658,13 +658,7 @@ class ClusterVideoRenderer {
     private function determineOutputDimensions(int $requestedWidth, array $files): array {
         $longEdge = max(320, $requestedWidth);
         foreach ($files as $file) {
-            $info = @getimagesize($file);
-            if ($info === false || !isset($info[0], $info[1])) {
-                continue;
-            }
-
-            $imgWidth = (int) $info[0];
-            $imgHeight = (int) $info[1];
+            [$imgWidth, $imgHeight] = $this->orientedImageSize($file);
             if ($imgWidth <= 0 || $imgHeight <= 0) {
                 continue;
             }
@@ -718,13 +712,7 @@ class ClusterVideoRenderer {
     private function filterPortraitFiles(array $files): array {
         $result = [];
         foreach ($files as $file) {
-            $info = @getimagesize($file);
-            if ($info === false || !isset($info[0], $info[1])) {
-                continue;
-            }
-
-            $width = (int) $info[0];
-            $height = (int) $info[1];
+            [$width, $height] = $this->orientedImageSize($file);
             if ($width > 0 && $height > 0 && $height > $width) {
                 $result[] = $file;
             }
@@ -744,7 +732,7 @@ class ClusterVideoRenderer {
         $portraits = [];
         $landscapes = [];
         foreach ($files as $f) {
-            [$w, $h] = $this->safeImageSize($f);
+            [$w, $h] = $this->orientedImageSize($f);
             if ($w > 0 && $h > 0) {
                 if ($h > $w) { $portraits[] = $f; } else { $landscapes[] = $f; }
             }
@@ -795,6 +783,38 @@ class ClusterVideoRenderer {
             return [0, 0];
         }
         return [(int)$info[0], (int)$info[1]];
+    }
+
+    /**
+     * Compute oriented dimensions using EXIF Orientation when present (for JPEGs).
+     * @return array{0:int,1:int}
+     */
+    private function orientedImageSize(string $path): array {
+        [$w, $h] = $this->safeImageSize($path);
+        if ($w <= 0 || $h <= 0) {
+            return [$w, $h];
+        }
+
+        $lower = strtolower($path);
+        if (!str_ends_with($lower, '.jpg') && !str_ends_with($lower, '.jpeg')) {
+            return [$w, $h];
+        }
+
+        try {
+            if (function_exists('exif_read_data')) {
+                $exif = @exif_read_data($path);
+                if (is_array($exif) && isset($exif['Orientation'])) {
+                    $orientation = (int)$exif['Orientation'];
+                    if (in_array($orientation, [5, 6, 7, 8], true)) {
+                        return [$h, $w];
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // ignore EXIF issues, fallback to raw size
+        }
+
+        return [$w, $h];
     }
 
     private function buildKenBurnsExpressions(int $index, int $frameCount): array {

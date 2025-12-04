@@ -193,7 +193,7 @@ class VideoStorySelector {
                 $selectedLandscapeCount++;
             } else {
                 // track portraits for potential replacement
-                $portraitIndexes[] = ['idx' => $idx, 'score' => $this->score($img, $boostFaces, 'portrait')];
+                $portraitIndexes[] = ['idx' => $idx, 'score' => $this->score($img, false, 'portrait')];
             }
         }
 
@@ -224,7 +224,7 @@ class VideoStorySelector {
         foreach ($availableLandscapes as $candidate) {
             $landscapeCandidates[] = [
                 'image' => $candidate,
-                'score' => $this->score($candidate, $boostFaces, 'portrait'),
+                'score' => $this->score($candidate, false, 'portrait'),
             ];
         }
 

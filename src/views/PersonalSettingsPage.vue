@@ -200,6 +200,7 @@ export default {
 			autoGenerateVideos: false,
 			includeMotionFromGCam: true,
 			showVideoTitle: true,
+			boostFaces: true,
 			videoOrientation: 'portrait',
 		}
 	},
@@ -219,6 +220,7 @@ export default {
 				this.autoGenerateVideos = !!settingsResp.data.autoGenerateVideos
 				this.includeMotionFromGCam = !!settingsResp.data.includeMotionFromGCam
 				this.showVideoTitle = settingsResp.data.showVideoTitle !== undefined ? !!settingsResp.data.showVideoTitle : true
+				this.boostFaces = settingsResp.data.boostFaces !== undefined ? !!settingsResp.data.boostFaces : true
 				this.videoOrientation = settingsResp.data.videoOrientation || 'portrait'
 				if (typeof settingsResp.data.nearTimeGap !== 'undefined') this.nearTimeGap = settingsResp.data.nearTimeGap
 				if (typeof settingsResp.data.nearDistanceKm !== 'undefined') this.nearDistanceKm = settingsResp.data.nearDistanceKm
