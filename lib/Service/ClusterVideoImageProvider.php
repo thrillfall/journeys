@@ -125,6 +125,13 @@ class ClusterVideoImageProvider {
         }
 
         if ($clusterName === '') {
+            $albumTitle = $this->albumCreator->getAlbumNameForUser($user, $albumId);
+            if ($albumTitle !== null && trim($albumTitle) !== '') {
+                $clusterName = $albumTitle;
+            }
+        }
+
+        if ($clusterName === '') {
             $clusterName = $this->buildClusterName($clusterStart, $clusterEnd, $resolvedIndex, null);
         }
 

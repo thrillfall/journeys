@@ -31,6 +31,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.18.0 (2025-12-05)</h3>
+    <ul>
+      <li><b>Videos:</b> Manual Photos albums can now be rendered from the settings UI or CLI with their actual album titles.</li>
+      <li><b>CLI:</b> <code>journeys:list-clusters</code> prints both journey clusters and manual albums in a formatted table.</li>
+    </ul>
   <h3>0.17.2 (2025-12-05)</h3>
     <ul>
       <li><b>Clustering:</b> OCC command now streams cluster creation details as albums are created.</li>
@@ -248,7 +253,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.17.2</version>
+  <version>0.18.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

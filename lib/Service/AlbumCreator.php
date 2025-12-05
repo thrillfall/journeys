@@ -143,6 +143,22 @@ class AlbumCreator {
         }
     }
 
+    public function getAlbumNameForUser(string $userId, int $albumId): ?string {
+        try {
+            $stmt = $this->db->prepare('SELECT name FROM *PREFIX*photos_albums WHERE album_id = ? AND user = ?');
+            $res = $stmt->execute([$albumId, $userId]);
+            $row = $res ? $res->fetch() : false;
+            if ($row === false || !isset($row['name'])) {
+                return null;
+            }
+
+            $name = (string)$row['name'];
+            return $name !== '' ? $name : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     private function getTrackingTableName(): string {
         // Use Nextcloud SQL prefix placeholder; it is expanded by the DB layer
         return '*PREFIX*journeys_cluster_albums';
@@ -250,6 +266,32 @@ class AlbumCreator {
                 }
             }
             return $ids;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Fetch every Photos album owned by the provided user directly from the Photos tables.
+     *
+     * @param string $userId
+     * @return array<int, array{album_id:int,name:string}>
+     */
+    public function getAllAlbumsForUser(string $userId): array {
+        try {
+            $stmt = $this->db->prepare('SELECT album_id, name FROM *PREFIX*photos_albums WHERE user = ? ORDER BY name ASC, album_id ASC');
+            $result = $stmt->execute([$userId]);
+            $rows = $result ? $result->fetchAll() : [];
+            if (!is_array($rows)) {
+                return [];
+            }
+
+            return array_map(static function ($row) {
+                return [
+                    'album_id' => isset($row['album_id']) ? (int)$row['album_id'] : 0,
+                    'name' => isset($row['name']) ? (string)$row['name'] : '',
+                ];
+            }, $rows);
         } catch (\Throwable $e) {
             return [];
         }

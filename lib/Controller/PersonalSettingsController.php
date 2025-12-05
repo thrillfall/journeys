@@ -335,7 +335,24 @@ class PersonalSettingsController extends Controller {
             ];
         }, $tracked);
 
-        return new JSONResponse(['clusters' => $clusters]);
+        $trackedIds = array_map(static function (array $cluster): int {
+            return isset($cluster['album_id']) ? (int)$cluster['album_id'] : 0;
+        }, $tracked);
+
+        $allAlbums = $this->albumCreator->getAllAlbumsForUser($userId);
+        $albums = array_map(static function (array $album) use ($trackedIds) {
+            $id = isset($album['album_id']) ? (int)$album['album_id'] : 0;
+            return [
+                'id' => $id,
+                'name' => (string)($album['name'] ?? ''),
+                'isCluster' => in_array($id, $trackedIds, true),
+            ];
+        }, $allAlbums);
+
+        return new JSONResponse([
+            'clusters' => $clusters,
+            'albums' => $albums,
+        ]);
     }
 
     /**

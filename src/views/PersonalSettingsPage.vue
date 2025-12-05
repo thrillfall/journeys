@@ -162,7 +162,62 @@
 						</table>
 					</div>
 				</div>
+				<div v-if="manualAlbums.length" class="cluster-summary">
+					<h3>{{ t('journeys', 'Manual Photos albums') }}</h3>
+					<div class="table-responsive">
+						<table class="nc-table nc-table--hover nc-table--compact">
+							<thead>
+								<tr>
+									<th style="text-align:left; min-width: 60px;">{{ t('journeys', 'ID') }}</th>
+									<th style="text-align:left; min-width: 240px;">{{ t('journeys', 'Name') }}</th>
+									<th style="text-align:left; min-width: 120px;">{{ t('journeys', 'Type') }}</th>
+									<th style="text-align:left; min-width: 160px;">{{ t('journeys', 'Actions') }}</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr v-for="album in manualAlbums" :key="album.id">
+									<td style="padding: 0.5em 1em;">{{ album.id }}</td>
+									<td style="padding: 0.5em 1em;">{{ album.name || t('journeys', 'Untitled album') }}</td>
+									<td style="padding: 0.5em 1em;">{{ formatAlbumType(album) }}</td>
+									<td style="padding: 0.5em 1em;">
+										<button @click="useAlbumId(album.id)">
+											{{ t('journeys', 'Use ID') }}
+										</button>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<div class="manual-album-render">
+					<h3>{{ t('journeys', 'Render manual albums') }}</h3>
+					<div class="manual-album-row">
+						<label :for="'manualAlbumId'" class="manual-label">{{ t('journeys', 'Photos album ID') }}</label>
+						<input id="manualAlbumId" type="number" min="1" v-model.number="manualAlbumId" />
+					</div>
+					<div class="manual-album-buttons">
+						<button
+							@click="renderManualAlbum('portrait')"
+							:disabled="isProcessing || manualRenderBusy || !isManualAlbumInputValid"
+						>
+							{{ manualRenderBusy ? t('journeys', 'Rendering...') : t('journeys', 'Render Video') }}
+						</button>
+						<button
+							@click="renderManualAlbum('landscape')"
+							:disabled="isProcessing || manualLandscapeBusy || !isManualAlbumInputValid"
+							style="margin-left: 0.5em;"
+						>
+							{{ manualLandscapeBusy ? t('journeys', 'Rendering...') : t('journeys', 'Render Landscape') }}
+						</button>
+					</div>
+					<small class="manual-hint">
+						{{ t('journeys', 'Use the album ID from the Photos app (hover an album to see its numeric ID in the URL).') }}
+					</small>
+				</div>
+
 			</div>
+
 		</NcSettingsSection>
 	</div>
 </template>
@@ -202,7 +257,19 @@ export default {
 			showVideoTitle: true,
 			boostFaces: true,
 			videoOrientation: 'portrait',
+			albums: [],
+			manualAlbumId: null,
+			manualRenderBusy: false,
+			manualLandscapeBusy: false,
 		}
+	},
+	computed: {
+		isManualAlbumInputValid() {
+			return this.isPositiveAlbumId(this.manualAlbumId)
+		},
+		manualAlbums() {
+			return (this.albums || []).filter(album => !album?.isCluster)
+		},
 	},
 	async mounted() {
 		try {
@@ -239,6 +306,55 @@ export default {
 		await this.fetchClusters()
 	},
 	methods: {
+		isPositiveAlbumId(value) {
+			return typeof value === 'number' && Number.isFinite(value) && value > 0
+		},
+		useAlbumId(id) {
+			this.manualAlbumId = id
+		},
+		formatAlbumType(album) {
+			return album?.isCluster
+				? this.t('journeys', 'Journey cluster')
+				: this.t('journeys', 'Manual album')
+		},
+		async renderManualAlbum(orientation = 'portrait') {
+			const albumId = this.manualAlbumId
+			if (!this.isPositiveAlbumId(albumId)) {
+				showError(this.t('journeys', 'Enter a valid album ID.'))
+				return
+			}
+			const isLandscape = orientation === 'landscape'
+			const busyField = isLandscape ? 'manualLandscapeBusy' : 'manualRenderBusy'
+			if (this[busyField]) {
+				return
+			}
+			this[busyField] = true
+			try {
+				const url = generateUrl(isLandscape
+					? '/apps/journeys/personal_settings/render_cluster_video_landscape'
+					: '/apps/journeys/personal_settings/render_cluster_video')
+				const resp = await axios.post(url, {
+					albumId,
+				})
+				if (resp.data && resp.data.success) {
+					const name = resp.data.clusterName || `#${albumId}`
+					const count = resp.data.imageCount || 0
+					showSuccess(this.t('journeys', 'Video rendering started for {name} ({count} images)', {
+						name,
+						count,
+					}))
+				} else if (resp.data && resp.data.error) {
+					showError(resp.data.error)
+				} else {
+					showError(this.t('journeys', 'Failed to render video.'))
+				}
+			} catch (e) {
+				const message = e?.response?.data?.error || e?.message || this.t('journeys', 'Failed to render video.')
+				showError(message)
+			} finally {
+				this[busyField] = false
+			}
+		},
 		async saveSettings() {
 			this.isProcessing = true
 			try {
@@ -304,13 +420,11 @@ export default {
 		async fetchClusters() {
 			try {
 				const resp = await axios.get(generateUrl('/apps/journeys/personal_settings/clusters'))
-				if (resp.data && Array.isArray(resp.data.clusters)) {
-					this.clusters = resp.data.clusters
-				} else {
-					this.clusters = []
-				}
+				this.clusters = Array.isArray(resp.data?.clusters) ? resp.data.clusters : []
+				this.albums = Array.isArray(resp.data?.albums) ? resp.data.albums : []
 			} catch (e) {
 				this.clusters = []
+				this.albums = []
 			}
 		},
 		async renderCluster(cluster) {

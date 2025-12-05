@@ -8,7 +8,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗺️ Location & Time Clustering:** Group images by when and where they were taken
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
-- **🎥 Video Rendering:** Render any Journey album to an MP4 via personal settings or OCC command. Portrait videos use Ken Burns transitions and may include occasional 3‑wide landscape stacks with a short center pause. Background music is sourced at 128kbps and gently fades out at the end.
+- **🎥 Video Rendering:** Render any Journey album—or a manually created Photos album—to an MP4 via personal settings or OCC command. Portrait videos use Ken Burns transitions and may include occasional 3‑wide landscape stacks with a short center pause. Background music is sourced at 128kbps and gently fades out at the end of the video.
  - **⚡ Auto-generation (cron-only, >= 0.8.0):** New away-from-home albums found by the daily cron job can automatically trigger video rendering. Enable this in personal settings and choose the orientation (portrait/landscape). Rendering runs as a separate Nextcloud background job so clustering is not blocked.
 
 ## Requirements
@@ -46,6 +46,7 @@ When arguments/options are omitted, the command falls back to the user's saved v
 ## 🎥 Video rendering (>= 0.7.2)
 
 - Render any Journey album to an MP4 via personal settings: open **Settings → Journeys**, find the album in the list, and click **Render Video**.
+- Render any manual Photos album by entering its album ID (or selecting it from the "Manual Photos albums" table) in the same settings page.
 - Or use the OCC command:
 
   ```sh
