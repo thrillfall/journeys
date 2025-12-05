@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.18.1 (2025-12-05)</h3>
+    <ul>
+      <li><b>Settings UI:</b> Redesigned the personal settings page with Nc components, card layout, and inline auto-saving toggles.</li>
+    </ul>
   <h3>0.18.0 (2025-12-05)</h3>
     <ul>
       <li><b>Videos:</b> Manual Photos albums can now be rendered from the settings UI or CLI with their actual album titles.</li>
@@ -253,7 +257,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.18.0</version>
+  <version>0.18.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
