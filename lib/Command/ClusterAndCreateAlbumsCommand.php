@@ -193,8 +193,37 @@ class ClusterAndCreateAlbumsCommand extends Command {
             $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, includeSharedImages=%s, minClusterSize=%d, recentCutoffDays=%d', 'false', $includeGroupFolders ? 'true' : 'false', $includeSharedImages ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
             $output->writeln(sprintf('  global: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$maxTimeGap, (int)$maxTimeGap/3600.0, (float)$maxDistanceKm));
         }
+        $clustersPrinted = false;
+        $progressCallback = function(array $cluster) use ($output, &$clustersPrinted) {
+            $clustersPrinted = true;
+            $message = sprintf(
+                "Cluster %d: Created album '%s' with %d images.",
+                ($cluster['index'] ?? 0) + 1,
+                $cluster['albumName'] ?? 'Unknown',
+                $cluster['imageCount'] ?? 0,
+            );
+            if (!empty($cluster['location'])) {
+                $message .= sprintf(' (Location: %s)', $cluster['location']);
+            }
+            $output->writeln($message);
+        };
+
         // Delegate clustering and album creation to ClusteringManager (home-aware optional)
-        $result = $this->clusteringManager->clusterForUser($user, $maxTimeGap, $maxDistanceKm, $minClusterSize, (bool)$homeAware, $home, $thresholds, $fromScratch, $recentCutoffDays, false, $includeGroupFolders, $includeSharedImages);
+        $result = $this->clusteringManager->clusterForUser(
+            $user,
+            $maxTimeGap,
+            $maxDistanceKm,
+            $minClusterSize,
+            (bool)$homeAware,
+            $home,
+            $thresholds,
+            $fromScratch,
+            $recentCutoffDays,
+            false,
+            $includeGroupFolders,
+            $includeSharedImages,
+            $progressCallback,
+        );
         $stats = $this->imageFetcher->getLastFetchStats();
         $output->writeln(sprintf(
             '<info>Image sources:</info> total=%d (home=%d, groupOnly=%d, sharedOnly=%d)',
@@ -209,13 +238,15 @@ class ClusterAndCreateAlbumsCommand extends Command {
             return Command::FAILURE;
         }
         $output->writeln('Found ' . $result['clustersCreated'] . ' clusters. Creating albums...\n');
-        foreach ($result['clusters'] as $cluster) {
-            $output->writeln(sprintf(
-                "Created album '%s' with %d images." . ($cluster['location'] ? " (Location: %s)" : ""),
-                $cluster['albumName'],
-                $cluster['imageCount'],
-                $cluster['location'] ?? ''
-            ));
+        if (!$clustersPrinted) {
+            foreach ($result['clusters'] as $cluster) {
+                $output->writeln(sprintf(
+                    "Created album '%s' with %d images." . ($cluster['location'] ? " (Location: %s)" : ""),
+                    $cluster['albumName'],
+                    $cluster['imageCount'],
+                    $cluster['location'] ?? ''
+                ));
+            }
         }
         $output->writeln('All clusters processed.');
         return Command::SUCCESS;

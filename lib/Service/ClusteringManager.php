@@ -44,7 +44,7 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false): array {
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?callable $clusterProgress = null): array {
         // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
         $purgedAlbums = 0;
         if ($fromScratch) {
@@ -187,6 +187,19 @@ class ClusteringManager {
                 $albumName = sprintf('Journey %d %s (%s)', $i+1, $monthYear, $range);
             }
             $albumId = $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd);
+            if ($clusterProgress !== null) {
+                try {
+                    $clusterProgress([
+                        'index' => $i,
+                        'albumName' => $albumName,
+                        'imageCount' => count($cluster),
+                        'location' => $location,
+                        'albumId' => $albumId,
+                    ]);
+                } catch (\Throwable $e) {
+                    // ignore progress callback errors
+                }
+            }
             // Auto-generate video for far-away clusters only when triggered by cron
             if ($cronContext && $albumId !== null && $effectiveHomeAware && $home !== null) {
                 try {

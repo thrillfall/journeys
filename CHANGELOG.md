@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.17.2] - 2025-12-05
+### Added
+- Clustering OCC command streams cluster creation details immediately as albums are generated.
+
 ## [0.17.1] - 2025-12-04
 ### Fixed
 - Clustering now skips screenshot-style images (missing EXIF camera metadata, PNG/WebP, screen keywords) so they no longer appear in albums or videos.

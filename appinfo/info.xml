@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.17.2 (2025-12-05)</h3>
+    <ul>
+      <li><b>Clustering:</b> OCC command now streams cluster creation details as albums are created.</li>
+    </ul>
   <h3>0.17.1 (2025-12-04)</h3>
     <ul>
       <li><b>Albums:</b> Detect and skip screenshot-style images (no EXIF, PNG/WebP, screen keywords) during clustering.</li>
@@ -244,7 +248,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.17.1</version>
+  <version>0.17.2</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
