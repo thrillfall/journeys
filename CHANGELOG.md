@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.18.3] - 2025-12-09
+### Changed
+- Landscape renderer now matches portrait: chunking enabled when any source image exceeds 13MP, otherwise single-pass.
+- Added chunk/merge progress logging alignment with portrait renderer for landscape renders.
+
 ## [0.17.2] - 2025-12-05
 ### Added
 - Clustering OCC command streams cluster creation details immediately as albums are generated.

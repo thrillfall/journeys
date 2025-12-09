@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.18.3 (2025-12-09)</h3>
+    <ul>
+      <li><b>Video rendering:</b> Landscape renderer now chunks like portrait when any source image exceeds 13 MP; otherwise it runs a single pass. Chunk/merge progress logging aligned with portrait.</li>
+    </ul>
   <h3>0.18.2 (2025-12-09)</h3>
     <ul>
       <li><b>Video rendering:</b> Portrait renderer chunks automatically when any source image exceeds 13 MP; otherwise it runs a single pass.</li>
@@ -261,7 +265,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.18.1</version>
+  <version>0.18.3</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
