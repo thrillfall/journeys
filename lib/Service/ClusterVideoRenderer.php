@@ -6,6 +6,8 @@ use Symfony\Component\Process\Process;
 use Psr\Log\LoggerInterface;
 
 class ClusterVideoRenderer {
+    private const MIN_SEGMENTS_PER_PASS = 4;
+    private const MAX_SEGMENTS_PER_PASS = 60;
     public function __construct(
         private IRootFolder $rootFolder,
         private ClusterVideoMusicProvider $musicProvider,
@@ -78,9 +80,12 @@ class ClusterVideoRenderer {
 
         $audioTrack = $this->musicProvider->pickRandomTrack();
 
-        $this->runFfmpeg(
+        $segmentThreshold = $this->determineDynamicThreshold($segments);
+
+        $this->renderChunked(
             $segments,
             $tmpOut,
+            $workingDir,
             $targetWidth,
             $targetHeight,
             $fps,
@@ -90,6 +95,7 @@ class ClusterVideoRenderer {
             $outputHandler,
             $verbose,
             $albumName,
+            $segmentThreshold,
         );
 
         if ($outputPath !== null && $outputPath !== '') {
@@ -119,7 +125,7 @@ class ClusterVideoRenderer {
         ?callable $outputHandler,
         bool $verbose,
         ?string $albumName,
-    ): void {
+    ): float {
         if (empty($segments)) {
             throw new \RuntimeException('No files provided to ffmpeg');
         }
@@ -301,6 +307,239 @@ class ClusterVideoRenderer {
                 $errorOutput
             ));
         }
+
+        return $totalDurationSeconds;
+    }
+
+    private function renderChunked(
+        array $segments,
+        string $finalOutputPath,
+        string $workingDir,
+        int $width,
+        int $height,
+        int $fps,
+        float $durationPerImage,
+        float $transitionDuration,
+        ?string $audioTrack,
+        ?callable $outputHandler,
+        bool $verbose,
+        ?string $albumName,
+        int $chunkSize,
+    ): void {
+        $clipFiles = [];
+        $chunkIndex = 0;
+        $chunkedSegments = array_chunk($segments, max(1, $chunkSize));
+        $totalChunks = count($chunkedSegments);
+
+        foreach ($chunkedSegments as $chunk) {
+            $clipPath = sprintf('%s/chunk_%03d.mp4', rtrim($workingDir, '/'), $chunkIndex);
+            $chunkAlbumName = ($chunkIndex === 0) ? $albumName : null;
+            $this->emitProgress(
+                $outputHandler,
+                sprintf('Rendering chunk %d/%d (%d segments)', $chunkIndex + 1, $totalChunks, count($chunk))
+            );
+            $duration = $this->runFfmpeg(
+                $chunk,
+                $clipPath,
+                $width,
+                $height,
+                $fps,
+                $durationPerImage,
+                $transitionDuration,
+                null,
+                $outputHandler,
+                $verbose,
+                $chunkAlbumName,
+            );
+            $clipFiles[] = ['path' => $clipPath, 'duration' => $duration];
+            $chunkIndex++;
+        }
+
+        if (empty($clipFiles)) {
+            throw new \RuntimeException('Chunk rendering received no clips.');
+        }
+
+        $current = array_shift($clipFiles);
+        $mergeIndex = 0;
+        foreach ($clipFiles as $clip) {
+            $this->emitProgress(
+                $outputHandler,
+                sprintf('Merging chunk %d/%d', $mergeIndex + 1, max(1, count($clipFiles)))
+            );
+            $current = $this->xfadeClipPair(
+                $current,
+                $clip,
+                $transitionDuration,
+                $fps,
+                sprintf('%s/chunk_merge_%03d.mp4', rtrim($workingDir, '/'), $mergeIndex++),
+                $outputHandler,
+                $verbose,
+            );
+        }
+
+        $videoOnlyPath = $current['path'];
+        $totalDuration = $current['duration'];
+
+        if ($audioTrack !== null) {
+            $videoOnlyPath = $this->muxAudio(
+                $videoOnlyPath,
+                $audioTrack,
+                $totalDuration,
+                $transitionDuration,
+                $outputHandler,
+                $verbose,
+                $finalOutputPath,
+            );
+        } else {
+            rename($videoOnlyPath, $finalOutputPath);
+        }
+    }
+
+    /**
+     * @param array{path:string,duration:float} $left
+     * @param array{path:string,duration:float} $right
+     * @return array{path:string,duration:float}
+     */
+    private function xfadeClipPair(
+        array $left,
+        array $right,
+        float $transitionDuration,
+        int $fps,
+        string $outputPath,
+        ?callable $outputHandler,
+        bool $verbose,
+    ): array {
+        $offset = max(0.0, $left['duration'] - $transitionDuration);
+        $logLevel = $verbose ? 'info' : 'error';
+        $cmd = [
+            'ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel,
+            '-i', $left['path'],
+            '-i', $right['path'],
+            '-filter_complex', sprintf('[0:v][1:v]xfade=transition=fade:duration=%s:offset=%s[vout]',
+                $this->formatFloat($transitionDuration),
+                $this->formatFloat($offset)
+            ),
+            '-map', '[vout]',
+            '-r', (string)$fps,
+            '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart',
+            $outputPath,
+        ];
+
+        $process = new Process($cmd);
+        $process->setTimeout(null);
+        $process->setIdleTimeout(null);
+        $process->run(function (string $type, string $buffer) use ($outputHandler, $verbose): void {
+            if ($outputHandler === null) {
+                return;
+            }
+            if ($type === Process::ERR) {
+                if ($verbose || !$this->shouldSuppressWarning($buffer)) {
+                    $outputHandler($type, $buffer);
+                }
+            }
+        });
+
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException('ffmpeg failed while merging chunks: ' . $process->getErrorOutput());
+        }
+
+        @unlink($left['path']);
+        @unlink($right['path']);
+
+        $newDuration = max(0.0, $left['duration'] + $right['duration'] - $transitionDuration);
+        return ['path' => $outputPath, 'duration' => $newDuration];
+    }
+
+    private function muxAudio(
+        string $videoPath,
+        string $audioTrack,
+        float $totalDurationSeconds,
+        float $transitionDuration,
+        ?callable $outputHandler,
+        bool $verbose,
+        string $finalOutputPath,
+    ): string {
+        $logLevel = $verbose ? 'info' : 'error';
+        $cmd = [
+            'ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel,
+            '-i', $videoPath,
+            '-stream_loop', '-1', '-i', $audioTrack,
+        ];
+
+        $fadeDur = min(5.0, max(0.5, $totalDurationSeconds * 0.08));
+        $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
+        $filterGraph = sprintf('[1:a]atrim=0:%1$s,asetpts=PTS-STARTPTS,afade=t=out:st=%2$s:d=%3$s[afout]',
+            $this->formatFloat($totalDurationSeconds),
+            $this->formatFloat($fadeStart),
+            $this->formatFloat($fadeDur),
+        );
+
+        $cmd = array_merge($cmd, [
+            '-filter_complex', $filterGraph,
+            '-map', '0:v:0',
+            '-map', '[afout]',
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-b:a', '192k',
+            '-shortest',
+            '-movflags', '+faststart',
+            $finalOutputPath,
+        ]);
+
+        $process = new Process($cmd);
+        $process->setTimeout(null);
+        $process->setIdleTimeout(null);
+        $process->run(function (string $type, string $buffer) use ($outputHandler, $verbose): void {
+            if ($outputHandler === null) {
+                return;
+            }
+            if ($type === Process::ERR) {
+                if ($verbose || !$this->shouldSuppressWarning($buffer)) {
+                    $outputHandler($type, $buffer);
+                }
+            }
+        });
+
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException('ffmpeg failed while muxing audio: ' . $process->getErrorOutput());
+        }
+
+        @unlink($videoPath);
+        return $finalOutputPath;
+    }
+
+    /**
+     * Decide chunking purely by image resolution.
+     * If any input exceeds 13 megapixels, use a small chunk size; otherwise render in one pass.
+     *
+     * @param array<int,array{type:string,inputs:array<int,string>}> $segments
+     */
+    private function determineDynamicThreshold(array $segments): int {
+        $maxPixels = 0;
+        foreach ($segments as $segment) {
+            foreach ($segment['inputs'] ?? [] as $input) {
+                [$w, $h] = $this->orientedImageSize($input);
+                if ($w > 0 && $h > 0) {
+                    $maxPixels = max($maxPixels, $w * $h);
+                }
+            }
+        }
+
+        // 13 MP threshold (13,000,000 pixels)
+        if ($maxPixels > 13000000) {
+            return max(self::MIN_SEGMENTS_PER_PASS, min(self::MAX_SEGMENTS_PER_PASS, 10));
+        }
+
+        // No need to chunk
+        return self::MAX_SEGMENTS_PER_PASS;
+    }
+
+    private function emitProgress(?callable $outputHandler, string $message): void {
+        if ($outputHandler === null) {
+            return;
+        }
+        $outputHandler(Process::OUT, $message . PHP_EOL);
     }
 
     private function persistToUserFiles(string $user, string $tmpOut, ?string $preferredFileName): string {

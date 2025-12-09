@@ -72,6 +72,7 @@ When arguments/options are omitted, the command falls back to the user's saved v
 ### Current limitations
 
 - Portrait mode is the default.
+- Portrait rendering chunks automatically when any source image exceeds 13 megapixels; otherwise it runs as a single pass 
 
 ### Roadmap
 
