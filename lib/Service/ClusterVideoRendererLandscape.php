@@ -82,6 +82,9 @@ class ClusterVideoRendererLandscape {
             }
         }
 
+        // Ensure we end on a still image when available to guarantee clean fade-out
+        $segments = $this->ensureEndingStill($segments);
+
         $shouldChunk = ($maxPixels > self::CHUNK_THRESHOLD_PIXELS);
 
         if (!$shouldChunk) {
@@ -256,7 +259,8 @@ class ClusterVideoRendererLandscape {
                 $parts[] = sprintf(
                     '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
                     'crop=%2$d:%3$d,' .
-                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS[%9$s]',
+                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS,' .
+                    'settb=AVTB,fps=%8$d[%9$s]',
                     $i,
                     $width,
                     $height,
@@ -306,7 +310,8 @@ class ClusterVideoRendererLandscape {
                     'crop=%2$d:%3$d,fps=%4$d,setsar=1,' .
                     'trim=duration=%7$s,setpts=PTS-STARTPTS,' .
                     'setpts=%5$s*PTS,setpts=PTS-STARTPTS,' .
-                    'tpad=stop_mode=clone:stop_duration=%8$d[%9$s]',
+                    'tpad=stop_mode=clone:stop_duration=%8$d,' .
+                    'settb=AVTB,fps=%4$d[%9$s]',
                     $i,
                     $width,
                     $height,
@@ -318,19 +323,42 @@ class ClusterVideoRendererLandscape {
                     $label,
                 );
             }
+            // Add album overlay if first segment and no image overlay already applied
+            if ($i === 0 && $albumName !== null && $albumName !== '' && $seg['type'] !== 'image') {
+                $formatted = $this->titleFormatter->formatForVideo($albumName, $width, 0.8);
+                $titleLabel = sprintf('title%d', $i);
+                $parts[] = $this->titleFormatter->buildDrawtextFilter(
+                    $label,
+                    $titleLabel,
+                    $formatted['text'],
+                    $formatted['fontSize'],
+                    4.0,
+                    3 // shadow offset for landscape
+                );
+                $label = $titleLabel;
+            }
             $prepLabels[] = '[' . $label . ']';
         }
         if (count($prepLabels) === 1) {
-            $parts[] = sprintf('%sformat=yuv420p[vout]', $prepLabels[0]);
+            $fadeDur = min(0.8, max(0.3, $totalDurationSeconds * 0.1));
+            $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
+            $parts[] = sprintf(
+                '%strim=duration=%s,fps=%d,fade=t=out:st=%s:d=%s,format=yuv420p[vout]',
+                $prepLabels[0],
+                $this->formatFloat($totalDurationSeconds),
+                $fps,
+                $this->formatFloat($fadeStart),
+                $this->formatFloat($fadeDur),
+            );
         } else {
             // xfade chain with fade transitions at holdDuration offsets
-            $prev = 'kseg0';
+            $prev = trim($prepLabels[0], '[]');
             for ($i = 1; $i < count($prepLabels); $i++) {
                 $out = ($i === count($prepLabels) - 1) ? 'mix_last' : sprintf('mix%d', $i);
                 $parts[] = sprintf(
                     '[%1$s][%2$s]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
                     $prev,
-                    sprintf('kseg%d', $i),
+                    trim($prepLabels[$i], '[]'),
                     $this->formatFloat($transitionDuration),
                     $this->formatFloat($holdDuration * $i),
                     $out,
@@ -338,7 +366,16 @@ class ClusterVideoRendererLandscape {
                 $prev = $out;
             }
             $final = ($prev === 'kseg0') ? 'kseg0' : 'mix_last';
-            $parts[] = sprintf('[%s]trim=duration=%s,format=yuv420p[vout]', $final, $this->formatFloat($totalDurationSeconds));
+            $fadeDur = min(0.8, max(0.3, $totalDurationSeconds * 0.1));
+            $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
+            $parts[] = sprintf(
+                '[%1$s]trim=duration=%2$s,fps=%3$d,fade=t=out:st=%4$s:d=%5$s,format=yuv420p[vout]',
+                $final,
+                $this->formatFloat($totalDurationSeconds),
+                $fps,
+                $this->formatFloat($fadeStart),
+                $this->formatFloat($fadeDur),
+            );
         }
 
         $cmd[] = '-filter_complex';
@@ -472,13 +509,17 @@ class ClusterVideoRendererLandscape {
         }
 
         $parts = [];
-        $prevLabel = '0:v';
+        // Normalize each input to constant fps and format for xfade (ffmpeg 7 requires CFR)
+        for ($i = 0; $i < count($clips); $i++) {
+            $parts[] = sprintf('[%1$d:v]fps=%2$d,format=yuv420p[vin%1$d]', $i, $fps);
+        }
+        $prevLabel = 'vin0';
         $totalDuration = $clips[0]['duration'];
         for ($i = 1; $i < count($clips); $i++) {
             $outLabel = ($i === count($clips) - 1) ? 'vout' : sprintf('m%d', $i);
             $offset = max(0.0, $clips[$i - 1]['duration'] - $transitionDuration);
             $parts[] = sprintf(
-                '[%1$s][%2$d:v]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
+                '[%1$s][vin%2$d]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
                 $prevLabel,
                 $i,
                 $this->formatFloat($transitionDuration),
@@ -590,6 +631,30 @@ class ClusterVideoRendererLandscape {
 
     private function chunkMergeOutputPath(string $workingDir, int $index): string {
         return $workingDir . '/chunk_merge_' . sprintf('%03d', $index) . '.mp4';
+    }
+
+    /**
+     * Ensure the final segment is a still image when available, to guarantee clean fade-out.
+     * If the last segment is motion/video and there is any image earlier, move the last image to the end.
+     * @param array<int,array{type:string,file:string}> $segments
+     * @return array<int,array{type:string,file:string}>
+     */
+    private function ensureEndingStill(array $segments): array {
+        if (count($segments) < 2) {
+            return $segments;
+        }
+        $last = $segments[array_key_last($segments)];
+        if ($last['type'] !== 'image') {
+            for ($i = count($segments) - 2; $i >= 0; $i--) {
+                if ($segments[$i]['type'] === 'image') {
+                    $imgSeg = $segments[$i];
+                    array_splice($segments, $i, 1);
+                    $segments[] = $imgSeg;
+                    break;
+                }
+            }
+        }
+        return $segments;
     }
 
     private function emitProgress(?callable $outputHandler, string $message): void {

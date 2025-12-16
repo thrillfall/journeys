@@ -2,10 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.18.3] - 2025-12-09
+## [0.19.0] - 2025-12-16
 ### Changed
-- Landscape renderer now matches portrait: chunking enabled when any source image exceeds 13MP, otherwise single-pass.
-- Added chunk/merge progress logging alignment with portrait renderer for landscape renders.
+- Video rendering: verified compatibility with FFmpeg 7.x (CFR handling, fades); recommend FFmpeg 7.1+.
+- Both orientations end on a still frame when available to ensure reliable fade-outs even after motion clips.
+- Landscape retains chunking/logging parity with portrait.
 
 ## [0.17.2] - 2025-12-05
 ### Added

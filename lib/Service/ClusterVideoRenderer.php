@@ -82,6 +82,9 @@ class ClusterVideoRenderer {
 
         $segmentThreshold = $this->determineDynamicThreshold($segments);
 
+        // Ensure we end on a still image when available to guarantee clean fade-out
+        $segments = $this->ensureEndingStill($segments);
+
         $this->renderChunked(
             $segments,
             $tmpOut,
@@ -649,21 +652,23 @@ class ClusterVideoRenderer {
 
         foreach ($segments as $si => $seg) {
             if ($seg['type'] === 'kenburns') {
-                $motions = $this->buildKenBurnsExpressions($si, $frameCount);
-                $baseLabel = sprintf('kseg%d', $si);
+                $motion = $this->buildKenBurnsExpressions($si, $frameCount);
+                $baseLabelIn = sprintf('kseg_base%d', $si);
+                $baseLabelOut = sprintf('kseg%d', $si);
                 $filterParts[] = sprintf(
                     '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
                     'crop=%2$d:%3$d,' .
-                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS[kseg_base%9$d]',
+                    'zoompan=z=%4$s:x=%5$s:y=%6$s:d=%7$d:fps=%8$d:s=%2$dx%3$d,setsar=1,setpts=PTS-STARTPTS,' .
+                    'settb=AVTB,fps=%8$d[%9$s]',
                     $inputIndex,
                     $width,
                     $height,
-                    $motions['z'],
-                    $motions['x'],
-                    $motions['y'],
+                    $motion['z'],
+                    $motion['x'],
+                    $motion['y'],
                     $frameCount,
                     $fps,
-                    $si,
+                    $baseLabelIn,
                 );
 
                 // Add album name overlay to first still image segment only
@@ -672,8 +677,8 @@ class ClusterVideoRenderer {
                     $formatted = $this->titleFormatter->formatForVideo($albumName, $width, 0.8);
                     // Build FFmpeg drawtext filter (4 seconds: fade in 0.5s, visible 3s, fade out 0.5s)
                     $filterParts[] = $this->titleFormatter->buildDrawtextFilter(
-                        sprintf('kseg_base%d', $si),
-                        $baseLabel,
+                        $baseLabelIn,
+                        $baseLabelOut,
                         $formatted['text'],
                         $formatted['fontSize'],
                         4.0,
@@ -681,10 +686,10 @@ class ClusterVideoRenderer {
                     );
                 } else {
                     // No text, just pass through
-                    $filterParts[] = sprintf('[kseg_base%d]null[%s]', $si, $baseLabel);
+                    $filterParts[] = sprintf('[%1$s]null[%2$s]', $baseLabelIn, $baseLabelOut);
                 }
 
-                $segmentOutputLabels[] = $baseLabel;
+                $segmentOutputLabels[] = $baseLabelOut;
                 $inputIndex += 1;
             } elseif ($seg['type'] === 'video') {
                 // Prepare video: scale/crop to canvas, normalize fps, time-stretch, then freeze-frame pad the rest
@@ -708,7 +713,8 @@ class ClusterVideoRenderer {
                     'crop=%2$d:%3$d,fps=%4$d,setsar=1,' .
                     'trim=duration=%7$s,setpts=PTS-STARTPTS,' .
                     'setpts=%5$s*PTS,setpts=PTS-STARTPTS,' .
-                    'tpad=stop_mode=clone:stop_duration=%8$d[vseg%9$d]',
+                    'tpad=stop_mode=clone:stop_duration=%8$d,' .
+                    'settb=AVTB,fps=%4$d[vseg%9$d]',
                     $inputIndex,
                     $width,
                     $height,
@@ -828,9 +834,16 @@ class ClusterVideoRenderer {
         }
 
         $finalLabel = $prev === $segmentOutputLabels[0] ? $segmentOutputLabels[0] : 'mix_last';
-        $filterParts[] = sprintf('[%s]trim=duration=%s,format=yuv420p[vout]',
+        // End fade-out (long enough to be visible even for short clips, including motion-only endings)
+        $fadeDur = min(1.2, max(0.6, $totalDuration * 0.15));
+        $fadeStart = max(0.0, $totalDuration - $fadeDur);
+        $filterParts[] = sprintf(
+            '[%1$s]trim=duration=%2$s,fps=%3$d,fade=t=out:st=%4$s:d=%5$s,format=yuv420p[vout]',
             $finalLabel,
             $this->formatFloat($totalDuration),
+            $fps,
+            $this->formatFloat($fadeStart),
+            $this->formatFloat($fadeDur),
         );
 
         return [implode(';', $filterParts), '[vout]'];
@@ -866,6 +879,31 @@ class ClusterVideoRenderer {
             }
         }
         return $out;
+    }
+
+    /**
+     * Ensure the final segment is a still image when available, to guarantee clean fade-out.
+     * If the last segment is motion/video and there is any image earlier, move the last image to the end.
+     * @param array<int,array{type:string,inputs:array<int,string>}> $segments
+     * @return array<int,array{type:string,inputs:array<int,string>}>
+     */
+    private function ensureEndingStill(array $segments): array {
+        if (count($segments) < 2) {
+            return $segments;
+        }
+        $last = $segments[array_key_last($segments)];
+        if (($last['type'] ?? '') !== 'kenburns') {
+            return $segments;
+        }
+        for ($i = count($segments) - 2; $i >= 0; $i--) {
+            if (($segments[$i]['type'] ?? '') === 'kenburns') {
+                $imgSeg = $segments[$i];
+                array_splice($segments, $i, 1);
+                $segments[] = $imgSeg;
+                break;
+            }
+        }
+        return $segments;
     }
 
     private function isLikelyValidMp4(string $path): bool {
