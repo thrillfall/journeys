@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.1] - 2025-12-16
+### Added
+- Clustering debug: When clustering with shared images enabled, the OCC output prints which shared images were included per created cluster (fileid, path, datetaken, datetaken_ts).
+
 ## [0.19.0] - 2025-12-16
 ### Changed
 - Video rendering: verified compatibility with FFmpeg 7.x (CFR handling, fades); recommend FFmpeg 7.1+.

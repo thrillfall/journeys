@@ -206,6 +206,29 @@ class ClusterAndCreateAlbumsCommand extends Command {
                 $message .= sprintf(' (Location: %s)', $cluster['location']);
             }
             $output->writeln($message);
+
+            // Optional debug output when includeSharedImages is enabled.
+            // ClusteringManager passes this only when enabled.
+            if (isset($cluster['shared']) && is_array($cluster['shared'])) {
+                $count = isset($cluster['shared']['count']) ? (int)$cluster['shared']['count'] : 0;
+                $truncated = !empty($cluster['shared']['truncated']);
+                $sample = isset($cluster['shared']['sample']) && is_array($cluster['shared']['sample'])
+                    ? $cluster['shared']['sample']
+                    : [];
+
+                $output->writeln(sprintf('  Shared images in this cluster: %d%s', $count, $truncated ? ' (sample truncated)' : ''));
+                foreach ($sample as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+                    $fid = isset($row['fileid']) ? (int)$row['fileid'] : 0;
+                    $path = isset($row['path']) ? (string)$row['path'] : '';
+                    $dt = isset($row['datetaken']) ? (string)$row['datetaken'] : '';
+                    $dtTs = array_key_exists('datetaken_ts', $row) ? $row['datetaken_ts'] : null;
+                    $dtTsStr = $dtTs === null ? 'null' : (string)(int)$dtTs;
+                    $output->writeln(sprintf('    - fileid=%d datetaken=%s datetaken_ts=%s path=%s', $fid, $dt, $dtTsStr, $path));
+                }
+            }
         };
 
         // Delegate clustering and album creation to ClusteringManager (home-aware optional)

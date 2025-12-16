@@ -52,6 +52,14 @@ class ClusteringManager {
         }
         $images = $this->imageFetcher->fetchImagesForUser($userId, $includeGroupFolders, $includeSharedImages);
         $fetchStats = $this->imageFetcher->getLastFetchStats();
+        $fileSources = [];
+        if ($includeSharedImages) {
+            try {
+                $fileSources = $this->imageFetcher->getLastFileSources();
+            } catch (\Throwable $e) {
+                $fileSources = [];
+            }
+        }
         $images = array_values(array_filter($images, static function ($img) {
             return $img instanceof Image && $img->isUsable();
         }));
@@ -187,6 +195,42 @@ class ClusteringManager {
                 $albumName = sprintf('Journey %d %s (%s)', $i+1, $monthYear, $range);
             }
             $albumId = $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd);
+
+            $sharedDebug = null;
+            if ($includeSharedImages && !empty($fileSources)) {
+                try {
+                    $shared = [];
+                    foreach ($cluster as $img) {
+                        if (!($img instanceof Image)) {
+                            continue;
+                        }
+                        $fid = (int)($img->fileid ?? 0);
+                        if ($fid <= 0) {
+                            continue;
+                        }
+                        if (($fileSources[$fid] ?? null) === 'shared') {
+                            $dt = (string)($img->datetaken ?? '');
+                            $dtTs = $dt !== '' ? strtotime($dt) : false;
+                            $shared[] = [
+                                'fileid' => $fid,
+                                'path' => (string)($img->path ?? ''),
+                                'datetaken' => $dt,
+                                'datetaken_ts' => $dtTs !== false ? (int)$dtTs : null,
+                            ];
+                        }
+                    }
+
+                    $sharedCount = count($shared);
+                    $maxList = 50;
+                    $sharedDebug = [
+                        'count' => $sharedCount,
+                        'sample' => array_slice($shared, 0, $maxList),
+                        'truncated' => $sharedCount > $maxList,
+                    ];
+                } catch (\Throwable $e) {
+                    $sharedDebug = null;
+                }
+            }
             if ($clusterProgress !== null) {
                 try {
                     $clusterProgress([
@@ -195,6 +239,7 @@ class ClusteringManager {
                         'imageCount' => count($cluster),
                         'location' => $location,
                         'albumId' => $albumId,
+                        'shared' => $sharedDebug,
                     ]);
                 } catch (\Throwable $e) {
                     // ignore progress callback errors

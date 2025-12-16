@@ -15,6 +15,9 @@ class ImageFetcher {
         'group' => 0,
         'shared' => 0,
     ];
+
+    /** @var array<int,'home'|'group'|'shared'> */
+    private array $lastFileSources = [];
     /**
      * Fetch all images indexed by Memories for a given user, with location and time_taken
      *
@@ -116,6 +119,7 @@ class ImageFetcher {
                 'group' => 0,
                 'shared' => 0,
             ];
+            $this->lastFileSources = [];
             return [];
         }
 
@@ -152,6 +156,21 @@ class ImageFetcher {
             'shared' => count($sharedOnlyIds),
         ];
 
+        // Record source classification for debug.
+        // Precedence: home > group > shared
+        $sources = [];
+        foreach ($rowsById as $fid => $_row) {
+            $fid = (int)$fid;
+            if (isset($homeIds[$fid])) {
+                $sources[$fid] = 'home';
+            } elseif (isset($groupIds[$fid])) {
+                $sources[$fid] = 'group';
+            } elseif (isset($sharedIds[$fid])) {
+                $sources[$fid] = 'shared';
+            }
+        }
+        $this->lastFileSources = $sources;
+
         return $images;
     }
 
@@ -160,6 +179,13 @@ class ImageFetcher {
      */
     public function getLastFetchStats(): array {
         return $this->lastFetchStats;
+    }
+
+    /**
+     * @return array<int,'home'|'group'|'shared'>
+     */
+    public function getLastFileSources(): array {
+        return $this->lastFileSources;
     }
 
     /**
