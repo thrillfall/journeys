@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.2] - 2025-12-17
+### Fixed
+- Clustering: shared image inclusion is now scoped to the shared mount root subtree (prevents pulling unrelated files from other users' storages).
+
 ## [0.19.1] - 2025-12-16
 ### Added
 - Clustering debug: When clustering with shared images enabled, the OCC output prints which shared images were included per created cluster (fileid, path, datetaken, datetaken_ts).

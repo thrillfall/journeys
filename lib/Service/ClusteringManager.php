@@ -53,11 +53,14 @@ class ClusteringManager {
         $images = $this->imageFetcher->fetchImagesForUser($userId, $includeGroupFolders, $includeSharedImages);
         $fetchStats = $this->imageFetcher->getLastFetchStats();
         $fileSources = [];
+        $sharedMountRoots = [];
         if ($includeSharedImages) {
             try {
                 $fileSources = $this->imageFetcher->getLastFileSources();
+                $sharedMountRoots = $this->imageFetcher->getLastSharedMountRoots();
             } catch (\Throwable $e) {
                 $fileSources = [];
+                $sharedMountRoots = [];
             }
         }
         $images = array_values(array_filter($images, static function ($img) {
@@ -214,6 +217,7 @@ class ClusteringManager {
                             $shared[] = [
                                 'fileid' => $fid,
                                 'path' => (string)($img->path ?? ''),
+                                'mount_root' => (string)($sharedMountRoots[$fid] ?? ''),
                                 'datetaken' => $dt,
                                 'datetaken_ts' => $dtTs !== false ? (int)$dtTs : null,
                             ];

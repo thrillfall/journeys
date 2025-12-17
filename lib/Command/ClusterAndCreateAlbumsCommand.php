@@ -223,10 +223,11 @@ class ClusterAndCreateAlbumsCommand extends Command {
                     }
                     $fid = isset($row['fileid']) ? (int)$row['fileid'] : 0;
                     $path = isset($row['path']) ? (string)$row['path'] : '';
+                    $mountRoot = isset($row['mount_root']) ? (string)$row['mount_root'] : '';
                     $dt = isset($row['datetaken']) ? (string)$row['datetaken'] : '';
                     $dtTs = array_key_exists('datetaken_ts', $row) ? $row['datetaken_ts'] : null;
                     $dtTsStr = $dtTs === null ? 'null' : (string)(int)$dtTs;
-                    $output->writeln(sprintf('    - fileid=%d datetaken=%s datetaken_ts=%s path=%s', $fid, $dt, $dtTsStr, $path));
+                    $output->writeln(sprintf('    - fileid=%d datetaken=%s datetaken_ts=%s mount_root=%s path=%s', $fid, $dt, $dtTsStr, $mountRoot, $path));
                 }
             }
         };

@@ -18,6 +18,9 @@ class ImageFetcher {
 
     /** @var array<int,'home'|'group'|'shared'> */
     private array $lastFileSources = [];
+
+    /** @var array<int,string> */
+    private array $lastSharedMountRoots = [];
     /**
      * Fetch all images indexed by Memories for a given user, with location and time_taken
      *
@@ -86,28 +89,67 @@ class ImageFetcher {
 
         // Optionally include images shared with the user (shared mounts)
         if ($includeSharedImages) {
-            $sharedMountPrefix = '/' . $user . '/files/Shared with you%';
-            $sqlShared = "
-                SELECT DISTINCT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
-                FROM oc_memories m
-                JOIN oc_filecache f ON m.fileid = f.fileid
-                JOIN oc_storages s ON f.storage = s.numeric_id
-                JOIN oc_mounts mo ON mo.storage_id = s.numeric_id
+            // IMPORTANT: A share mount references the owner's storage_id. We must restrict
+            // fetched filecache entries to the mount's root subtree (root_id), otherwise we may
+            // accidentally pull unrelated files from that storage.
+
+            $sqlSharedMounts = "
+                SELECT mo.storage_id, mo.root_id
+                FROM oc_mounts mo
                 WHERE mo.user_id = ?
-                  AND m.datetaken IS NOT NULL
-                  AND (
-                        mo.mount_provider_class = ?
-                        OR (mo.mount_provider_class IS NULL AND mo.mount_point LIKE ?)
-                    )
+                  AND mo.mount_provider_class = ?
+                  AND mo.root_id IS NOT NULL
             ";
-            $stmtShared = $db->prepare($sqlShared);
-            $resultShared = $stmtShared->execute([$user, $sharedProviderClass, $sharedMountPrefix]);
-            $sharedRows = $resultShared ? $resultShared->fetchAll() : [];
-            if (!empty($sharedRows)) {
-                foreach ($sharedRows as $row) {
-                    $fid = (int)$row['fileid'];
-                    $rowsById[$fid] = $row;
-                    $sharedIds[$fid] = true;
+            $stmtSharedMounts = $db->prepare($sqlSharedMounts);
+            $resSharedMounts = $stmtSharedMounts->execute([$user, $sharedProviderClass]);
+            $sharedMounts = $resSharedMounts ? $resSharedMounts->fetchAll() : [];
+
+            if (!empty($sharedMounts)) {
+                $sqlRootPath = "
+                    SELECT f.path
+                    FROM oc_filecache f
+                    WHERE f.fileid = ?
+                    LIMIT 1
+                ";
+                $stmtRootPath = $db->prepare($sqlRootPath);
+
+                $sqlShared = "
+                    SELECT DISTINCT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
+                    FROM oc_memories m
+                    JOIN oc_filecache f ON m.fileid = f.fileid
+                    WHERE f.storage = ?
+                      AND m.datetaken IS NOT NULL
+                      AND (f.fileid = ? OR f.path LIKE ?)
+                ";
+                $stmtShared = $db->prepare($sqlShared);
+
+                foreach ($sharedMounts as $mount) {
+                    $storageNumericId = isset($mount['storage_id']) ? (int)$mount['storage_id'] : 0;
+                    $rootId = isset($mount['root_id']) ? (int)$mount['root_id'] : 0;
+                    if ($storageNumericId <= 0 || $rootId <= 0) {
+                        continue;
+                    }
+
+                    $resRoot = $stmtRootPath->execute([$rootId]);
+                    $rootRow = $resRoot ? $resRoot->fetch() : false;
+                    $rootPath = is_array($rootRow) && isset($rootRow['path']) ? (string)$rootRow['path'] : '';
+                    if ($rootPath === '') {
+                        continue;
+                    }
+                    $rootLike = $rootPath . '/%';
+
+                    $resShared = $stmtShared->execute([$storageNumericId, $rootId, $rootLike]);
+                    $sharedRows = $resShared ? $resShared->fetchAll() : [];
+                    if (!empty($sharedRows)) {
+                        foreach ($sharedRows as $row) {
+                            $fid = (int)$row['fileid'];
+                            $rowsById[$fid] = $row;
+                            $sharedIds[$fid] = true;
+                            if (!isset($this->lastSharedMountRoots[$fid])) {
+                                $this->lastSharedMountRoots[$fid] = $rootPath;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -120,6 +162,7 @@ class ImageFetcher {
                 'shared' => 0,
             ];
             $this->lastFileSources = [];
+            $this->lastSharedMountRoots = [];
             return [];
         }
 
@@ -170,6 +213,9 @@ class ImageFetcher {
             }
         }
         $this->lastFileSources = $sources;
+        if (!$includeSharedImages) {
+            $this->lastSharedMountRoots = [];
+        }
 
         return $images;
     }
@@ -186,6 +232,13 @@ class ImageFetcher {
      */
     public function getLastFileSources(): array {
         return $this->lastFileSources;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public function getLastSharedMountRoots(): array {
+        return $this->lastSharedMountRoots;
     }
 
     /**
