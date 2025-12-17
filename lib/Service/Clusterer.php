@@ -16,9 +16,10 @@ class Clusterer {
      * @param Image[] $images Sorted by datetaken ascending
      * @param int $maxTimeGap Max allowed time gap in seconds
      * @param float $maxDistanceKm Max allowed distance in kilometers
+     * @param callable|null $splitDebug Optional callback invoked when a split happens
      * @return Image[][] Array of clusters (each cluster is an array of Image)
      */
-    public function clusterImages(array $images, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0): array {
+    public function clusterImages(array $images, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, ?callable $splitDebug = null): array {
         $clusters = [];
         $currentCluster = [];
         $prev = null;
@@ -40,6 +41,7 @@ class Clusterer {
 
                 // Start with time gap rule
                 $shouldSplit = $timeGap > $maxTimeGap;
+                $reason = null;
 
                 // Spatial rule: compare current geolocated point to the last-known geolocated anchor in the cluster.
                 // This prevents a run of unlocated images from "bridging" to a far-away point without splitting.
@@ -47,12 +49,58 @@ class Clusterer {
                     $dist = $this->haversine($img->lat, $img->lon, $prevGeo->lat, $prevGeo->lon);
                     if ($dist > $maxDistanceKm) {
                         $shouldSplit = true;
+                        $reason = 'distance_exceeded';
                     }
                 }
+                if ($reason === null && $shouldSplit) {
+                    $reason = 'time_gap_exceeded';
+                }
+
                 if ($shouldSplit) {
+                    if ($splitDebug !== null) {
+                        try {
+                            $payload = [
+                                'type' => 'split',
+                                'reason' => $reason,
+                                'time_gap_seconds' => $timeGap,
+                                'max_time_gap_seconds' => $maxTimeGap,
+                                'time_exceeded_by_seconds' => $timeGap > $maxTimeGap ? ($timeGap - $maxTimeGap) : 0,
+                                'prev' => $prev instanceof Image ? [
+                                    'fileid' => $prev->fileid,
+                                    'path' => $prev->path,
+                                    'datetaken' => $prev->datetaken,
+                                    'datetaken_ts' => strtotime($prev->datetaken) !== false ? (int)strtotime($prev->datetaken) : null,
+                                    'lat' => $prev->lat,
+                                    'lon' => $prev->lon,
+                                ] : null,
+                                'curr' => [
+                                    'fileid' => $img->fileid,
+                                    'path' => $img->path,
+                                    'datetaken' => $img->datetaken,
+                                    'datetaken_ts' => strtotime($img->datetaken) !== false ? (int)strtotime($img->datetaken) : null,
+                                    'lat' => $img->lat,
+                                    'lon' => $img->lon,
+                                ],
+                            ];
+                            if ($reason === 'distance_exceeded') {
+                                $payload['distance_km'] = $dist;
+                                $payload['max_distance_km'] = $maxDistanceKm;
+                                $payload['distance_exceeded_by_km'] = $dist !== null ? max(0.0, (float)$dist - (float)$maxDistanceKm) : null;
+                                $payload['prev_geo'] = $prevGeo instanceof Image ? [
+                                    'fileid' => $prevGeo->fileid,
+                                    'path' => $prevGeo->path,
+                                    'datetaken' => $prevGeo->datetaken,
+                                    'datetaken_ts' => strtotime($prevGeo->datetaken) !== false ? (int)strtotime($prevGeo->datetaken) : null,
+                                    'lat' => $prevGeo->lat,
+                                    'lon' => $prevGeo->lon,
+                                ] : null;
+                            }
+                            $splitDebug($payload);
+                        } catch (\Throwable $e) {
+                        }
+                    }
                     if ($this->logger !== null) {
                         try {
-                            $reason = ($timeGap > $maxTimeGap) ? 'time_gap_exceeded' : 'distance_exceeded';
                             $context = [
                                 'reason' => $reason,
                                 'prev_datetaken' => $prev ? $prev->datetaken : null,
@@ -111,13 +159,14 @@ class Clusterer {
      * @param Image[] $images Sorted by datetaken ascending
      * @param array|null $home ['lat' => float, 'lon' => float, 'radiusKm' => float]
      * @param array $thresholds ['near' => ['timeGap' => int, 'distanceKm' => float], 'away' => ['timeGap' => int, 'distanceKm' => float]]
+     * @param callable|null $splitDebug Optional callback invoked when a split/boundary happens
      * @return Image[][]
      */
-    public function clusterImagesHomeAware(array $images, ?array $home, array $thresholds): array {
+    public function clusterImagesHomeAware(array $images, ?array $home, array $thresholds, ?callable $splitDebug = null): array {
         if ($home === null || !isset($home['lat'], $home['lon'], $home['radiusKm'])) {
             // No home information; default to standard clustering using away thresholds
             $t = $thresholds['away'] ?? ['timeGap' => 86400, 'distanceKm' => 100.0];
-            return $this->clusterImages($images, (int)$t['timeGap'], (float)$t['distanceKm']);
+            return $this->clusterImages($images, (int)$t['timeGap'], (float)$t['distanceKm'], $splitDebug);
         }
 
         // Segment the timeline by proximity to home (near vs away), then cluster each segment
@@ -143,6 +192,45 @@ class Clusterer {
         $segStart = 0;
         for ($i = 1; $i < count($images); $i++) {
             if ($flags[$i] !== $flags[$i - 1]) {
+                if ($splitDebug !== null) {
+                    try {
+                        $prevImg = $images[$i - 1];
+                        $currImg = $images[$i];
+                        $prevHomeDist = ($prevImg->lat !== null && $prevImg->lon !== null)
+                            ? $this->haversine($prevImg->lat, $prevImg->lon, $home['lat'], $home['lon'])
+                            : null;
+                        $currHomeDist = ($currImg->lat !== null && $currImg->lon !== null)
+                            ? $this->haversine($currImg->lat, $currImg->lon, $home['lat'], $home['lon'])
+                            : null;
+                        $splitDebug([
+                            'type' => 'home_boundary',
+                            'index_prev' => $i - 1,
+                            'index_curr' => $i,
+                            'prev_near' => $flags[$i - 1],
+                            'curr_near' => $flags[$i],
+                            'home' => ['lat' => $home['lat'], 'lon' => $home['lon'], 'radiusKm' => $home['radiusKm']],
+                            'prev' => [
+                                'fileid' => $prevImg->fileid,
+                                'path' => $prevImg->path,
+                                'datetaken' => $prevImg->datetaken,
+                                'datetaken_ts' => strtotime($prevImg->datetaken) !== false ? (int)strtotime($prevImg->datetaken) : null,
+                                'lat' => $prevImg->lat,
+                                'lon' => $prevImg->lon,
+                                'home_distance_km' => $prevHomeDist,
+                            ],
+                            'curr' => [
+                                'fileid' => $currImg->fileid,
+                                'path' => $currImg->path,
+                                'datetaken' => $currImg->datetaken,
+                                'datetaken_ts' => strtotime($currImg->datetaken) !== false ? (int)strtotime($currImg->datetaken) : null,
+                                'lat' => $currImg->lat,
+                                'lon' => $currImg->lon,
+                                'home_distance_km' => $currHomeDist,
+                            ],
+                        ]);
+                    } catch (\Throwable $e) {
+                    }
+                }
                 // Log boundary caused by near/away change
                 if ($this->logger !== null) {
                     try {
@@ -178,7 +266,7 @@ class Clusterer {
                     ]);
                 } catch (\Throwable $e) {}
             }
-            $clusters = $this->clusterImages($slice, (int)$t['timeGap'], (float)$t['distanceKm']);
+            $clusters = $this->clusterImages($slice, (int)$t['timeGap'], (float)$t['distanceKm'], $splitDebug);
             foreach ($clusters as $c) {
                 $allClusters[] = $c;
             }

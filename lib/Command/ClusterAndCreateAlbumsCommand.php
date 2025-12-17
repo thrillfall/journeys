@@ -54,6 +54,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addOption('no-home-aware', null, InputOption::VALUE_NONE, 'Disable home-aware clustering')
             ->addOption('from-scratch', null, InputOption::VALUE_NONE, 'Recluster all images from scratch (purges previously created cluster albums)')
             ->addOption('min-cluster-size', null, InputOption::VALUE_REQUIRED, 'Minimum images per cluster (if omitted, use UI setting)')
+            ->addOption('debug-splits', null, InputOption::VALUE_NONE, 'Print why clustering split (time/distance exceeded amounts, home-aware boundaries)')
             ->addOption('home-lat', null, InputOption::VALUE_REQUIRED, 'Home latitude')
             ->addOption('home-lon', null, InputOption::VALUE_REQUIRED, 'Home longitude')
             ->addOption('home-radius', null, InputOption::VALUE_REQUIRED, 'Home radius in km (default: 50)', 50)
@@ -149,6 +150,8 @@ class ClusterAndCreateAlbumsCommand extends Command {
             $includeSharedImages = (bool)((int)$cfg->getUserValue($user, 'journeys', 'includeSharedImages', 0));
         }
 
+        $debugSplits = (bool)$input->getOption('debug-splits');
+
         $home = null;
         $thresholds = null;
         if ($homeAware) {
@@ -232,6 +235,93 @@ class ClusterAndCreateAlbumsCommand extends Command {
             }
         };
 
+        $splitCallback = null;
+        if ($debugSplits) {
+            $output->writeln('<comment>Split debug enabled: printing why clustering starts a new cluster.</comment>');
+            $splitCallback = function(array $ev) use ($output) {
+                try {
+                    $type = isset($ev['type']) ? (string)$ev['type'] : '';
+                    if ($type === 'split') {
+                        $reason = isset($ev['reason']) ? (string)$ev['reason'] : 'unknown';
+                        $timeGap = isset($ev['time_gap_seconds']) ? (int)$ev['time_gap_seconds'] : 0;
+                        $maxTime = isset($ev['max_time_gap_seconds']) ? (int)$ev['max_time_gap_seconds'] : 0;
+                        $timeExBy = isset($ev['time_exceeded_by_seconds']) ? (int)$ev['time_exceeded_by_seconds'] : 0;
+                        $prev = isset($ev['prev']) && is_array($ev['prev']) ? $ev['prev'] : null;
+                        $curr = isset($ev['curr']) && is_array($ev['curr']) ? $ev['curr'] : null;
+
+                        $prevFid = is_array($prev) && isset($prev['fileid']) ? (int)$prev['fileid'] : 0;
+                        $currFid = is_array($curr) && isset($curr['fileid']) ? (int)$curr['fileid'] : 0;
+                        $prevDt = is_array($prev) && isset($prev['datetaken']) ? (string)$prev['datetaken'] : '';
+                        $currDt = is_array($curr) && isset($curr['datetaken']) ? (string)$curr['datetaken'] : '';
+                        $prevPath = is_array($prev) && isset($prev['path']) ? (string)$prev['path'] : '';
+                        $currPath = is_array($curr) && isset($curr['path']) ? (string)$curr['path'] : '';
+
+                        if ($reason === 'distance_exceeded') {
+                            $dist = isset($ev['distance_km']) ? (float)$ev['distance_km'] : 0.0;
+                            $maxDist = isset($ev['max_distance_km']) ? (float)$ev['max_distance_km'] : 0.0;
+                            $distExBy = array_key_exists('distance_exceeded_by_km', $ev) ? $ev['distance_exceeded_by_km'] : null;
+                            $distExByStr = $distExBy === null ? 'n/a' : sprintf('%.3f', (float)$distExBy);
+                            $output->writeln(sprintf(
+                                "<comment>SPLIT (distance):</comment> dist=%.3fkm max=%.3fkm exceeded_by=%skm prev(fileid=%d dt=%s path=%s) curr(fileid=%d dt=%s path=%s)",
+                                $dist,
+                                $maxDist,
+                                $distExByStr,
+                                $prevFid,
+                                $prevDt,
+                                $prevPath,
+                                $currFid,
+                                $currDt,
+                                $currPath,
+                            ));
+                        } else {
+                            $output->writeln(sprintf(
+                                "<comment>SPLIT (time):</comment> gap=%ds max=%ds exceeded_by=%ds prev(fileid=%d dt=%s path=%s) curr(fileid=%d dt=%s path=%s)",
+                                $timeGap,
+                                $maxTime,
+                                $timeExBy,
+                                $prevFid,
+                                $prevDt,
+                                $prevPath,
+                                $currFid,
+                                $currDt,
+                                $currPath,
+                            ));
+                        }
+                        return;
+                    }
+
+                    if ($type === 'home_boundary') {
+                        $prevNear = !empty($ev['prev_near']);
+                        $currNear = !empty($ev['curr_near']);
+                        $home = isset($ev['home']) && is_array($ev['home']) ? $ev['home'] : [];
+                        $homeR = isset($home['radiusKm']) ? (float)$home['radiusKm'] : 0.0;
+                        $prev = isset($ev['prev']) && is_array($ev['prev']) ? $ev['prev'] : [];
+                        $curr = isset($ev['curr']) && is_array($ev['curr']) ? $ev['curr'] : [];
+                        $prevDist = array_key_exists('home_distance_km', $prev) ? $prev['home_distance_km'] : null;
+                        $currDist = array_key_exists('home_distance_km', $curr) ? $curr['home_distance_km'] : null;
+                        $prevDistStr = $prevDist === null ? 'n/a' : sprintf('%.3f', (float)$prevDist);
+                        $currDistStr = $currDist === null ? 'n/a' : sprintf('%.3f', (float)$currDist);
+                        $output->writeln(sprintf(
+                            "<comment>SPLIT (home boundary):</comment> prev=%s(currDist=%skm) -> curr=%s(currDist=%skm) radius=%.3fkm prev(fileid=%d dt=%s path=%s) curr(fileid=%d dt=%s path=%s)",
+                            $prevNear ? 'near' : 'away',
+                            $prevDistStr,
+                            $currNear ? 'near' : 'away',
+                            $currDistStr,
+                            $homeR,
+                            isset($prev['fileid']) ? (int)$prev['fileid'] : 0,
+                            isset($prev['datetaken']) ? (string)$prev['datetaken'] : '',
+                            isset($prev['path']) ? (string)$prev['path'] : '',
+                            isset($curr['fileid']) ? (int)$curr['fileid'] : 0,
+                            isset($curr['datetaken']) ? (string)$curr['datetaken'] : '',
+                            isset($curr['path']) ? (string)$curr['path'] : '',
+                        ));
+                    }
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+            };
+        }
+
         // Delegate clustering and album creation to ClusteringManager (home-aware optional)
         $result = $this->clusteringManager->clusterForUser(
             $user,
@@ -247,6 +337,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
             $includeGroupFolders,
             $includeSharedImages,
             $progressCallback,
+            $splitCallback,
         );
         $stats = $this->imageFetcher->getLastFetchStats();
         $output->writeln(sprintf(

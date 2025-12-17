@@ -44,7 +44,7 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?callable $clusterProgress = null): array {
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?callable $clusterProgress = null, ?callable $splitDebug = null): array {
         // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
         $purgedAlbums = 0;
         if ($fromScratch) {
@@ -154,9 +154,9 @@ class ClusteringManager {
                 // Cap near-home distance to 25km for finer local clustering
                 $thresholds['near']['distanceKm'] = min((float)$maxDistanceKm, 25.0);
             }
-            $clusters = $this->clusterer->clusterImagesHomeAware($images, $home, $thresholds);
+            $clusters = $this->clusterer->clusterImagesHomeAware($images, $home, $thresholds, $splitDebug);
         } else {
-            $clusters = $this->clusterer->clusterImages($images, $maxTimeGap, $maxDistanceKm);
+            $clusters = $this->clusterer->clusterImages($images, $maxTimeGap, $maxDistanceKm, $splitDebug);
         }
         $created = 0;
         $clusterSummaries = [];

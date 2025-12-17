@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.3] - 2025-12-17
+### Added
+- CLI: `--debug-splits` for `journeys:cluster-create-albums` prints why clustering starts a new cluster (time/distance exceeded amounts and home-aware boundaries).
+
 ## [0.19.2] - 2025-12-17
 ### Fixed
 - Clustering: shared image inclusion is now scoped to the shared mount root subtree (prevents pulling unrelated files from other users' storages).
