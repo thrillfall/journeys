@@ -98,12 +98,15 @@ class ImageFetcher {
             $sqlSharedMounts = "
                 SELECT mo.storage_id, mo.root_id
                 FROM oc_mounts mo
+                JOIN oc_share sh ON sh.file_source = mo.root_id
                 WHERE mo.user_id = ?
                   AND mo.mount_provider_class = ?
                   AND mo.root_id IS NOT NULL
+                  AND sh.share_with = ?
+                  AND sh.uid_owner <> ?
             ";
             $stmtSharedMounts = $db->prepare($sqlSharedMounts);
-            $resSharedMounts = $stmtSharedMounts->execute([$user, $sharedProviderClass]);
+            $resSharedMounts = $stmtSharedMounts->execute([$user, $sharedProviderClass, $user, $user]);
             $sharedMounts = $resSharedMounts ? $resSharedMounts->fetchAll() : [];
 
             if (!empty($sharedMounts)) {

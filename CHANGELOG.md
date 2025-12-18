@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.5] - 2025-12-18
+### Fixed
+- Clustering: when `--include-shared-images` is enabled, only include images from incoming shares (exclude outbound shares shared by the user).
+
 ## [0.19.4] - 2025-12-18
 ### Fixed
 - Clustering: exclude generated videos in `Documents/Journeys Movies/` from clustering input.
