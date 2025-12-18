@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.4] - 2025-12-18
+### Fixed
+- Clustering: exclude generated videos in `Documents/Journeys Movies/` from clustering input.
+- Clustering: more robust timestamp parsing & deterministic sorting to avoid spurious splits when including shared images.
+
+### Changed
+- CLI: `--debug-splits` output now includes raw boundary indices plus source (`home/shared`) and location context (`loc=...`, `prevGeo`).
+
 ## [0.19.3] - 2025-12-17
 ### Added
 - CLI: `--debug-splits` for `journeys:cluster-create-albums` prints why clustering starts a new cluster (time/distance exceeded amounts and home-aware boundaries).

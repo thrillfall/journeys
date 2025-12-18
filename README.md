@@ -28,7 +28,7 @@ php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--fr
 - `maxDistanceKm` — Maximum allowed distance in kilometers between consecutive images in a cluster (optional; if omitted, uses your Personal Settings value)
 - `--min-cluster-size` — Minimum images per cluster (optional; if omitted, uses your Personal Settings value)
   - `--include-group-folders` — Include photos from Group Folders and other mounts in clustering (optional, default: off)
-  - `--include-shared-images` — Include images available via user shares (optional, default: off). Inclusion is scoped to the shared mount root subtree (prevents pulling unrelated files from other users' storages). When enabled, the CLI output prints which shared images were included per created cluster (fileid, path, datetaken, datetaken_ts).
+  - `--include-shared-images` — Include images available via user shares (optional, default: off). Inclusion is scoped to the shared mount root subtree (prevents pulling unrelated files from other users' storages).
   - `--debug-splits` — Print why clustering starts a new cluster (time/distance exceeded amounts and home-aware boundaries).
 
 Note: Time thresholds are specified in hours and support decimals (e.g., 0.5 = 30 minutes).

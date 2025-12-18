@@ -1,5 +1,7 @@
 # Ideas
-* create a nicer UI. The current UI is not very user friendly. The checkbox should save the current state when clicked.
+* [ ] special album: "This day in the past" (for events that repeat yearly, i.e. birthdays, christmas)
+* [ ] special album: "Last year recap" impressions from all your far-away journeys
+* [x] create a nicer UI. The current UI is not very user friendly. The checkbox should save the current state when clicked.
 * [x] enable video creation for manually created albums. 
 * [x] enable video creation for manually created albums. 
 * [x] implement fallback logic for SimplePlacesResolver that does not need PostGIS extension

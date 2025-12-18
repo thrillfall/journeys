@@ -24,7 +24,7 @@ use OCA\Photos\Album\AlbumMapper;
 use OCA\Journeys\Service\ClusteringManager;
 
 class ClusterAndCreateAlbumsCommand extends Command {
-    protected static $defaultName = 'journeys:cluster-create-albums';
+    protected static $defaultName = 'journeys:cluster';
 
     private ClusteringManager $clusteringManager;
     private AlbumMapper $albumMapper;
@@ -47,6 +47,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
 
     protected function configure(): void {
         $this
+            ->setAliases(['journeys:cluster-create-albums'])
             ->setDescription('Clusters images by location and creates albums in the Photos app (incremental by default, home-aware enabled by default).')
             ->addArgument('user', InputArgument::REQUIRED, 'The ID of the user for whom to cluster images and create albums.')
             ->addArgument('maxTimeGap', InputArgument::OPTIONAL, 'Max allowed time gap in hours (if omitted, use UI setting)')
@@ -85,11 +86,17 @@ class ClusterAndCreateAlbumsCommand extends Command {
         } else {
             $maxTimeGap = 86400;
         }
+        if ($maxTimeGap <= 0) {
+            $maxTimeGap = 86400;
+        }
         if ($rawDistanceKm !== null && $rawDistanceKm !== '') {
             $maxDistanceKm = (float)$rawDistanceKm;
         } elseif ($cfg) {
             $maxDistanceKm = (float)$cfg->getUserValue($user, 'journeys', 'maxDistanceKm', 100.0);
         } else {
+            $maxDistanceKm = 100.0;
+        }
+        if ($maxDistanceKm <= 0) {
             $maxDistanceKm = 100.0;
         }
         if ($rawMinClusterSize !== null && $rawMinClusterSize !== '') {
@@ -118,6 +125,9 @@ class ClusterAndCreateAlbumsCommand extends Command {
         } else {
             $nearTimeGap = 21600;
         }
+        if ($nearTimeGap <= 0) {
+            $nearTimeGap = 21600;
+        }
         if ($optNearDistanceKm !== null && $optNearDistanceKm !== '') {
             $nearDistanceKm = (float)$optNearDistanceKm;
         } elseif ($cfg) {
@@ -130,6 +140,9 @@ class ClusterAndCreateAlbumsCommand extends Command {
         } elseif ($cfg) {
             $awayTimeGap = (int)$cfg->getUserValue($user, 'journeys', 'awayTimeGap', 129600);
         } else {
+            $awayTimeGap = 129600;
+        }
+        if ($awayTimeGap <= 0) {
             $awayTimeGap = 129600;
         }
         if ($optAwayDistanceKm !== null && $optAwayDistanceKm !== '') {
@@ -209,30 +222,6 @@ class ClusterAndCreateAlbumsCommand extends Command {
                 $message .= sprintf(' (Location: %s)', $cluster['location']);
             }
             $output->writeln($message);
-
-            // Optional debug output when includeSharedImages is enabled.
-            // ClusteringManager passes this only when enabled.
-            if (isset($cluster['shared']) && is_array($cluster['shared'])) {
-                $count = isset($cluster['shared']['count']) ? (int)$cluster['shared']['count'] : 0;
-                $truncated = !empty($cluster['shared']['truncated']);
-                $sample = isset($cluster['shared']['sample']) && is_array($cluster['shared']['sample'])
-                    ? $cluster['shared']['sample']
-                    : [];
-
-                $output->writeln(sprintf('  Shared images in this cluster: %d%s', $count, $truncated ? ' (sample truncated)' : ''));
-                foreach ($sample as $row) {
-                    if (!is_array($row)) {
-                        continue;
-                    }
-                    $fid = isset($row['fileid']) ? (int)$row['fileid'] : 0;
-                    $path = isset($row['path']) ? (string)$row['path'] : '';
-                    $mountRoot = isset($row['mount_root']) ? (string)$row['mount_root'] : '';
-                    $dt = isset($row['datetaken']) ? (string)$row['datetaken'] : '';
-                    $dtTs = array_key_exists('datetaken_ts', $row) ? $row['datetaken_ts'] : null;
-                    $dtTsStr = $dtTs === null ? 'null' : (string)(int)$dtTs;
-                    $output->writeln(sprintf('    - fileid=%d datetaken=%s datetaken_ts=%s mount_root=%s path=%s', $fid, $dt, $dtTsStr, $mountRoot, $path));
-                }
-            }
         };
 
         $splitCallback = null;
@@ -242,6 +231,22 @@ class ClusterAndCreateAlbumsCommand extends Command {
                 try {
                     $type = isset($ev['type']) ? (string)$ev['type'] : '';
                     if ($type === 'split') {
+                        $before = null;
+                        $after = null;
+                        if (isset($ev['cluster_index_before_global'], $ev['cluster_index_after_global'])) {
+                            $before = (int)$ev['cluster_index_before_global'];
+                            $after = (int)$ev['cluster_index_after_global'];
+                        } elseif (isset($ev['cluster_index_before'], $ev['cluster_index_after'])) {
+                            $before = (int)$ev['cluster_index_before'];
+                            $after = (int)$ev['cluster_index_after'];
+                        }
+                        $boundaryStr = '';
+                        if ($before !== null && $after !== null) {
+                            $boundaryStr = sprintf(' raw=%d->%d', $before + 1, $after + 1);
+                            if (isset($ev['cluster_index_before'], $ev['cluster_index_after']) && isset($ev['cluster_index_before_global'], $ev['cluster_index_after_global'])) {
+                                $boundaryStr .= sprintf(' (local=%d->%d)', (int)$ev['cluster_index_before'] + 1, (int)$ev['cluster_index_after'] + 1);
+                            }
+                        }
                         $reason = isset($ev['reason']) ? (string)$ev['reason'] : 'unknown';
                         $timeGap = isset($ev['time_gap_seconds']) ? (int)$ev['time_gap_seconds'] : 0;
                         $maxTime = isset($ev['max_time_gap_seconds']) ? (int)$ev['max_time_gap_seconds'] : 0;
@@ -255,14 +260,37 @@ class ClusterAndCreateAlbumsCommand extends Command {
                         $currDt = is_array($curr) && isset($curr['datetaken']) ? (string)$curr['datetaken'] : '';
                         $prevPath = is_array($prev) && isset($prev['path']) ? (string)$prev['path'] : '';
                         $currPath = is_array($curr) && isset($curr['path']) ? (string)$curr['path'] : '';
+                        $prevSrc = is_array($prev) && isset($prev['source']) ? (string)$prev['source'] : '';
+                        $currSrc = is_array($curr) && isset($curr['source']) ? (string)$curr['source'] : '';
+                        $srcStr = '';
+                        if ($prevSrc !== '' || $currSrc !== '') {
+                            $srcStr = sprintf(' src=%s->%s', $prevSrc !== '' ? $prevSrc : '?', $currSrc !== '' ? $currSrc : '?');
+                        }
+
+                        $prevHasLoc = is_array($prev) && isset($prev['lat'], $prev['lon']) && $prev['lat'] !== null && $prev['lon'] !== null;
+                        $currHasLoc = is_array($curr) && isset($curr['lat'], $curr['lon']) && $curr['lat'] !== null && $curr['lon'] !== null;
+                        $locStr = sprintf(' loc=prev:%d curr:%d', $prevHasLoc ? 1 : 0, $currHasLoc ? 1 : 0);
 
                         if ($reason === 'distance_exceeded') {
                             $dist = isset($ev['distance_km']) ? (float)$ev['distance_km'] : 0.0;
                             $maxDist = isset($ev['max_distance_km']) ? (float)$ev['max_distance_km'] : 0.0;
                             $distExBy = array_key_exists('distance_exceeded_by_km', $ev) ? $ev['distance_exceeded_by_km'] : null;
                             $distExByStr = $distExBy === null ? 'n/a' : sprintf('%.3f', (float)$distExBy);
+                            $prevGeo = isset($ev['prev_geo']) && is_array($ev['prev_geo']) ? $ev['prev_geo'] : null;
+                            $prevGeoStr = '';
+                            if (is_array($prevGeo) && isset($prevGeo['fileid'])) {
+                                $prevGeoStr = sprintf(
+                                    ' prevGeo(fileid=%d dt=%s path=%s)',
+                                    isset($prevGeo['fileid']) ? (int)$prevGeo['fileid'] : 0,
+                                    isset($prevGeo['datetaken']) ? (string)$prevGeo['datetaken'] : '',
+                                    isset($prevGeo['path']) ? (string)$prevGeo['path'] : '',
+                                );
+                            }
                             $output->writeln(sprintf(
-                                "<comment>SPLIT (distance):</comment> dist=%.3fkm max=%.3fkm exceeded_by=%skm prev(fileid=%d dt=%s path=%s) curr(fileid=%d dt=%s path=%s)",
+                                "<comment>SPLIT (distance):</comment>%s%s%s dist=%.3fkm max=%.3fkm exceeded_by=%skm prev(fileid=%d dt=%s path=%s) curr(fileid=%d dt=%s path=%s)%s",
+                                $boundaryStr,
+                                $srcStr,
+                                $locStr,
                                 $dist,
                                 $maxDist,
                                 $distExByStr,
@@ -272,10 +300,14 @@ class ClusterAndCreateAlbumsCommand extends Command {
                                 $currFid,
                                 $currDt,
                                 $currPath,
+                                $prevGeoStr,
                             ));
                         } else {
                             $output->writeln(sprintf(
-                                "<comment>SPLIT (time):</comment> gap=%ds max=%ds exceeded_by=%ds prev(fileid=%d dt=%s path=%s) curr(fileid=%d dt=%s path=%s)",
+                                "<comment>SPLIT (time):</comment>%s%s%s gap=%ds max=%ds exceeded_by=%ds prev(fileid=%d dt=%s path=%s) curr(fileid=%d dt=%s path=%s)",
+                                $boundaryStr,
+                                $srcStr,
+                                $locStr,
                                 $timeGap,
                                 $maxTime,
                                 $timeExBy,

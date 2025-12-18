@@ -47,6 +47,7 @@ class ImageFetcher {
             JOIN oc_filecache f ON m.fileid = f.fileid
             JOIN oc_storages s ON f.storage = s.numeric_id
             WHERE s.id = ? AND f.path LIKE 'files/%' AND m.datetaken IS NOT NULL
+              AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
         ";
         $stmtHome = $db->prepare($sqlHome);
         $resultHome = $stmtHome->execute([$storageId]);
@@ -74,6 +75,7 @@ class ImageFetcher {
                   AND m.datetaken IS NOT NULL
                   AND mo.mount_point LIKE ?
                   AND (mo.mount_provider_class IS NULL OR mo.mount_provider_class <> ?)
+                  AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
             ";
             $stmtGroup = $db->prepare($sqlGroup);
             $resultGroup = $stmtGroup->execute([$user, $storageId, $userFilesPrefix, $sharedProviderClass]);
@@ -120,6 +122,7 @@ class ImageFetcher {
                     WHERE f.storage = ?
                       AND m.datetaken IS NOT NULL
                       AND (f.fileid = ? OR f.path LIKE ?)
+                      AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
                 ";
                 $stmtShared = $db->prepare($sqlShared);
 

@@ -74,8 +74,51 @@ class ClusteringManager {
                 'fetchStats' => $fetchStats,
             ];
         }
-        usort($images, function($a, $b) {
-            return strtotime($a->datetaken) <=> strtotime($b->datetaken);
+
+        $parseTs = static function(Image $img): ?int {
+            $value = $img->datetaken ?? '';
+            if (!is_string($value) || trim($value) === '') {
+                return null;
+            }
+            try {
+                return (new \DateTimeImmutable($value))->getTimestamp();
+            } catch (\Throwable) {
+                $ts = strtotime($value);
+                return $ts !== false ? (int)$ts : null;
+            }
+        };
+        $tsByFileId = [];
+        foreach ($images as $img) {
+            $tsByFileId[$img->fileid] = $parseTs($img);
+        }
+        $images = array_values(array_filter($images, static function(Image $img) use ($tsByFileId) {
+            return isset($tsByFileId[$img->fileid]) && $tsByFileId[$img->fileid] !== null;
+        }));
+        if (empty($images)) {
+            return [
+                'error' => 'No images found for user',
+                'lastRun' => date('c'),
+                'clustersCreated' => 0,
+                'fetchStats' => $fetchStats,
+            ];
+        }
+        usort($images, static function(Image $a, Image $b) use ($tsByFileId) {
+            $ta = $tsByFileId[$a->fileid] ?? null;
+            $tb = $tsByFileId[$b->fileid] ?? null;
+            if ($ta === null && $tb === null) {
+                return $a->fileid <=> $b->fileid;
+            }
+            if ($ta === null) {
+                return 1;
+            }
+            if ($tb === null) {
+                return -1;
+            }
+            $cmp = $ta <=> $tb;
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            return $a->fileid <=> $b->fileid;
         });
         // Determine home for home-aware mode before we potentially restrict images for incremental clustering
         $effectiveHomeAware = $homeAware;
@@ -108,8 +151,9 @@ class ClusteringManager {
             }
             if ($latestEnd !== null) {
                 $cutTs = $latestEnd->getTimestamp();
-                $images = array_values(array_filter($images, function($img) use ($cutTs) {
-                    return strtotime($img->datetaken) > $cutTs;
+                $images = array_values(array_filter($images, function(Image $img) use ($cutTs, $tsByFileId) {
+                    $ts = $tsByFileId[$img->fileid] ?? null;
+                    return $ts !== null && $ts > $cutTs;
                 }));
                 $isTrulyIncremental = true;
             }
@@ -125,6 +169,24 @@ class ClusteringManager {
         }
         // Interpolate missing locations (match CLI default: 6h)
         $images = \OCA\Journeys\Service\ImageLocationInterpolator::interpolate($images, 21600);
+
+        $effectiveSplitDebug = $splitDebug;
+        if ($splitDebug !== null && $includeSharedImages) {
+            $effectiveSplitDebug = function(array $ev) use ($splitDebug, $fileSources): void {
+                try {
+                    if (isset($ev['prev']['fileid'])) {
+                        $fid = (int)$ev['prev']['fileid'];
+                        $ev['prev']['source'] = $fileSources[$fid] ?? null;
+                    }
+                    if (isset($ev['curr']['fileid'])) {
+                        $fid = (int)$ev['curr']['fileid'];
+                        $ev['curr']['source'] = $fileSources[$fid] ?? null;
+                    }
+                } catch (\Throwable) {
+                }
+                $splitDebug($ev);
+            };
+        }
         if ($effectiveHomeAware) {
             // Determine home and thresholds
             // At this point $home is either provided, loaded from config, or detected earlier
@@ -154,9 +216,9 @@ class ClusteringManager {
                 // Cap near-home distance to 25km for finer local clustering
                 $thresholds['near']['distanceKm'] = min((float)$maxDistanceKm, 25.0);
             }
-            $clusters = $this->clusterer->clusterImagesHomeAware($images, $home, $thresholds, $splitDebug);
+            $clusters = $this->clusterer->clusterImagesHomeAware($images, $home, $thresholds, $effectiveSplitDebug);
         } else {
-            $clusters = $this->clusterer->clusterImages($images, $maxTimeGap, $maxDistanceKm, $splitDebug);
+            $clusters = $this->clusterer->clusterImages($images, $maxTimeGap, $maxDistanceKm, $effectiveSplitDebug);
         }
         $created = 0;
         $clusterSummaries = [];
@@ -199,42 +261,6 @@ class ClusteringManager {
             }
             $albumId = $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd);
 
-            $sharedDebug = null;
-            if ($includeSharedImages && !empty($fileSources)) {
-                try {
-                    $shared = [];
-                    foreach ($cluster as $img) {
-                        if (!($img instanceof Image)) {
-                            continue;
-                        }
-                        $fid = (int)($img->fileid ?? 0);
-                        if ($fid <= 0) {
-                            continue;
-                        }
-                        if (($fileSources[$fid] ?? null) === 'shared') {
-                            $dt = (string)($img->datetaken ?? '');
-                            $dtTs = $dt !== '' ? strtotime($dt) : false;
-                            $shared[] = [
-                                'fileid' => $fid,
-                                'path' => (string)($img->path ?? ''),
-                                'mount_root' => (string)($sharedMountRoots[$fid] ?? ''),
-                                'datetaken' => $dt,
-                                'datetaken_ts' => $dtTs !== false ? (int)$dtTs : null,
-                            ];
-                        }
-                    }
-
-                    $sharedCount = count($shared);
-                    $maxList = 50;
-                    $sharedDebug = [
-                        'count' => $sharedCount,
-                        'sample' => array_slice($shared, 0, $maxList),
-                        'truncated' => $sharedCount > $maxList,
-                    ];
-                } catch (\Throwable $e) {
-                    $sharedDebug = null;
-                }
-            }
             if ($clusterProgress !== null) {
                 try {
                     $clusterProgress([
@@ -243,7 +269,6 @@ class ClusteringManager {
                         'imageCount' => count($cluster),
                         'location' => $location,
                         'albumId' => $albumId,
-                        'shared' => $sharedDebug,
                     ]);
                 } catch (\Throwable $e) {
                     // ignore progress callback errors

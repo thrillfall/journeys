@@ -59,9 +59,13 @@ class Clusterer {
                 if ($shouldSplit) {
                     if ($splitDebug !== null) {
                         try {
+                            $clusterIndexBefore = count($clusters);
                             $payload = [
                                 'type' => 'split',
                                 'reason' => $reason,
+                                // Boundary: this split ends raw cluster N and begins raw cluster N+1 (0-based indices)
+                                'cluster_index_before' => $clusterIndexBefore,
+                                'cluster_index_after' => $clusterIndexBefore + 1,
                                 'time_gap_seconds' => $timeGap,
                                 'max_time_gap_seconds' => $maxTimeGap,
                                 'time_exceeded_by_seconds' => $timeGap > $maxTimeGap ? ($timeGap - $maxTimeGap) : 0,
@@ -252,6 +256,7 @@ class Clusterer {
         $segments[] = [ 'start' => $segStart, 'end' => count($images) - 1, 'near' => $flags[count($images) - 1] ];
 
         $allClusters = [];
+        $globalOffset = 0;
         foreach ($segments as $seg) {
             $slice = array_slice($images, $seg['start'], $seg['end'] - $seg['start'] + 1);
             $t = $seg['near']
@@ -266,10 +271,25 @@ class Clusterer {
                     ]);
                 } catch (\Throwable $e) {}
             }
-            $clusters = $this->clusterImages($slice, (int)$t['timeGap'], (float)$t['distanceKm'], $splitDebug);
+            $wrappedSplitDebug = null;
+            if ($splitDebug !== null) {
+                $wrappedSplitDebug = function(array $ev) use ($splitDebug, $globalOffset, $seg) {
+                    // Re-map local cluster boundary indices (within the segment) to global indices.
+                    if (isset($ev['cluster_index_before'])) {
+                        $ev['cluster_index_before_global'] = $globalOffset + (int)$ev['cluster_index_before'];
+                    }
+                    if (isset($ev['cluster_index_after'])) {
+                        $ev['cluster_index_after_global'] = $globalOffset + (int)$ev['cluster_index_after'];
+                    }
+                    $ev['segment'] = $seg;
+                    $splitDebug($ev);
+                };
+            }
+            $clusters = $this->clusterImages($slice, (int)$t['timeGap'], (float)$t['distanceKm'], $wrappedSplitDebug);
             foreach ($clusters as $c) {
                 $allClusters[] = $c;
             }
+            $globalOffset += count($clusters);
         }
         return $allClusters;
     }
