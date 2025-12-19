@@ -16,6 +16,16 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - The Places setup in the Memories app must be completed (see Memories app documentation for details).
 - The Nextcloud server must have `ffmpeg` available in `PATH` for video rendering.
 
+## 📌 Note on which images are clustered
+
+Journeys uses the Memories index (`oc_memories`) to determine which images are available for clustering.
+
+This means the set of images Journeys can cluster depends on the **Memories admin settings**.
+
+If you don’t want unexpected images from outside your configured Memories timeline folders to be included in Journeys clustering, configure:
+
+- **Settings → Administration → Memories → Media Indexing → Index per-user timeline folders**
+
 ## 🚀 OCC Command Usage
 
 ```sh
