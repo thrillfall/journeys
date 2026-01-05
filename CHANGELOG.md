@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.19.6] - 2026-01-05
+### Changed
+- Cron: Daily clustering job now logs “no images found for user” as info instead of warning.
+
 ## [0.19.5] - 2025-12-18
 ### Fixed
 - Clustering: when `--include-shared-images` is enabled, only include images from incoming shares (exclude outbound shares shared by the user).

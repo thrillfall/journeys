@@ -68,7 +68,7 @@ class ClusteringManager {
         }));
         if (empty($images)) {
             return [
-                'error' => 'No images found for user',
+                'message' => 'No images found for user',
                 'lastRun' => date('c'),
                 'clustersCreated' => 0,
                 'fetchStats' => $fetchStats,
@@ -96,7 +96,7 @@ class ClusteringManager {
         }));
         if (empty($images)) {
             return [
-                'error' => 'No images found for user',
+                'message' => 'No images found for user',
                 'lastRun' => date('c'),
                 'clustersCreated' => 0,
                 'fetchStats' => $fetchStats,

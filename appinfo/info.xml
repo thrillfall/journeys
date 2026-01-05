@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.19.6 (2026-01-05)</h3>
+    <ul>
+      <li><b>Cron:</b> Daily clustering job now logs “no images found for user” as info instead of warning.</li>
+    </ul>
   <h3>0.19.5 (2025-12-18)</h3>
     <ul>
       <li><b>Clustering fix:</b> When <code>--include-shared-images</code> is enabled, only include images from <i>incoming</i> shares (exclude outbound shares shared by the user).</li>
@@ -291,7 +295,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.19.5</version>
+  <version>0.19.6</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

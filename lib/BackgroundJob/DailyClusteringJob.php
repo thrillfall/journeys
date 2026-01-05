@@ -36,9 +36,10 @@ class DailyClusteringJob extends TimedJob {
                 $maxDistanceKm = (float)$this->config->getUserValue($uid, 'journeys', 'maxDistanceKm', 100.0);
                 $includeGroupFolders = (bool)((int)$this->config->getUserValue($uid, 'journeys', 'includeGroupFolders', 0));
                 $includeSharedImages = (bool)((int)$this->config->getUserValue($uid, 'journeys', 'includeSharedImages', 0));
-                // Home-aware by default; let ClusteringManager detect home automatically per user
                 $result = $this->clusteringManager->clusterForUser($uid, $maxTimeGap, $maxDistanceKm, max(1, $minClusterSize), true, null, null, false, 5, true, $includeGroupFolders, $includeSharedImages);
-                if (isset($result['error'])) {
+                if (isset($result['message']) && $result['message'] === 'No images found for user') {
+                    $this->logger->info('Journeys daily job: no images found for user', [ 'user' => $uid ]);
+                } elseif (isset($result['error'])) {
                     $this->logger->warning('Journeys daily job: clustering error', [ 'user' => $uid, 'error' => $result['error'] ]);
                 } else {
                     $this->logger->info('Journeys daily job: clusters processed', [ 'user' => $uid, 'created' => $result['clustersCreated'] ]);
