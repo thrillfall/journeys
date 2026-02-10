@@ -27,12 +27,28 @@ class ImageFetcher {
      * @param string $user
      * @param bool $includeGroupFolders Include images from Group Folders / external mounts
      * @param bool $includeSharedImages Include images available via user shares
+     * @param int|null $fromTs Optional lower bound (unix timestamp) for m.datetaken
+     * @param int|null $toTs Optional upper bound (unix timestamp) for m.datetaken
      * @return Image[]
      */
-    public function fetchImagesForUser(string $user, bool $includeGroupFolders = false, bool $includeSharedImages = false): array {
+    public function fetchImagesForUser(string $user, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?int $fromTs = null, ?int $toTs = null): array {
         // Get the DB connection from the server container
         $server = \OC::$server;
         $db = $server->getDatabaseConnection();
+
+        $fromDt = null;
+        $toDt = null;
+        try {
+            if ($fromTs !== null) {
+                $fromDt = (new \DateTimeImmutable('@' . (int)$fromTs))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+            }
+            if ($toTs !== null) {
+                $toDt = (new \DateTimeImmutable('@' . (int)$toTs))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+            }
+        } catch (\Throwable $e) {
+            $fromDt = null;
+            $toDt = null;
+        }
 
         $rowsById = [];
         $homeIds = [];
@@ -49,8 +65,17 @@ class ImageFetcher {
             WHERE s.id = ? AND f.path LIKE 'files/%' AND m.datetaken IS NOT NULL
               AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
         ";
+        $paramsHome = [$storageId];
+        if ($fromDt !== null) {
+            $sqlHome .= " AND m.datetaken >= ?";
+            $paramsHome[] = $fromDt;
+        }
+        if ($toDt !== null) {
+            $sqlHome .= " AND m.datetaken <= ?";
+            $paramsHome[] = $toDt;
+        }
         $stmtHome = $db->prepare($sqlHome);
-        $resultHome = $stmtHome->execute([$storageId]);
+        $resultHome = $stmtHome->execute($paramsHome);
         $homeRows = $resultHome ? $resultHome->fetchAll() : [];
         if (!empty($homeRows)) {
             foreach ($homeRows as $row) {
@@ -77,8 +102,17 @@ class ImageFetcher {
                   AND (mo.mount_provider_class IS NULL OR mo.mount_provider_class <> ?)
                   AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
             ";
+            $paramsGroup = [$user, $storageId, $userFilesPrefix, $sharedProviderClass];
+            if ($fromDt !== null) {
+                $sqlGroup .= " AND m.datetaken >= ?";
+                $paramsGroup[] = $fromDt;
+            }
+            if ($toDt !== null) {
+                $sqlGroup .= " AND m.datetaken <= ?";
+                $paramsGroup[] = $toDt;
+            }
             $stmtGroup = $db->prepare($sqlGroup);
-            $resultGroup = $stmtGroup->execute([$user, $storageId, $userFilesPrefix, $sharedProviderClass]);
+            $resultGroup = $stmtGroup->execute($paramsGroup);
             $groupRows = $resultGroup ? $resultGroup->fetchAll() : [];
             if (!empty($groupRows)) {
                 foreach ($groupRows as $row) {
@@ -127,6 +161,15 @@ class ImageFetcher {
                       AND (f.fileid = ? OR f.path LIKE ?)
                       AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
                 ";
+                $paramsSharedBase = [];
+                if ($fromDt !== null) {
+                    $sqlShared .= " AND m.datetaken >= ?";
+                    $paramsSharedBase[] = $fromDt;
+                }
+                if ($toDt !== null) {
+                    $sqlShared .= " AND m.datetaken <= ?";
+                    $paramsSharedBase[] = $toDt;
+                }
                 $stmtShared = $db->prepare($sqlShared);
 
                 foreach ($sharedMounts as $mount) {
@@ -144,7 +187,7 @@ class ImageFetcher {
                     }
                     $rootLike = $rootPath . '/%';
 
-                    $resShared = $stmtShared->execute([$storageNumericId, $rootId, $rootLike]);
+                    $resShared = $stmtShared->execute(array_merge([$storageNumericId, $rootId, $rootLike], $paramsSharedBase));
                     $sharedRows = $resShared ? $resShared->fetchAll() : [];
                     if (!empty($sharedRows)) {
                         foreach ($sharedRows as $row) {

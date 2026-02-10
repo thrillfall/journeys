@@ -55,6 +55,9 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addOption('no-home-aware', null, InputOption::VALUE_NONE, 'Disable home-aware clustering')
             ->addOption('from-scratch', null, InputOption::VALUE_NONE, 'Recluster all images from scratch (purges previously created cluster albums)')
             ->addOption('min-cluster-size', null, InputOption::VALUE_REQUIRED, 'Minimum images per cluster (if omitted, use UI setting)')
+            ->addOption('from', null, InputOption::VALUE_REQUIRED, 'Only cluster images taken on/after this date/time (ISO-8601 or YYYY-MM-DD)')
+            ->addOption('to', null, InputOption::VALUE_REQUIRED, 'Only cluster images taken on/before this date/time (ISO-8601 or YYYY-MM-DD)')
+            ->addOption('last-years', null, InputOption::VALUE_REQUIRED, 'Only cluster images from the last N years (alternative to --from/--to)')
             ->addOption('debug-splits', null, InputOption::VALUE_NONE, 'Print why clustering split (time/distance exceeded amounts, home-aware boundaries)')
             ->addOption('home-lat', null, InputOption::VALUE_REQUIRED, 'Home latitude')
             ->addOption('home-lon', null, InputOption::VALUE_REQUIRED, 'Home longitude')
@@ -165,6 +168,52 @@ class ClusterAndCreateAlbumsCommand extends Command {
 
         $debugSplits = (bool)$input->getOption('debug-splits');
 
+        $fromTs = null;
+        $toTs = null;
+        $rawFrom = $input->getOption('from');
+        $rawTo = $input->getOption('to');
+        $rawLastYears = $input->getOption('last-years');
+        if (($rawFrom !== null && $rawFrom !== '') || ($rawTo !== null && $rawTo !== '')) {
+            try {
+                if ($rawFrom !== null && $rawFrom !== '') {
+                    $fromTs = (new \DateTimeImmutable((string)$rawFrom))->getTimestamp();
+                }
+                if ($rawTo !== null && $rawTo !== '') {
+                    $toTs = (new \DateTimeImmutable((string)$rawTo))->getTimestamp();
+                }
+            } catch (\Throwable $e) {
+                $output->writeln('<error>Invalid --from/--to value. Use ISO-8601 or YYYY-MM-DD.</error>');
+                return Command::FAILURE;
+            }
+        } elseif ($rawLastYears !== null && $rawLastYears !== '') {
+            $years = (int)$rawLastYears;
+            if ($years <= 0) {
+                $output->writeln('<error>--last-years must be a positive integer.</error>');
+                return Command::FAILURE;
+            }
+            $fromTs = (new \DateTimeImmutable('now'))->modify('-' . $years . ' years')->getTimestamp();
+            $toTs = null;
+        } elseif ($cfg) {
+            // Default: if the user configured a range in the UI, honor it on CLI runs too.
+            try {
+                $storedFrom = $cfg->getUserValue($user, 'journeys', 'rangeFrom', '');
+                $storedTo = $cfg->getUserValue($user, 'journeys', 'rangeTo', '');
+                if (is_string($storedFrom) && trim($storedFrom) !== '') {
+                    $fromTs = (new \DateTimeImmutable($storedFrom))->getTimestamp();
+                }
+                if (is_string($storedTo) && trim($storedTo) !== '') {
+                    $toTs = (new \DateTimeImmutable($storedTo))->getTimestamp();
+                }
+            } catch (\Throwable $e) {
+                $fromTs = null;
+                $toTs = null;
+            }
+        }
+        if ($fromTs !== null && $toTs !== null && $fromTs > $toTs) {
+            $output->writeln('<error>Invalid range: --from must be <= --to.</error>');
+            return Command::FAILURE;
+        }
+
         $home = null;
         $thresholds = null;
         if ($homeAware) {
@@ -208,6 +257,12 @@ class ClusterAndCreateAlbumsCommand extends Command {
         } else {
             $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, includeSharedImages=%s, minClusterSize=%d, recentCutoffDays=%d', 'false', $includeGroupFolders ? 'true' : 'false', $includeSharedImages ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
             $output->writeln(sprintf('  global: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$maxTimeGap, (int)$maxTimeGap/3600.0, (float)$maxDistanceKm));
+        }
+
+        if ($fromTs !== null || $toTs !== null) {
+            $fromLabel = $fromTs !== null ? (new \DateTimeImmutable('@' . $fromTs))->format('Y-m-d') : '∅';
+            $toLabel = $toTs !== null ? (new \DateTimeImmutable('@' . $toTs))->format('Y-m-d') : '∅';
+            $output->writeln(sprintf('<info>Date range:</info> from=%s to=%s', $fromLabel, $toLabel));
         }
         $clustersPrinted = false;
         $progressCallback = function(array $cluster) use ($output, &$clustersPrinted) {
@@ -368,6 +423,8 @@ class ClusterAndCreateAlbumsCommand extends Command {
             false,
             $includeGroupFolders,
             $includeSharedImages,
+            $fromTs,
+            $toTs,
             $progressCallback,
             $splitCallback,
         );

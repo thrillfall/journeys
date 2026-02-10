@@ -35,7 +35,7 @@ class ShowLatestClusterEndCommand extends Command {
         }
         $hasTracked = $this->albumCreator->hasTrackedAlbums($user);
         if ($hasTracked && $input->getOption('derive-fallback')) {
-            $images = $this->imageFetcher->fetchImagesForUser($user);
+            $images = $this->imageFetcher->fetchImagesForUser($user, false, false, null, null);
             $derived = $this->albumCreator->deriveLatestEndFromTracked($user, $images);
             if ($derived !== null) {
                 $output->writeln(sprintf('<comment>No end_dt recorded, derived latest from tracked albums:</comment> %s (timestamp=%d)', $derived->format('c'), $derived->getTimestamp()));

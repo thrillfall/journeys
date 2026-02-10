@@ -31,6 +31,12 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.20.0 (2026-02-10)</h3>
+    <ul>
+      <li><b>Clustering:</b> Add optional date range scoping (<code>from/to</code>) to limit which photos are clustered.</li>
+      <li><b>UI:</b> Personal Settings now let you set an optional "Only cluster from/to" range; daily cron honors it.</li>
+      <li><b>CLI:</b> Add <code>--from</code>, <code>--to</code>, and <code>--last-years</code> options; if no CLI range is provided, the command falls back to the user's configured UI range.</li>
+    </ul>
   <h3>0.19.6 (2026-01-05)</h3>
     <ul>
       <li><b>Cron:</b> Daily clustering job now logs “no images found for user” as info instead of warning.</li>
@@ -295,7 +301,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.19.6</version>
+  <version>0.20.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
@@ -306,7 +312,6 @@ Album titles are generated from the **resolved place name** and the **date range
   </dependencies>
   <bootstrap>OCA\Journeys\AppInfo\Application</bootstrap>
   <commands>
-    <command>OCA\Journeys\Command\FetchUserImagesCommand</command>
     <command>OCA\Journeys\Command\ClusterAndCreateAlbumsCommand</command>
     <command>OCA\Journeys\Command\RemoveAllAlbumsCommand</command>
     <command>OCA\Journeys\Command\ShowLatestClusterEndCommand</command>

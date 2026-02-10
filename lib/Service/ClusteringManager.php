@@ -44,13 +44,13 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?callable $clusterProgress = null, ?callable $splitDebug = null): array {
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?int $fromTs = null, ?int $toTs = null, ?callable $clusterProgress = null, ?callable $splitDebug = null): array {
         // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
         $purgedAlbums = 0;
         if ($fromScratch) {
             $purgedAlbums = $this->albumCreator->purgeClusterAlbums($userId);
         }
-        $images = $this->imageFetcher->fetchImagesForUser($userId, $includeGroupFolders, $includeSharedImages);
+        $images = $this->imageFetcher->fetchImagesForUser($userId, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs);
         $fetchStats = $this->imageFetcher->getLastFetchStats();
         $fileSources = [];
         $sharedMountRoots = [];
@@ -102,6 +102,26 @@ class ClusteringManager {
                 'fetchStats' => $fetchStats,
             ];
         }
+
+        // Apply optional date-range filter early (and before home detection), so explicit backfills
+        // don't accidentally process the full library.
+        if ($fromTs !== null || $toTs !== null) {
+            $effectiveFrom = $fromTs !== null ? (int)$fromTs : PHP_INT_MIN;
+            $effectiveTo = $toTs !== null ? (int)$toTs : PHP_INT_MAX;
+            $images = array_values(array_filter($images, static function(Image $img) use ($tsByFileId, $effectiveFrom, $effectiveTo) {
+                $ts = $tsByFileId[$img->fileid] ?? null;
+                return $ts !== null && $ts >= $effectiveFrom && $ts <= $effectiveTo;
+            }));
+            if (empty($images)) {
+                return [
+                    'message' => 'No images found for user',
+                    'lastRun' => date('c'),
+                    'clustersCreated' => 0,
+                    'fetchStats' => $fetchStats,
+                ];
+            }
+        }
+
         usort($images, static function(Image $a, Image $b) use ($tsByFileId) {
             $ta = $tsByFileId[$a->fileid] ?? null;
             $tb = $tsByFileId[$b->fileid] ?? null;
@@ -151,12 +171,33 @@ class ClusteringManager {
             }
             if ($latestEnd !== null) {
                 $cutTs = $latestEnd->getTimestamp();
+                if ($fromTs !== null) {
+                    $cutTs = max($cutTs, (int)$fromTs);
+                }
                 $images = array_values(array_filter($images, function(Image $img) use ($cutTs, $tsByFileId) {
                     $ts = $tsByFileId[$img->fileid] ?? null;
                     return $ts !== null && $ts > $cutTs;
                 }));
                 $isTrulyIncremental = true;
             }
+            if (empty($images)) {
+                return [
+                    'clustersCreated' => 0,
+                    'lastRun' => date('c'),
+                    'clusters' => [],
+                    'purgedAlbums' => $purgedAlbums,
+                    'fetchStats' => $fetchStats,
+                ];
+            }
+        }
+
+        // Enforce upper range after incremental trimming as well.
+        if ($toTs !== null) {
+            $effectiveTo = (int)$toTs;
+            $images = array_values(array_filter($images, static function(Image $img) use ($tsByFileId, $effectiveTo) {
+                $ts = $tsByFileId[$img->fileid] ?? null;
+                return $ts !== null && $ts <= $effectiveTo;
+            }));
             if (empty($images)) {
                 return [
                     'clustersCreated' => 0,

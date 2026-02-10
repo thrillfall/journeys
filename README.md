@@ -29,7 +29,7 @@ If you don’t want unexpected images from outside your configured Memories time
 ## 🚀 OCC Command Usage
 
 ```sh
-php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--from-scratch] [--include-group-folders] [--include-shared-images] [--debug-splits]
+php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--from-scratch] [--include-group-folders] [--include-shared-images] [--debug-splits] [--from <date>] [--to <date>] [--last-years <N>]
 ```
 
 **Arguments:**
@@ -39,6 +39,9 @@ php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--fr
 - `--min-cluster-size` — Minimum images per cluster (optional; if omitted, uses your Personal Settings value)
   - `--include-group-folders` — Include photos from Group Folders and other mounts in clustering (optional, default: off)
   - `--include-shared-images` — Include images available via user shares (optional, default: off). Inclusion is scoped to the shared mount root subtree (prevents pulling unrelated files from other users' storages).
+  - `--from` — Only cluster images taken on/after this date/time (ISO-8601 or `YYYY-MM-DD`)
+  - `--to` — Only cluster images taken on/before this date/time (ISO-8601 or `YYYY-MM-DD`)
+  - `--last-years` — Only cluster images from the last `N` years (alternative to `--from/--to`)
   - `--debug-splits` — Print why clustering starts a new cluster (time/distance exceeded amounts and home-aware boundaries).
 
 Note: Time thresholds are specified in hours and support decimals (e.g., 0.5 = 30 minutes).
@@ -52,6 +55,29 @@ The `maxTimeGap` defines the largest allowed time (in hours) between two consecu
 ```sh
 php occ journeys:cluster-create-albums admin 24 100 --min-cluster-size=5
 ```
+
+### Large libraries: safe, scoped backfills
+
+If your photo timeline goes back many years, you can limit clustering to a specific time window.
+
+Create journeys only for the last 2 years:
+
+```sh
+php occ journeys:cluster-create-albums admin --last-years=2
+```
+
+Create journeys only for a specific time period:
+
+```sh
+php occ journeys:cluster-create-albums admin --from=2018-01-01 --to=2019-12-31
+```
+
+Notes:
+
+- If you omit `--from/--to/--last-years`, the command keeps the current behavior (it will use incremental clustering by default).
+- With incremental clustering, the effective start is the later of:
+  - the latest previously created journey end
+  - `--from` (if provided)
 
 When arguments/options are omitted, the command falls back to the user's saved values from Personal Settings. The command prints the effective settings at the start of the run.
 

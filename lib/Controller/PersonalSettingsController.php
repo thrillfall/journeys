@@ -42,6 +42,22 @@ class PersonalSettingsController extends Controller {
             return new JSONResponse(['error' => 'No user'], 401);
         }
         $userId = $user->getUID();
+
+        $parseTs = static function($value): ?int {
+            if ($value === null) {
+                return null;
+            }
+            $value = is_string($value) ? trim($value) : (string)$value;
+            if ($value === '') {
+                return null;
+            }
+            try {
+                return (new \DateTimeImmutable($value))->getTimestamp();
+            } catch (\Throwable $e) {
+                return null;
+            }
+        };
+
         $minClusterSize = (int)($this->request->getParam('minClusterSize') ?? 3);
         $maxTimeGapHours = (float)($this->request->getParam('maxTimeGap') ?? 24.0);
         $maxTimeGap = (int)round($maxTimeGapHours * 3600);
@@ -53,6 +69,19 @@ class PersonalSettingsController extends Controller {
         $home = null;
         $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
         $includeSharedImages = filter_var($this->request->getParam('includeSharedImages') ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        $rangeFrom = $this->request->getParam('rangeFrom');
+        $rangeTo = $this->request->getParam('rangeTo');
+        if (($rangeFrom === null || trim((string)$rangeFrom) === '') && ($rangeTo === null || trim((string)$rangeTo) === '')) {
+            $rangeFrom = $this->userConfig->getUserValue($userId, 'journeys', 'rangeFrom', '');
+            $rangeTo = $this->userConfig->getUserValue($userId, 'journeys', 'rangeTo', '');
+        }
+        $fromTs = $parseTs($rangeFrom);
+        $toTs = $parseTs($rangeTo);
+        if ($fromTs !== null && $toTs !== null && $fromTs > $toTs) {
+            return new JSONResponse(['error' => 'Invalid date range: from must be <= to'], 400);
+        }
+
         if ($homeAware && $homeLat !== null && $homeLon !== null) {
             $home = [
                 'lat' => (float)$homeLat,
@@ -66,6 +95,8 @@ class PersonalSettingsController extends Controller {
         $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
         $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
         $this->userConfig->setUserValue($userId, 'journeys', 'includeSharedImages', $includeSharedImages ? '1' : '0');
+        $this->userConfig->setUserValue($userId, 'journeys', 'rangeFrom', $rangeFrom !== null ? trim((string)$rangeFrom) : '');
+        $this->userConfig->setUserValue($userId, 'journeys', 'rangeTo', $rangeTo !== null ? trim((string)$rangeTo) : '');
         // Optional home-aware thresholds
         $nearTimeGapHours = (float)($this->request->getParam('nearTimeGap') ?? 6.0);
         $nearDistanceKm = (float)($this->request->getParam('nearDistanceKm') ?? 3.0);
@@ -112,7 +143,7 @@ class PersonalSettingsController extends Controller {
         if ($homeRadiusKm !== null) {
             $this->userConfig->setUserValue($userId, 'journeys', 'homeRadiusKm', (string)(float)$homeRadiusKm);
         }
-        $result = $this->clusteringManager->clusterForUser($userId, $maxTimeGap, $maxDistanceKm, $minClusterSize, $homeAware, $home, null, false, 2, false, $includeGroupFolders, $includeSharedImages);
+        $result = $this->clusteringManager->clusterForUser($userId, $maxTimeGap, $maxDistanceKm, $minClusterSize, $homeAware, $home, null, false, 2, false, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs);
         if (!empty($result['fetchStats']) && $includeSharedImages && ($result['fetchStats']['shared'] ?? 0) === 0) {
             $result['warning'] = 'No shared images were included. Ensure the shared photos are visible under "Shared with you".';
         }
@@ -135,6 +166,8 @@ class PersonalSettingsController extends Controller {
         $homeLat = $this->request->getParam('homeLat');
         $homeLon = $this->request->getParam('homeLon');
         $homeRadiusKm = $this->request->getParam('homeRadiusKm');
+        $rangeFrom = $this->request->getParam('rangeFrom');
+        $rangeTo = $this->request->getParam('rangeTo');
         try {
             $this->userConfig->setUserValue($userId, 'journeys', 'minClusterSize', $minClusterSize);
             $this->userConfig->setUserValue($userId, 'journeys', 'maxTimeGap', $maxTimeGap);
@@ -143,6 +176,8 @@ class PersonalSettingsController extends Controller {
             $includeSharedImages = filter_var($this->request->getParam('includeSharedImages') ?? false, FILTER_VALIDATE_BOOLEAN);
             $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
             $this->userConfig->setUserValue($userId, 'journeys', 'includeSharedImages', $includeSharedImages ? '1' : '0');
+            $this->userConfig->setUserValue($userId, 'journeys', 'rangeFrom', $rangeFrom !== null ? trim((string)$rangeFrom) : '');
+            $this->userConfig->setUserValue($userId, 'journeys', 'rangeTo', $rangeTo !== null ? trim((string)$rangeTo) : '');
             // Optional home-aware thresholds
             $nearTimeGapHours = (float)($this->request->getParam('nearTimeGap') ?? 6.0);
             $nearDistanceKm = (float)($this->request->getParam('nearDistanceKm') ?? 3.0);
@@ -218,6 +253,8 @@ class PersonalSettingsController extends Controller {
         $awayTimeGapSeconds = (int)$this->userConfig->getUserValue($userId, 'journeys', 'awayTimeGap', 129600);
         $awayTimeGap = (float)$awayTimeGapSeconds / 3600.0;
         $awayDistanceKm = (float)$this->userConfig->getUserValue($userId, 'journeys', 'awayDistanceKm', 50.0);
+        $rangeFrom = (string)$this->userConfig->getUserValue($userId, 'journeys', 'rangeFrom', '');
+        $rangeTo = (string)$this->userConfig->getUserValue($userId, 'journeys', 'rangeTo', '');
         $homeName = null;
         $includeGroupFolders = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeGroupFolders', 0));
         $includeSharedImages = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeSharedImages', 0));
@@ -265,6 +302,8 @@ class PersonalSettingsController extends Controller {
             'maxDistanceKm' => $maxDistanceKm,
             'includeGroupFolders' => $includeGroupFolders,
             'includeSharedImages' => $includeSharedImages,
+            'rangeFrom' => trim($rangeFrom) !== '' ? $rangeFrom : null,
+            'rangeTo' => trim($rangeTo) !== '' ? $rangeTo : null,
             'homeAwareEnabled' => $homeAware,
             'homeLat' => $homeLat !== '' ? $homeLat : null,
             'homeLon' => $homeLon !== '' ? $homeLon : null,

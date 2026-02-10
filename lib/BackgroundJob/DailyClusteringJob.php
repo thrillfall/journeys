@@ -25,6 +25,21 @@ class DailyClusteringJob extends TimedJob {
     }
 
     protected function run($argument) {
+        $parseTs = static function($value): ?int {
+            if ($value === null) {
+                return null;
+            }
+            $value = is_string($value) ? trim($value) : (string)$value;
+            if ($value === '') {
+                return null;
+            }
+            try {
+                return (new \DateTimeImmutable($value))->getTimestamp();
+            } catch (\Throwable $e) {
+                return null;
+            }
+        };
+
         // Iterate over enabled users
         $users = $this->userManager->search('');
         foreach ($users as $user) {
@@ -36,7 +51,18 @@ class DailyClusteringJob extends TimedJob {
                 $maxDistanceKm = (float)$this->config->getUserValue($uid, 'journeys', 'maxDistanceKm', 100.0);
                 $includeGroupFolders = (bool)((int)$this->config->getUserValue($uid, 'journeys', 'includeGroupFolders', 0));
                 $includeSharedImages = (bool)((int)$this->config->getUserValue($uid, 'journeys', 'includeSharedImages', 0));
-                $result = $this->clusteringManager->clusterForUser($uid, $maxTimeGap, $maxDistanceKm, max(1, $minClusterSize), true, null, null, false, 5, true, $includeGroupFolders, $includeSharedImages);
+
+                $rangeFrom = $this->config->getUserValue($uid, 'journeys', 'rangeFrom', '');
+                $rangeTo = $this->config->getUserValue($uid, 'journeys', 'rangeTo', '');
+                $fromTs = $parseTs($rangeFrom);
+                $toTs = $parseTs($rangeTo);
+                if ($fromTs !== null && $toTs !== null && $fromTs > $toTs) {
+                    $this->logger->warning('Journeys daily job: invalid configured date range, ignoring', [ 'user' => $uid, 'rangeFrom' => $rangeFrom, 'rangeTo' => $rangeTo ]);
+                    $fromTs = null;
+                    $toTs = null;
+                }
+
+                $result = $this->clusteringManager->clusterForUser($uid, $maxTimeGap, $maxDistanceKm, max(1, $minClusterSize), true, null, null, false, 5, true, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs);
                 if (isset($result['message']) && $result['message'] === 'No images found for user') {
                     $this->logger->info('Journeys daily job: no images found for user', [ 'user' => $uid ]);
                 } elseif (isset($result['error'])) {

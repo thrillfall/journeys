@@ -34,6 +34,20 @@
 									:value="maxDistanceKm"
 									@update:value="value => updateNumber('maxDistanceKm', value, { min: 0.1, decimals: true })" />
 						</div>
+						<div class="card-grid">
+							<NcTextField
+									:label="t('journeys', 'Only cluster from (optional)')"
+									:label-visible="true"
+									:placeholder="'YYYY-MM-DD'"
+									:value="rangeFrom"
+									@update:value="value => (rangeFrom = value)" />
+							<NcTextField
+									:label="t('journeys', 'Only cluster to (optional)')"
+									:label-visible="true"
+									:placeholder="'YYYY-MM-DD'"
+									:value="rangeTo"
+									@update:value="value => (rangeTo = value)" />
+						</div>
 						<div class="toggle-list">
 							<NcCheckboxRadioSwitch
 									:checked="includeGroupFolders"
@@ -309,6 +323,8 @@ export default {
 			homeName: null,
 			includeGroupFolders: false,
 			includeSharedImages: false,
+			rangeFrom: null,
+			rangeTo: null,
 			autoGenerateVideos: false,
 			includeMotionFromGCam: true,
 			showVideoTitle: true,
@@ -337,6 +353,8 @@ export default {
 				this.maxDistanceKm = settingsResp.data.maxDistanceKm
 				this.includeGroupFolders = !!settingsResp.data.includeGroupFolders
 				this.includeSharedImages = !!settingsResp.data.includeSharedImages
+				this.rangeFrom = settingsResp.data.rangeFrom || null
+				this.rangeTo = settingsResp.data.rangeTo || null
 				this.homeLat = settingsResp.data.homeLat
 				this.homeLon = settingsResp.data.homeLon
 				this.homeRadiusKm = settingsResp.data.homeRadiusKm
@@ -444,6 +462,8 @@ export default {
 				maxDistanceKm: this.maxDistanceKm,
 				includeGroupFolders: this.includeGroupFolders,
 				includeSharedImages: this.includeSharedImages,
+				rangeFrom: this.rangeFrom,
+				rangeTo: this.rangeTo,
 				homeLat: this.homeLat,
 				homeLon: this.homeLon,
 				homeRadiusKm: this.homeRadiusKm,

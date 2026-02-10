@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.0] - 2026-02-10
+### Added
+- Clustering: optional date-range scoping to limit which photos are clustered.
+- Personal Settings: set an optional "Only cluster from/to" range; daily cron honors it.
+- CLI: `--from`, `--to`, and `--last-years` options for `journeys:cluster-create-albums`.
+
+### Changed
+- CLI: when no date range is provided via CLI flags, the command falls back to the user's configured UI date range.
+
 ## [0.19.6] - 2026-01-05
 ### Changed
 - Cron: Daily clustering job now logs “no images found for user” as info instead of warning.
