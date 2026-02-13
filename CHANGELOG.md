@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.2] - 2026-02-13
+### Changed
+- Cron: Reduced `recentCutoffDays` from 5 to 2 in the daily clustering job to align with the OCC command default.
+
 ## [0.20.1] - 2026-02-13
 ### Fixed
 - DI: Moved `VideoRenderJobScheduler` service definition inside the XML structure in `services.xml` so auto-generated video rendering jobs are correctly scheduled by the daily clustering cron.

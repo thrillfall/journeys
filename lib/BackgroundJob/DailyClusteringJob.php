@@ -62,7 +62,7 @@ class DailyClusteringJob extends TimedJob {
                     $toTs = null;
                 }
 
-                $result = $this->clusteringManager->clusterForUser($uid, $maxTimeGap, $maxDistanceKm, max(1, $minClusterSize), true, null, null, false, 5, true, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs);
+                $result = $this->clusteringManager->clusterForUser($uid, $maxTimeGap, $maxDistanceKm, max(1, $minClusterSize), true, null, null, false, 2, true, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs);
                 if (isset($result['message']) && $result['message'] === 'No images found for user') {
                     $this->logger->info('Journeys daily job: no images found for user', [ 'user' => $uid ]);
                 } elseif (isset($result['error'])) {
