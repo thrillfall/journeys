@@ -1,6 +1,3 @@
-    <service id="OCA\Journeys\Service\VideoRenderJobScheduler">
-      <argument type="service" id="OCP\BackgroundJob\IJobList"/>
-    </service>
 <?xml version="1.0" ?>
 <container xmlns="http://symfony.com/schema/dic/services"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -8,6 +5,9 @@
            http://symfony.com/schema/dic/services/services-1.0.xsd">
 
   <services>
+    <service id="OCA\Journeys\Service\VideoRenderJobScheduler">
+      <argument type="service" id="OCP\BackgroundJob\IJobList"/>
+    </service>
     <service id="OCA\Journeys\Service\FacePresenceProvider">
       <argument type="service" id="OCP\IDBConnection"/>
     </service>
@@ -78,4 +78,3 @@
     </service>
   </services>
 </container>
-^

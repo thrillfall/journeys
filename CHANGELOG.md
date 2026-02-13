@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.1] - 2026-02-13
+### Fixed
+- DI: Moved `VideoRenderJobScheduler` service definition inside the XML structure in `services.xml` so auto-generated video rendering jobs are correctly scheduled by the daily clustering cron.
+
 ## [0.20.0] - 2026-02-10
 ### Added
 - Clustering: optional date-range scoping to limit which photos are clustered.
