@@ -13,6 +13,7 @@ class ClusteringManager {
 
     private $imageFetcher;
     private $clusterer;
+    private ClusterMerger $clusterMerger;
     private $albumCreator;
     private $locationResolver;
     private $homeLocationDetector;
@@ -24,9 +25,10 @@ class ClusteringManager {
     private VideoRenderJobScheduler $videoScheduler;
     private IConfig $config;
 
-    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator, ClusterVideoJobRunner $videoJobRunner, VideoRenderJobScheduler $videoScheduler, IConfig $config) {
+    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, ClusterMerger $clusterMerger, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator, ClusterVideoJobRunner $videoJobRunner, VideoRenderJobScheduler $videoScheduler, IConfig $config) {
         $this->imageFetcher = $imageFetcher;
         $this->clusterer = $clusterer;
+        $this->clusterMerger = $clusterMerger;
         $this->albumCreator = $albumCreator;
         $this->locationResolver = $locationResolver;
         $this->homeLocationDetector = $homeLocationDetector;
@@ -44,7 +46,7 @@ class ClusteringManager {
      * @param string $userId
      * @return array [clustersCreated => int, lastRun => string, error? => string]
      */
-    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?int $fromTs = null, ?int $toTs = null, ?callable $clusterProgress = null, ?callable $splitDebug = null): array {
+    public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?int $fromTs = null, ?int $toTs = null, ?callable $clusterProgress = null, ?callable $splitDebug = null, bool $mergeAdjacent = true): array {
         // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
         $purgedAlbums = 0;
         if ($fromScratch) {
@@ -261,6 +263,20 @@ class ClusteringManager {
         } else {
             $clusters = $this->clusterer->clusterImages($images, $maxTimeGap, $maxDistanceKm, $effectiveSplitDebug);
         }
+
+        // Post-clustering merge pass: stitch adjacent clusters that the raw
+        // distance/time split broke apart when they're clearly the same trip
+        // (same country, within a week). Opt-out via --no-merge / UI toggle.
+        if ($mergeAdjacent) {
+            $resolveCountry = fn(array $imgs): ?string => $this->locationResolver->resolveClusterCountry($imgs);
+            $clusters = $this->clusterMerger->mergeAdjacent(
+                $clusters,
+                $effectiveHomeAware ? $home : null,
+                $resolveCountry,
+                $effectiveSplitDebug,
+            );
+        }
+
         $created = 0;
         $clusterSummaries = [];
         foreach ($clusters as $i => $cluster) {

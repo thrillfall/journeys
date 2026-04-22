@@ -61,6 +61,12 @@
 									@update:checked="value => onToggleSetting('includeSharedImages', value)">
 									{{ t('journeys', 'Include shared images') }}
 								</NcCheckboxRadioSwitch>
+							<NcCheckboxRadioSwitch
+									:checked="mergeAdjacent"
+									type="switch"
+									@update:checked="value => onToggleSetting('mergeAdjacent', value)">
+									{{ t('journeys', 'Merge adjacent journeys in the same country (within one week)') }}
+								</NcCheckboxRadioSwitch>
 						</div>
 					</div>
 				</section>
@@ -323,6 +329,7 @@ export default {
 			homeName: null,
 			includeGroupFolders: false,
 			includeSharedImages: false,
+			mergeAdjacent: true,
 			rangeFrom: null,
 			rangeTo: null,
 			autoGenerateVideos: false,
@@ -353,6 +360,7 @@ export default {
 				this.maxDistanceKm = settingsResp.data.maxDistanceKm
 				this.includeGroupFolders = !!settingsResp.data.includeGroupFolders
 				this.includeSharedImages = !!settingsResp.data.includeSharedImages
+				this.mergeAdjacent = settingsResp.data.mergeAdjacent !== false
 				this.rangeFrom = settingsResp.data.rangeFrom || null
 				this.rangeTo = settingsResp.data.rangeTo || null
 				this.homeLat = settingsResp.data.homeLat
@@ -462,6 +470,7 @@ export default {
 				maxDistanceKm: this.maxDistanceKm,
 				includeGroupFolders: this.includeGroupFolders,
 				includeSharedImages: this.includeSharedImages,
+				mergeAdjacent: this.mergeAdjacent,
 				rangeFrom: this.rangeFrom,
 				rangeTo: this.rangeTo,
 				homeLat: this.homeLat,

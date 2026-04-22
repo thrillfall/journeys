@@ -51,6 +51,7 @@ class DailyClusteringJob extends TimedJob {
                 $maxDistanceKm = (float)$this->config->getUserValue($uid, 'journeys', 'maxDistanceKm', 100.0);
                 $includeGroupFolders = (bool)((int)$this->config->getUserValue($uid, 'journeys', 'includeGroupFolders', 0));
                 $includeSharedImages = (bool)((int)$this->config->getUserValue($uid, 'journeys', 'includeSharedImages', 0));
+                $mergeAdjacent = (bool)((int)$this->config->getUserValue($uid, 'journeys', 'mergeAdjacent', 1));
 
                 $rangeFrom = $this->config->getUserValue($uid, 'journeys', 'rangeFrom', '');
                 $rangeTo = $this->config->getUserValue($uid, 'journeys', 'rangeTo', '');
@@ -62,7 +63,7 @@ class DailyClusteringJob extends TimedJob {
                     $toTs = null;
                 }
 
-                $result = $this->clusteringManager->clusterForUser($uid, $maxTimeGap, $maxDistanceKm, max(1, $minClusterSize), true, null, null, false, 2, true, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs);
+                $result = $this->clusteringManager->clusterForUser($uid, $maxTimeGap, $maxDistanceKm, max(1, $minClusterSize), true, null, null, false, 2, true, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs, null, null, $mergeAdjacent);
                 if (isset($result['message']) && $result['message'] === 'No images found for user') {
                     $this->logger->info('Journeys daily job: no images found for user', [ 'user' => $uid ]);
                 } elseif (isset($result['error'])) {

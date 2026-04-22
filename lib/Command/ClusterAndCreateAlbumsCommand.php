@@ -68,7 +68,8 @@ class ClusterAndCreateAlbumsCommand extends Command {
             ->addOption('away-distance-km', null, InputOption::VALUE_REQUIRED, 'Away-from-home max distance between consecutive photos in km (if omitted, use UI setting)')
             ->addOption('recent-cutoff-days', null, InputOption::VALUE_REQUIRED, 'Skip clusters whose last image is within the past N days (default: 2, 0 disables)', 2)
             ->addOption('include-group-folders', null, InputOption::VALUE_NONE, 'Include images from Group Folders and other mounts (if omitted, use UI setting)')
-            ->addOption('include-shared-images', null, InputOption::VALUE_NONE, 'Include images that are shared with the user (if omitted, use UI setting)');
+            ->addOption('include-shared-images', null, InputOption::VALUE_NONE, 'Include images that are shared with the user (if omitted, use UI setting)')
+            ->addOption('no-merge', null, InputOption::VALUE_NONE, 'Disable post-clustering merge pass (skip stitching adjacent same-country clusters)');
     }
 
 
@@ -165,6 +166,11 @@ class ClusterAndCreateAlbumsCommand extends Command {
         if (!$includeSharedImages && $cfg) {
             $includeSharedImages = (bool)((int)$cfg->getUserValue($user, 'journeys', 'includeSharedImages', 0));
         }
+        // Merge pass: on by default. --no-merge disables it; UI setting overrides only when the CLI flag isn't given.
+        $mergeAdjacent = !(bool)$input->getOption('no-merge');
+        if ($mergeAdjacent && $cfg) {
+            $mergeAdjacent = (bool)((int)$cfg->getUserValue($user, 'journeys', 'mergeAdjacent', 1));
+        }
 
         $debugSplits = (bool)$input->getOption('debug-splits');
 
@@ -251,11 +257,11 @@ class ClusterAndCreateAlbumsCommand extends Command {
                     $thresholds = null;
                 }
             }
-            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, includeSharedImages=%s, minClusterSize=%d, recentCutoffDays=%d', $homeAware ? 'true' : 'false', $includeGroupFolders ? 'true' : 'false', $includeSharedImages ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
+            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, includeSharedImages=%s, mergeAdjacent=%s, minClusterSize=%d, recentCutoffDays=%d', $homeAware ? 'true' : 'false', $includeGroupFolders ? 'true' : 'false', $includeSharedImages ? 'true' : 'false', $mergeAdjacent ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
             $output->writeln(sprintf('  near: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$thresholds['near']['timeGap'], (int)$thresholds['near']['timeGap']/3600.0, (float)$thresholds['near']['distanceKm']));
             $output->writeln(sprintf('  away: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$thresholds['away']['timeGap'], (int)$thresholds['away']['timeGap']/3600.0, (float)$thresholds['away']['distanceKm']));
         } else {
-            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, includeSharedImages=%s, minClusterSize=%d, recentCutoffDays=%d', 'false', $includeGroupFolders ? 'true' : 'false', $includeSharedImages ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
+            $output->writeln(sprintf('<info>Effective settings:</info> homeAware=%s, includeGroupFolders=%s, includeSharedImages=%s, mergeAdjacent=%s, minClusterSize=%d, recentCutoffDays=%d', 'false', $includeGroupFolders ? 'true' : 'false', $includeSharedImages ? 'true' : 'false', $mergeAdjacent ? 'true' : 'false', $minClusterSize, $recentCutoffDays));
             $output->writeln(sprintf('  global: timeGap=%ds (%.1fh), distance=%.2fkm', (int)$maxTimeGap, (int)$maxTimeGap/3600.0, (float)$maxDistanceKm));
         }
 
@@ -377,6 +383,25 @@ class ClusterAndCreateAlbumsCommand extends Command {
                         return;
                     }
 
+                    if ($type === 'merge') {
+                        $gapDays = isset($ev['gap_days']) ? (float)$ev['gap_days'] : 0.0;
+                        $distKm = isset($ev['distance_km']) ? (float)$ev['distance_km'] : 0.0;
+                        $country = isset($ev['country']) ? (string)$ev['country'] : '';
+                        $aEnd = isset($ev['a_end']) && is_array($ev['a_end']) ? $ev['a_end'] : [];
+                        $bStart = isset($ev['b_start']) && is_array($ev['b_start']) ? $ev['b_start'] : [];
+                        $output->writeln(sprintf(
+                            "<info>MERGE (same country):</info> country=%s gap=%.2fd dist=%.1fkm sizes=%d+%d aEnd(dt=%s) bStart(dt=%s)",
+                            $country,
+                            $gapDays,
+                            $distKm,
+                            (int)($ev['cluster_a_size'] ?? 0),
+                            (int)($ev['cluster_b_size'] ?? 0),
+                            (string)($aEnd['datetaken'] ?? ''),
+                            (string)($bStart['datetaken'] ?? ''),
+                        ));
+                        return;
+                    }
+
                     if ($type === 'home_boundary') {
                         $prevNear = !empty($ev['prev_near']);
                         $currNear = !empty($ev['curr_near']);
@@ -427,6 +452,7 @@ class ClusterAndCreateAlbumsCommand extends Command {
             $toTs,
             $progressCallback,
             $splitCallback,
+            $mergeAdjacent,
         );
         $stats = $this->imageFetcher->getLastFetchStats();
         $output->writeln(sprintf(

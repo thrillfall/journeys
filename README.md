@@ -118,6 +118,18 @@ When arguments/options are omitted, the command falls back to the user's saved v
 - Scene transitions and pacing controls.
 
 
+## 🧵 Merging adjacent journeys (default)
+
+After the raw clusterer runs, a post-processing pass stitches adjacent clusters that look like the same journey — specifically, clusters in the same country (via OSM admin_level=2) within 7 days of each other. This fixes two common over-splits:
+
+- **Multi-city road trips** (e.g. Paris → Lyon → Nice) where the distance threshold trips on each inter-city leg.
+- **Long vacations with rest days** where time gaps of 2–3 days without photos trip the time threshold.
+
+Only away-from-home clusters are merged; near-home clusters never merge across gaps, because returning to the home radius is treated as ending a journey. Disable with:
+
+- CLI: `--no-merge` flag on `journeys:cluster-create-albums`
+- UI: untick "Merge adjacent journeys in the same country" in Personal Settings
+
 ## 🏠 Home-aware clustering (default)
 
 Home-aware mode adapts clustering based on whether photos are taken near your home or away:

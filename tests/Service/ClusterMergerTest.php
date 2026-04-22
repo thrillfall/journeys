@@ -1,0 +1,219 @@
+<?php
+namespace OCA\Journeys\Tests\Service;
+
+use OCA\Journeys\Model\Image;
+use OCA\Journeys\Service\ClusterMerger;
+use PHPUnit\Framework\TestCase;
+
+class ClusterMergerTest extends TestCase {
+
+    private ClusterMerger $merger;
+
+    protected function setUp(): void {
+        $this->merger = new ClusterMerger();
+    }
+
+    /**
+     * Country resolver that returns the country of the first geolocated image
+     * via an externally-provided [lat,lon => country] lookup. Lets tests shape
+     * geographic coherence without touching any DB.
+     *
+     * @param array<string,string> $map "lat,lon" => country
+     */
+    private function countryResolver(array $map): callable {
+        return function(array $cluster) use ($map): ?string {
+            foreach ($cluster as $img) {
+                if ($img->lat === null || $img->lon === null) continue;
+                $key = $img->lat . ',' . $img->lon;
+                if (isset($map[$key])) return $map[$key];
+            }
+            return null;
+        };
+    }
+
+    private function img(int $id, string $datetaken, ?string $lat = null, ?string $lon = null): Image {
+        return new Image($id, "img{$id}.jpg", $datetaken, $lat, $lon);
+    }
+
+    public function testEmptyInputReturnsEmpty(): void {
+        $this->assertSame([], $this->merger->mergeAdjacent([], null, fn() => 'FR'));
+    }
+
+    public function testSingleClusterReturnedUnchanged(): void {
+        $clusters = [[ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ]];
+        $result = $this->merger->mergeAdjacent($clusters, null, fn() => 'FR');
+        $this->assertCount(1, $result);
+        $this->assertCount(1, $result[0]);
+    }
+
+    public function testNullCountryResolverDisablesMerging(): void {
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-07-02 10:00:00', '43.3', '5.4') ],
+        ];
+        $result = $this->merger->mergeAdjacent($clusters, null, null);
+        $this->assertCount(2, $result);
+    }
+
+    public function testMultiCityFrenchRoadTripMergesToOne(): void {
+        // Paris → Lyon → Marseille → Nice across 6 days, all France
+        $paris = ['48.8', '2.3'];
+        $lyon = ['45.7', '4.8'];
+        $marseille = ['43.3', '5.4'];
+        $nice = ['43.7', '7.2'];
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', $paris[0], $paris[1]),
+              $this->img(2, '2024-07-01 18:00:00', $paris[0], $paris[1]) ],
+            [ $this->img(3, '2024-07-02 11:00:00', $lyon[0], $lyon[1]),
+              $this->img(4, '2024-07-02 19:00:00', $lyon[0], $lyon[1]) ],
+            [ $this->img(5, '2024-07-04 09:00:00', $marseille[0], $marseille[1]),
+              $this->img(6, '2024-07-04 20:00:00', $marseille[0], $marseille[1]) ],
+            [ $this->img(7, '2024-07-06 08:00:00', $nice[0], $nice[1]),
+              $this->img(8, '2024-07-06 21:00:00', $nice[0], $nice[1]) ],
+        ];
+        $resolver = $this->countryResolver([
+            '48.8,2.3' => 'France',
+            '45.7,4.8' => 'France',
+            '43.3,5.4' => 'France',
+            '43.7,7.2' => 'France',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver);
+        $this->assertCount(1, $result);
+        $this->assertCount(8, $result[0]);
+    }
+
+    public function testNewZealandRestDayGapsMerge(): void {
+        // NZ vacation with 2-day blank gaps between photo-taking days, all NZ
+        $auckland = ['-36.8', '174.7'];
+        $rotorua = ['-38.1', '176.2'];
+        $wellington = ['-41.3', '174.8'];
+        $clusters = [
+            [ $this->img(1, '2024-10-10 10:00:00', $auckland[0], $auckland[1]) ],
+            [ $this->img(2, '2024-10-13 10:00:00', $rotorua[0], $rotorua[1]) ],
+            [ $this->img(3, '2024-10-16 10:00:00', $wellington[0], $wellington[1]) ],
+        ];
+        $resolver = $this->countryResolver([
+            '-36.8,174.7' => 'New Zealand',
+            '-38.1,176.2' => 'New Zealand',
+            '-41.3,174.8' => 'New Zealand',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver);
+        $this->assertCount(1, $result);
+        $this->assertCount(3, $result[0]);
+    }
+
+    public function testSeasonallySeparatedTripsDoNotMerge(): void {
+        // Paris in January, Berlin in June — gap >> 7 days, must stay separate
+        $clusters = [
+            [ $this->img(1, '2024-01-15 12:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-06-20 12:00:00', '52.5', '13.4') ],
+        ];
+        $resolver = $this->countryResolver([
+            '48.8,2.3' => 'France',
+            '52.5,13.4' => 'Germany',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver);
+        $this->assertCount(2, $result);
+    }
+
+    public function testDifferentCountriesWithinWindowDoNotMerge(): void {
+        // Paris then Tokyo, 2 days apart. Plausible velocity, but not same country.
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-07-03 10:00:00', '35.7', '139.7') ],
+        ];
+        $resolver = $this->countryResolver([
+            '48.8,2.3' => 'France',
+            '35.7,139.7' => 'Japan',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver);
+        $this->assertCount(2, $result);
+    }
+
+    public function testNearHomeIntrusionPreventsMerge(): void {
+        // away cluster A (Spain) → near-home cluster (Berlin home) → away cluster B (Spain)
+        // The near-home cluster is in the middle. Even though A and B are both "Spain",
+        // they are not adjacent — the near-home cluster sits between them and is not
+        // eligible to merge with either side (mixed home state).
+        $home = ['lat' => 52.5, 'lon' => 13.4, 'radiusKm' => 50.0];
+        $barcelona = ['41.4', '2.2'];
+        $madrid = ['40.4', '-3.7'];
+        $berlin = ['52.5', '13.4'];
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', $barcelona[0], $barcelona[1]) ],
+            [ $this->img(2, '2024-07-05 10:00:00', $berlin[0], $berlin[1]) ],
+            [ $this->img(3, '2024-07-09 10:00:00', $madrid[0], $madrid[1]) ],
+        ];
+        $resolver = $this->countryResolver([
+            '41.4,2.2' => 'Spain',
+            '40.4,-3.7' => 'Spain',
+            '52.5,13.4' => 'Germany',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, $home, $resolver);
+        $this->assertCount(3, $result);
+    }
+
+    public function testClusterWithoutGeolocationDoesNotMergeIntoNeighbors(): void {
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-07-02 10:00:00', null, null) ], // no geo at all
+            [ $this->img(3, '2024-07-03 10:00:00', '48.8', '2.3') ],
+        ];
+        $resolver = $this->countryResolver(['48.8,2.3' => 'France']);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver);
+        // Middle cluster has no geolocated image → can't merge with either neighbor.
+        // But outer clusters are now non-adjacent so they can't merge either.
+        $this->assertCount(3, $result);
+    }
+
+    public function testFixpointMergesChainOfThree(): void {
+        // A, B, C all in France, each pair within 3 days. Pass 1 merges A+B → AB.
+        // Pass 2 should then merge AB+C.
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-07-03 10:00:00', '45.7', '4.8') ],
+            [ $this->img(3, '2024-07-06 10:00:00', '43.3', '5.4') ],
+        ];
+        $resolver = $this->countryResolver([
+            '48.8,2.3' => 'France',
+            '45.7,4.8' => 'France',
+            '43.3,5.4' => 'France',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver);
+        $this->assertCount(1, $result);
+        $this->assertCount(3, $result[0]);
+    }
+
+    public function testGapExceedingLimitPreventsMerge(): void {
+        // Same country but >7-day gap → must stay separate
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-07-10 10:00:00', '43.3', '5.4') ],
+        ];
+        $resolver = $this->countryResolver([
+            '48.8,2.3' => 'France',
+            '43.3,5.4' => 'France',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver);
+        $this->assertCount(2, $result);
+    }
+
+    public function testMergeDebugCallbackReceivesPayload(): void {
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-07-02 10:00:00', '43.3', '5.4') ],
+        ];
+        $resolver = $this->countryResolver([
+            '48.8,2.3' => 'France',
+            '43.3,5.4' => 'France',
+        ]);
+        $events = [];
+        $this->merger->mergeAdjacent($clusters, null, $resolver, function(array $ev) use (&$events) {
+            $events[] = $ev;
+        });
+        $this->assertCount(1, $events);
+        $this->assertSame('merge', $events[0]['type']);
+        $this->assertSame('same_country', $events[0]['reason']);
+        $this->assertSame('France', $events[0]['country']);
+    }
+}

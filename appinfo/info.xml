@@ -15,6 +15,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
 - **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels (requires `ffmpeg` on the server)
+- **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
 
 ## 🚀 OCC Command Usage
 
@@ -31,6 +32,12 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.21.0 (2026-04-22)</h3>
+    <ul>
+      <li><b>Clustering:</b> New post-clustering merge pass stitches adjacent clusters in the same country within 7 days, fixing over-splitting of multi-city road trips and long vacations with rest days. Away-from-home only; near-home clusters never merge.</li>
+      <li><b>Settings:</b> New "Merge adjacent journeys in the same country (within one week)" toggle (default on).</li>
+      <li><b>CLI:</b> New <code>--no-merge</code> flag; <code>--debug-splits</code> now prints <code>MERGE</code> events.</li>
+    </ul>
   <h3>0.20.3 (2026-04-22)</h3>
     <ul>
       <li><b>Video rendering:</b> Extracted shared primitives from portrait and landscape renderers into a new <code>VideoRenderPrimitives</code> trait (~350 LOC duplication removed). No behavior change; both orientations verified end-to-end.</li>
@@ -313,7 +320,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.20.3</version>
+  <version>0.21.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

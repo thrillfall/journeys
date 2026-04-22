@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.0] - 2026-04-22
+### Added
+- Clustering: new post-clustering merge pass that stitches adjacent clusters in the same country within 7 days, fixing over-splitting of multi-city road trips and long vacations with photo-less rest days. Away-from-home clusters only; near-home clusters never merge.
+- Settings: new "Merge adjacent journeys in the same country (within one week)" toggle in Personal Settings (default on).
+- CLI: new `--no-merge` flag on `journeys:cluster-create-albums` to disable the merge pass for debugging.
+- CLI: `--debug-splits` now prints `MERGE (same country)` events when adjacent clusters are merged.
+
 ## [0.20.3] - 2026-04-22
 ### Changed
 - Video rendering: extracted shared primitives from portrait and landscape renderers into a new `VideoRenderPrimitives` trait (~350 LOC duplication removed). No behavior change; both orientations verified end-to-end.

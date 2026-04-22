@@ -113,6 +113,41 @@ class ClusterLocationResolver {
     }
 
     /**
+     * Resolve the country name (OSM admin_level = 2) for a cluster.
+     *
+     * Returns the most common country among all geolocated images. Used by
+     * ClusterMerger to decide whether two adjacent clusters belong to the
+     * same journey. Returns null if no geolocated image resolves to a country
+     * (typically: Places DB not populated or PostGIS unavailable and no
+     * fallback rows), in which case the caller should decline to merge.
+     *
+     * @param Image[] $images
+     */
+    public function resolveClusterCountry(array $images): ?string {
+        $countries = [];
+        foreach ($images as $img) {
+            if ($img->lat === null || $img->lon === null) {
+                continue;
+            }
+            $places = $this->placeResolver->queryPoint($img->lat, $img->lon, $img->fileid ?? null);
+            foreach ($places as $place) {
+                if ((int)$place['admin_level'] === 2) {
+                    $name = $this->getPlaceName($place['osm_id']);
+                    if ($name !== null && $name !== '') {
+                        $countries[$name] = ($countries[$name] ?? 0) + 1;
+                    }
+                    break; // one country per image
+                }
+            }
+        }
+        if (empty($countries)) {
+            return null;
+        }
+        arsort($countries);
+        return (string)array_key_first($countries);
+    }
+
+    /**
      * Get the place name for a given OSM ID (city, region, country, etc.)
      *
      * @param int $osmId

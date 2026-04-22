@@ -37,7 +37,7 @@ make appstore     # produces build/artifacts/journeys.tar.gz
 OCC commands (run from the Nextcloud root as the web user). Primary ones:
 ```sh
 php occ journeys:cluster-create-albums <user> [--from-scratch] [--include-group-folders] \
-    [--include-shared-images] [--debug-splits] [--from <date>] [--to <date>] [--last-years N]
+    [--include-shared-images] [--no-merge] [--debug-splits] [--from <date>] [--to <date>] [--last-years N]
 php occ journeys:list-clusters <user>
 php occ journeys:remove-all-albums <user>           # only removes albums tracked by this app
 php occ journeys:render-cluster-video <user> <albumId>
@@ -60,12 +60,13 @@ Services are registered in `appinfo/services.xml` (Symfony DI container XML). **
 1. `ImageFetcher::fetchImagesForUser()` queries `oc_memories` joined against `oc_filecache` / `oc_mounts` to return `Image[]`. Three sources are blended based on flags: home storage (always), Group Folders / external mounts (`includeGroupFolders`), incoming user shares scoped to their mount root (`includeSharedImages`). Per-source counts are exposed via `getLastFetchStats()` / `getLastFileSources()`.
 2. `HomeService` / `HomeLocationDetector` determine the user's home coordinate (manual override via user config, or auto-detected).
 3. Timeline is segmented into near-home vs away-from-home blocks (home-aware mode is default). Each segment is clustered independently by `Clusterer::clusterImages()` using per-segment time + distance thresholds. Distance checks anchor to the **last geolocated image** in the current cluster (`prevGeo`), so a run of no-GPS photos cannot bridge a large spatial jump.
-4. `ClusterLocationResolver` + `SimplePlaceResolver` resolve a place name for each cluster (uses Memories' Places tables; falls back automatically when PostGIS functions are unavailable).
-5. `AlbumCreator` creates a Photos album per cluster, tags it with the `journeys-album` SystemTag, and records `(user_id, album_id, start_dt, end_dt, name, location)` in the tracking table `oc_journeys_cluster_albums`. Incremental runs use `end_dt` to skip already-processed images. `purgeClusterAlbums()` only deletes albums listed in this tracking table — manual albums are preserved.
-6. Aggregated notification is sent via `Notifier` with an "Open Photos" action.
-7. If auto-render is enabled, `VideoRenderJobScheduler` enqueues one `RenderClusterVideoJob` per newly created away-from-home album (runs as a separate Nextcloud background job, does not block clustering).
+4. **`ClusterMerger::mergeAdjacent()` post-processes the cluster list**, stitching adjacent clusters that are in the same country (resolved via `ClusterLocationResolver::resolveClusterCountry()`, OSM `admin_level=2`) and within 7 days of each other. This fixes over-splitting of multi-city road trips and long vacations with photo-less rest days — cases where threshold tuning alone can't help (the user tested `awayDistanceKm=200` in production and multi-city still split). Only away-from-home clusters are merged when home is known; near-home clusters never merge. Disable with `--no-merge` CLI flag or the `mergeAdjacent` user setting.
+5. `ClusterLocationResolver` + `SimplePlaceResolver` resolve a place name for each cluster (uses Memories' Places tables; falls back automatically when PostGIS functions are unavailable).
+6. `AlbumCreator` creates a Photos album per cluster, tags it with the `journeys-album` SystemTag, and records `(user_id, album_id, start_dt, end_dt, name, location)` in the tracking table `oc_journeys_cluster_albums`. Incremental runs use `end_dt` to skip already-processed images. `purgeClusterAlbums()` only deletes albums listed in this tracking table — manual albums are preserved.
+7. Aggregated notification is sent via `Notifier` with an "Open Photos" action.
+8. If auto-render is enabled, `VideoRenderJobScheduler` enqueues one `RenderClusterVideoJob` per newly created away-from-home album (runs as a separate Nextcloud background job, does not block clustering).
 
-User-visible behavior settings (time gap, distance, min cluster size, near/away thresholds, includeGroupFolders, includeSharedImages, rangeFrom/rangeTo, auto-render prefs) live in `IConfig` user values under app `journeys`. CLI flags override; when omitted, the effective value is the stored user value; when that is empty, the code default applies. The daily job (`BackgroundJob\DailyClusteringJob`) reads these same user values so UI changes take effect on the next cron run.
+User-visible behavior settings (time gap, distance, min cluster size, near/away thresholds, includeGroupFolders, includeSharedImages, mergeAdjacent, rangeFrom/rangeTo, auto-render prefs) live in `IConfig` user values under app `journeys`. CLI flags override; when omitted, the effective value is the stored user value; when that is empty, the code default applies. The daily job (`BackgroundJob\DailyClusteringJob`) reads these same user values so UI changes take effect on the next cron run.
 
 ### Video rendering
 

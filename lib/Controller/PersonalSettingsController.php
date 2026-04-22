@@ -69,6 +69,7 @@ class PersonalSettingsController extends Controller {
         $home = null;
         $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
         $includeSharedImages = filter_var($this->request->getParam('includeSharedImages') ?? false, FILTER_VALIDATE_BOOLEAN);
+        $mergeAdjacent = filter_var($this->request->getParam('mergeAdjacent') ?? true, FILTER_VALIDATE_BOOLEAN);
 
         $rangeFrom = $this->request->getParam('rangeFrom');
         $rangeTo = $this->request->getParam('rangeTo');
@@ -95,6 +96,7 @@ class PersonalSettingsController extends Controller {
         $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
         $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
         $this->userConfig->setUserValue($userId, 'journeys', 'includeSharedImages', $includeSharedImages ? '1' : '0');
+        $this->userConfig->setUserValue($userId, 'journeys', 'mergeAdjacent', $mergeAdjacent ? '1' : '0');
         $this->userConfig->setUserValue($userId, 'journeys', 'rangeFrom', $rangeFrom !== null ? trim((string)$rangeFrom) : '');
         $this->userConfig->setUserValue($userId, 'journeys', 'rangeTo', $rangeTo !== null ? trim((string)$rangeTo) : '');
         // Optional home-aware thresholds
@@ -143,7 +145,7 @@ class PersonalSettingsController extends Controller {
         if ($homeRadiusKm !== null) {
             $this->userConfig->setUserValue($userId, 'journeys', 'homeRadiusKm', (string)(float)$homeRadiusKm);
         }
-        $result = $this->clusteringManager->clusterForUser($userId, $maxTimeGap, $maxDistanceKm, $minClusterSize, $homeAware, $home, null, false, 2, false, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs);
+        $result = $this->clusteringManager->clusterForUser($userId, $maxTimeGap, $maxDistanceKm, $minClusterSize, $homeAware, $home, null, false, 2, false, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs, null, null, $mergeAdjacent);
         if (!empty($result['fetchStats']) && $includeSharedImages && ($result['fetchStats']['shared'] ?? 0) === 0) {
             $result['warning'] = 'No shared images were included. Ensure the shared photos are visible under "Shared with you".';
         }
@@ -174,8 +176,10 @@ class PersonalSettingsController extends Controller {
             $this->userConfig->setUserValue($userId, 'journeys', 'maxDistanceKm', $maxDistanceKm);
             $includeGroupFolders = filter_var($this->request->getParam('includeGroupFolders') ?? false, FILTER_VALIDATE_BOOLEAN);
             $includeSharedImages = filter_var($this->request->getParam('includeSharedImages') ?? false, FILTER_VALIDATE_BOOLEAN);
+            $mergeAdjacent = filter_var($this->request->getParam('mergeAdjacent') ?? true, FILTER_VALIDATE_BOOLEAN);
             $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
             $this->userConfig->setUserValue($userId, 'journeys', 'includeSharedImages', $includeSharedImages ? '1' : '0');
+            $this->userConfig->setUserValue($userId, 'journeys', 'mergeAdjacent', $mergeAdjacent ? '1' : '0');
             $this->userConfig->setUserValue($userId, 'journeys', 'rangeFrom', $rangeFrom !== null ? trim((string)$rangeFrom) : '');
             $this->userConfig->setUserValue($userId, 'journeys', 'rangeTo', $rangeTo !== null ? trim((string)$rangeTo) : '');
             // Optional home-aware thresholds
@@ -258,6 +262,7 @@ class PersonalSettingsController extends Controller {
         $homeName = null;
         $includeGroupFolders = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeGroupFolders', 0));
         $includeSharedImages = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeSharedImages', 0));
+        $mergeAdjacent = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'mergeAdjacent', 1));
         // fallback to combined 'home' JSON if individual keys are not set
         if (($homeLat === null || $homeLat === '') || ($homeLon === null || $homeLon === '')) {
             try {
@@ -302,6 +307,7 @@ class PersonalSettingsController extends Controller {
             'maxDistanceKm' => $maxDistanceKm,
             'includeGroupFolders' => $includeGroupFolders,
             'includeSharedImages' => $includeSharedImages,
+            'mergeAdjacent' => $mergeAdjacent,
             'rangeFrom' => trim($rangeFrom) !== '' ? $rangeFrom : null,
             'rangeTo' => trim($rangeTo) !== '' ? $rangeTo : null,
             'homeAwareEnabled' => $homeAware,
