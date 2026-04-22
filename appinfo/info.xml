@@ -31,6 +31,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.20.3 (2026-04-22)</h3>
+    <ul>
+      <li><b>Video rendering:</b> Extracted shared primitives from portrait and landscape renderers into a new <code>VideoRenderPrimitives</code> trait (~350 LOC duplication removed). No behavior change; both orientations verified end-to-end.</li>
+    </ul>
   <h3>0.20.2 (2026-02-13)</h3>
     <ul>
       <li><b>Cron:</b> Reduced <code>recentCutoffDays</code> from 5 to 2 in the daily clustering job to align with the OCC command default.</li>
@@ -309,7 +313,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.20.2</version>
+  <version>0.20.3</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

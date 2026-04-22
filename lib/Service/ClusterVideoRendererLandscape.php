@@ -5,6 +5,8 @@ use OCP\Files\IRootFolder;
 use Symfony\Component\Process\Process;
 
 class ClusterVideoRendererLandscape {
+    use VideoRenderPrimitives;
+
     private const CHUNK_THRESHOLD_PIXELS = 13_000_000; // 13MP
     private const CHUNK_SIZE = 10;
     public function __construct(
@@ -174,7 +176,7 @@ class ClusterVideoRendererLandscape {
                     'duration' => $finalDuration,
                 ];
             } else {
-                $virtualPath = $this->persistToUserFiles($user, $tmpOut, $preferredFileName);
+                $virtualPath = $this->persistToUserFiles($user, $tmpOut, $preferredFileName, 'Journey-Landscape');
                 $result = [
                     'path' => $virtualPath,
                     'storedInUserFiles' => true,
@@ -470,7 +472,7 @@ class ClusterVideoRendererLandscape {
             ];
         }
 
-        $virtualPath = $this->persistToUserFiles($user, $outputPath, $preferredFileName);
+        $virtualPath = $this->persistToUserFiles($user, $outputPath, $preferredFileName, 'Journey-Landscape');
         return [
             'path' => $virtualPath,
             'storedInUserFiles' => true,
@@ -657,13 +659,6 @@ class ClusterVideoRendererLandscape {
         return $segments;
     }
 
-    private function emitProgress(?callable $outputHandler, string $message): void {
-        if ($outputHandler === null) {
-            return;
-        }
-        $outputHandler(Process::OUT, $message . "\n");
-    }
-
     /**
      * @param array<int,string> $files
      * @return array<int,string>
@@ -678,125 +673,6 @@ class ClusterVideoRendererLandscape {
         }
         return $out;
     }
-
-    /**
-     * @return array{0:int,1:int}
-     */
-    private function safeImageSize(string $path): array {
-        $w = 0; $h = 0;
-        try {
-            $info = @getimagesize($path);
-            if (is_array($info) && isset($info[0], $info[1])) {
-                $w = (int)$info[0];
-                $h = (int)$info[1];
-            }
-        } catch (\Throwable) {}
-        return [$w, $h];
-    }
-
-    /**
-     * Compute oriented dimensions using EXIF Orientation when present (for JPEGs).
-     * @return array{0:int,1:int}
-     */
-    private function orientedImageSize(string $path): array {
-        [$w, $h] = $this->safeImageSize($path);
-        if ($w <= 0 || $h <= 0) { return [$w, $h]; }
-        // Only JPEGs typically have EXIF orientation that matters for rotation
-        $lower = strtolower($path);
-        if (!str_ends_with($lower, '.jpg') && !str_ends_with($lower, '.jpeg')) {
-            return [$w, $h];
-        }
-        try {
-            if (function_exists('exif_read_data')) {
-                $exif = @exif_read_data($path);
-                if (is_array($exif) && isset($exif['Orientation'])) {
-                    $orientation = (int)$exif['Orientation'];
-                    // 5,6,7,8 correspond to 90/270 degree rotations
-                    if (in_array($orientation, [5, 6, 7, 8], true)) {
-                        return [$h, $w];
-                    }
-                }
-            }
-        } catch (\Throwable) {}
-        return [$w, $h];
-    }
-
-    private function buildKenBurnsExpressions(int $index, int $frameCount): array {
-        $zoomStart = 1.0;
-        $zoomEnd = 1.1;
-        $den = max(1, $frameCount - 1);
-        $zoomDelta = ($zoomEnd - $zoomStart) / $den;
-        $z = sprintf("'min(%s,%s+on*%s)'",
-            $this->formatFloat($zoomEnd),
-            $this->formatFloat($zoomStart),
-            $this->formatFloat($zoomDelta),
-        );
-
-        $progress = $den > 0 ? sprintf('(on/%d)', $den) : '0';
-        switch ($index % 4) {
-            case 0:
-                $x = sprintf("'(iw-iw/zoom)*%s'", $progress);
-                $y = "'(ih-ih/zoom)/2'";
-                break;
-            case 1:
-                $x = sprintf("'(iw-iw/zoom)*(1-%s)'", $progress);
-                $y = "'(ih-ih/zoom)/2'";
-                break;
-            case 2:
-                $x = "'(iw-iw/zoom)/2'";
-                $y = sprintf("'(ih-ih/zoom)*%s'", $progress);
-                break;
-            default:
-                $x = "'(iw-iw/zoom)/2'";
-                $y = sprintf("'(ih-ih/zoom)*(1-%s)'", $progress);
-                break;
-        }
-        return ['z' => $z, 'x' => $x, 'y' => $y];
-    }
-
-    private function persistToUserFiles(string $user, string $tmpOut, ?string $preferredFileName): string {
-        $userFolder = $this->rootFolder->getUserFolder($user);
-        try { $docs = $userFolder->get('Documents'); } catch (\Throwable) { $docs = $userFolder->newFolder('Documents'); }
-        try { $movies = $docs->get('Journeys Movies'); } catch (\Throwable) { $movies = $docs->newFolder('Journeys Movies'); }
-
-        $fileName = $this->determineFileName($preferredFileName);
-        // Always append timestamp to ensure unique filename and avoid conflicts
-        $baseName = preg_replace('/\.mp4$/i', '', $fileName);
-        $fileName = $baseName . ' ' . date('Ymd-His') . '.mp4';
-
-        $destFile = $movies->newFile($fileName);
-        $data = @file_get_contents($tmpOut);
-        if ($data === false) { throw new \RuntimeException('Failed to read temporary video output'); }
-        $destFile->putContent($data);
-        return '/Documents/Journeys Movies/' . $fileName;
-    }
-
-    private function determineFileName(?string $preferredFileName): string {
-        $fallback = sprintf('Journey-Landscape-%s.mp4', date('Ymd-His'));
-        if ($preferredFileName === null || trim($preferredFileName) === '') {
-            return $fallback;
-        }
-        $name = $this->sanitizeFileName($preferredFileName);
-        if ($name === '') { return $fallback; }
-        if (!str_ends_with(strtolower($name), '.mp4')) { $name .= '.mp4'; }
-        return $name;
-    }
-
-    private function sanitizeFileName(string $fileName): string {
-        $fileName = str_replace(['\\', '/'], '-', $fileName);
-        $fileName = preg_replace('/[^A-Za-z0-9\.\-_ ]+/', '', $fileName) ?? '';
-        $fileName = trim($fileName);
-        $fileName = preg_replace('/\s+/', ' ', $fileName) ?? $fileName;
-        return $fileName;
-    }
-
-    private function determineOutputHeight(int $width): int {
-        $height = (int) round($width * 9 / 16);
-        return $this->makeEven(max(2, $height));
-    }
-
-    private function makeEven(int $value): int { return ($value % 2 === 0) ? $value : $value + 1; }
-    private function formatFloat(float $v): string { return number_format($v, 6, '.', ''); }
 
     /**
      * Replace landscape images with GCam motion videos when available.
@@ -825,47 +701,6 @@ class ClusterVideoRendererLandscape {
     private function isVideoFile(string $path): bool {
         $lower = strtolower($path);
         return str_ends_with($lower, '.mp4') || str_ends_with($lower, '.mov') || str_ends_with($lower, '.avi');
-    }
-
-    private function isLikelyValidMp4(string $path): bool {
-        if (!is_file($path)) { return false; }
-        $size = @filesize($path);
-        if (!is_int($size) || $size < 10240) { return false; } // at least 10KB
-        $fh = @fopen($path, 'rb');
-        if ($fh === false) { return false; }
-        $head = '';
-        try {
-            $head = @fread($fh, 4096) ?: '';
-        } finally {
-            fclose($fh);
-        }
-        if ($head === '') { return false; }
-        // ftyp must be in the beginning chunk
-        $p = strpos($head, 'ftyp');
-        if ($p === false || $p > 64) { return false; }
-        $brand = substr($head, $p + 4, 8) ?: '';
-        $brandOk = str_contains($brand, 'isom') || str_contains($brand, 'mp42') || str_contains($brand, 'iso5') || str_contains($brand, 'avc1');
-        return $brandOk;
-    }
-
-    private function probeVideoDuration(string $path): float {
-        if ($path === '' || !is_file($path)) {
-            return 0.0;
-        }
-        try {
-            $cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', $path];
-            $proc = new Process($cmd);
-            $proc->setTimeout(5);
-            $proc->run();
-            if ($proc->isSuccessful()) {
-                $out = trim($proc->getOutput());
-                $val = (float) $out;
-                if ($val > 0 && is_finite($val)) {
-                    return $val;
-                }
-            }
-        } catch (\Throwable) {}
-        return 0.0;
     }
 
 }

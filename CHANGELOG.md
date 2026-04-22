@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.3] - 2026-04-22
+### Changed
+- Video rendering: extracted shared primitives from portrait and landscape renderers into a new `VideoRenderPrimitives` trait (~350 LOC duplication removed). No behavior change; both orientations verified end-to-end.
+
 ## [0.20.2] - 2026-02-13
 ### Changed
 - Cron: Reduced `recentCutoffDays` from 5 to 2 in the daily clustering job to align with the OCC command default.
