@@ -240,6 +240,86 @@ class ClusterMergerTest extends TestCase {
         $this->assertNull($events[0]['country_b']);
     }
 
+    public function testTinyNoiseClusterAbsorbedBetweenTwoSameCountryClusters(): void {
+        // Real-world NZ case: 1-image GPS-glitch cluster at Hong Kong coords
+        // sits between two large New Zealand clusters one day apart. With
+        // minClusterSize=7 the noise cluster is below threshold and must be
+        // absorbed so the two legs merge.
+        $nzA = ['-37.0', '174.7'];
+        $hkGlitch = ['22.3', '114.1'];
+        $nzB = ['-39.5', '176.9'];
+        $clusters = [
+            [ $this->img(1, '2024-11-10 12:00:00', $nzA[0], $nzA[1]) ],
+            [ $this->img(2, '2024-11-10 12:40:00', $hkGlitch[0], $hkGlitch[1]) ],
+            [ $this->img(3, '2024-11-10 12:50:00', $nzB[0], $nzB[1]) ],
+        ];
+        $resolver = $this->countryResolver([
+            '-37.0,174.7' => 'New Zealand/Aotearoa',
+            '22.3,114.1' => '中国',
+            '-39.5,176.9' => 'New Zealand/Aotearoa',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver, null, ClusterMerger::MAX_MERGE_GAP_DAYS, 7);
+        $this->assertCount(1, $result, 'all three clusters should merge into one');
+        $this->assertCount(3, $result[0], 'noise image should be preserved, not dropped');
+    }
+
+    public function testNoiseAbsorptionEmitsMergeThroughNoiseEvent(): void {
+        $clusters = [
+            [ $this->img(1, '2024-11-10 12:00:00', '-37.0', '174.7') ],
+            [ $this->img(2, '2024-11-10 12:40:00', '22.3', '114.1') ],
+            [ $this->img(3, '2024-11-10 12:50:00', '-39.5', '176.9') ],
+        ];
+        $resolver = $this->countryResolver([
+            '-37.0,174.7' => 'New Zealand/Aotearoa',
+            '22.3,114.1' => '中国',
+            '-39.5,176.9' => 'New Zealand/Aotearoa',
+        ]);
+        $events = [];
+        $this->merger->mergeAdjacent($clusters, null, $resolver, function(array $ev) use (&$events) {
+            $events[] = $ev;
+        }, ClusterMerger::MAX_MERGE_GAP_DAYS, 7);
+        $mergeEvents = array_values(array_filter($events, fn($e) => $e['type'] === 'merge'));
+        $this->assertCount(1, $mergeEvents);
+        $this->assertSame('same_country_through_noise', $mergeEvents[0]['reason']);
+        $this->assertSame(1, $mergeEvents[0]['noise_size']);
+        $this->assertSame('New Zealand/Aotearoa', $mergeEvents[0]['country']);
+    }
+
+    public function testLargeMiddleClusterIsNotTreatedAsNoise(): void {
+        // When B >= minClusterSize, it's a genuine stopover and must still block
+        // A+C from merging through it.
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-07-02 10:00:00', '52.5', '13.4'),
+              $this->img(3, '2024-07-02 18:00:00', '52.5', '13.4') ],
+            [ $this->img(4, '2024-07-03 10:00:00', '45.7', '4.8') ],
+        ];
+        $resolver = $this->countryResolver([
+            '48.8,2.3' => 'France',
+            '52.5,13.4' => 'Germany',
+            '45.7,4.8' => 'France',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver, null, ClusterMerger::MAX_MERGE_GAP_DAYS, 2);
+        $this->assertCount(3, $result);
+    }
+
+    public function testNoiseAbsorptionRespectsTimeWindow(): void {
+        // Even if middle cluster is tiny, A-end → C-start must still be within
+        // maxMergeGapDays.
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '-37.0', '174.7') ],
+            [ $this->img(2, '2024-07-05 10:00:00', '22.3', '114.1') ],
+            [ $this->img(3, '2024-07-15 10:00:00', '-39.5', '176.9') ], // >7d from A end
+        ];
+        $resolver = $this->countryResolver([
+            '-37.0,174.7' => 'New Zealand',
+            '22.3,114.1' => 'China',
+            '-39.5,176.9' => 'New Zealand',
+        ]);
+        $result = $this->merger->mergeAdjacent($clusters, null, $resolver, null, ClusterMerger::MAX_MERGE_GAP_DAYS, 7);
+        $this->assertCount(3, $result, 'time window must block absorption even across noise');
+    }
+
     public function testMergeDebugCallbackReceivesPayload(): void {
         $clusters = [
             [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],

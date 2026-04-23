@@ -274,6 +274,8 @@ class ClusteringManager {
                 $effectiveHomeAware ? $home : null,
                 $resolveCountry,
                 $effectiveSplitDebug,
+                ClusterMerger::MAX_MERGE_GAP_DAYS,
+                $minClusterSize,
             );
         }
 

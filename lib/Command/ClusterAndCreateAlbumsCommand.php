@@ -384,13 +384,16 @@ class ClusterAndCreateAlbumsCommand extends Command {
                     }
 
                     if ($type === 'merge') {
+                        $reason = isset($ev['reason']) ? (string)$ev['reason'] : '';
                         $gapDays = isset($ev['gap_days']) ? (float)$ev['gap_days'] : 0.0;
                         $distKm = isset($ev['distance_km']) ? (float)$ev['distance_km'] : 0.0;
                         $country = isset($ev['country']) ? (string)$ev['country'] : '';
                         $aEnd = isset($ev['a_end']) && is_array($ev['a_end']) ? $ev['a_end'] : [];
                         $bStart = isset($ev['b_start']) && is_array($ev['b_start']) ? $ev['b_start'] : [];
-                        $output->writeln(sprintf(
-                            "<info>MERGE (same country):</info> country=%s gap=%.2fd dist=%.1fkm sizes=%d+%d aEnd(dt=%s) bStart(dt=%s)",
+                        $label = $reason === 'same_country_through_noise' ? 'MERGE (through noise)' : 'MERGE (same country)';
+                        $line = sprintf(
+                            "<info>%s:</info> country=%s gap=%.2fd dist=%.1fkm sizes=%d+%d aEnd(dt=%s) bStart(dt=%s)",
+                            $label,
                             $country,
                             $gapDays,
                             $distKm,
@@ -398,7 +401,19 @@ class ClusterAndCreateAlbumsCommand extends Command {
                             (int)($ev['cluster_b_size'] ?? 0),
                             (string)($aEnd['datetaken'] ?? ''),
                             (string)($bStart['datetaken'] ?? ''),
-                        ));
+                        );
+                        if ($reason === 'same_country_through_noise' && isset($ev['noise_size'])) {
+                            $noise = isset($ev['noise_start']) && is_array($ev['noise_start']) ? $ev['noise_start'] : [];
+                            $line .= sprintf(
+                                ' noise(size=%d fid=%s dt=%s lat=%s lon=%s)',
+                                (int)$ev['noise_size'],
+                                (string)($noise['fileid'] ?? ''),
+                                (string)($noise['datetaken'] ?? ''),
+                                (string)($noise['lat'] ?? ''),
+                                (string)($noise['lon'] ?? ''),
+                            );
+                        }
+                        $output->writeln($line);
                         return;
                     }
 

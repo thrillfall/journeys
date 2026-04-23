@@ -30,6 +30,13 @@ use Psr\Log\LoggerInterface;
  * clusters split rather than guess.
  *
  * Runs to fixpoint: merging A+B may unlock merging (A+B)+C.
+ *
+ * Noise tolerance: when the direct A+B check fails (typically on country mismatch)
+ * and B is smaller than $minClusterSize, we try A+C. If A and C satisfy the merge
+ * rules, we absorb A+B+C into a single cluster. This handles tiny GPS-noise
+ * clusters (e.g. single photos with a device-default coordinate) sitting between
+ * two legs of the same trip. B gets absorbed rather than dropped — it's part of
+ * the timeline, just geographically nonsense.
  */
 class ClusterMerger {
     public const MAX_MERGE_GAP_DAYS = 7;
@@ -42,8 +49,10 @@ class ClusterMerger {
      * @param Image[][] $clusters Chronological clusters from Clusterer
      * @param array|null $home ['lat', 'lon', 'radiusKm'] or null to skip home-state check
      * @param callable|null $resolveCountry fn(Image[]): ?string — required; null disables merging entirely
-     * @param callable|null $mergeDebug fn(array): void — one event per merge
+     * @param callable|null $mergeDebug fn(array): void — one event per merge/no-merge decision
      * @param int $maxMergeGapDays
+     * @param int $minClusterSize Clusters strictly smaller than this are treated as "noise"
+     *                            and may be absorbed into A+C merges. Default 1 disables this.
      * @return Image[][]
      */
     public function mergeAdjacent(
@@ -52,6 +61,7 @@ class ClusterMerger {
         ?callable $resolveCountry = null,
         ?callable $mergeDebug = null,
         int $maxMergeGapDays = self::MAX_MERGE_GAP_DAYS,
+        int $minClusterSize = 1,
     ): array {
         if (count($clusters) < 2 || $resolveCountry === null) {
             return $clusters;
@@ -77,26 +87,70 @@ class ClusterMerger {
                     $maxGapSec,
                 );
                 if ($decision['merge']) {
-                    if ($mergeDebug !== null) {
-                        try { $mergeDebug($decision['payload']); } catch (\Throwable) {}
-                    }
-                    if ($this->logger !== null) {
-                        try { $this->logger->debug('Journeys clustering: merged adjacent clusters', $decision['payload']); } catch (\Throwable) {}
-                    }
+                    $this->emitMerge($decision['payload'], $mergeDebug);
                     $out[] = array_merge($clusters[$i], $clusters[$i + 1]);
                     $i += 2;
                     $changed = true;
-                } else {
-                    if (isset($decision['payload']) && $mergeDebug !== null) {
-                        try { $mergeDebug($decision['payload']); } catch (\Throwable) {}
-                    }
-                    $out[] = $clusters[$i];
-                    $i++;
+                    continue;
                 }
+
+                // Look-past-noise: if B is tiny and A+C would merge, absorb B.
+                if (
+                    $i + 2 < $n
+                    && count($clusters[$i + 1]) < $minClusterSize
+                    && $this->isCountryRelatedNoMerge($decision)
+                ) {
+                    $acDecision = $this->shouldMerge(
+                        $clusters[$i],
+                        $clusters[$i + 2],
+                        $home,
+                        $resolveCountry,
+                        $maxGapSec,
+                    );
+                    if ($acDecision['merge']) {
+                        $payload = $acDecision['payload'];
+                        $payload['reason'] = 'same_country_through_noise';
+                        $payload['noise_size'] = count($clusters[$i + 1]);
+                        $noiseFirst = $this->firstGeolocated($clusters[$i + 1]);
+                        if ($noiseFirst !== null) {
+                            $payload['noise_start'] = [
+                                'fileid' => $noiseFirst->fileid,
+                                'datetaken' => $noiseFirst->datetaken,
+                                'lat' => $noiseFirst->lat,
+                                'lon' => $noiseFirst->lon,
+                            ];
+                        }
+                        $this->emitMerge($payload, $mergeDebug);
+                        $out[] = array_merge($clusters[$i], $clusters[$i + 1], $clusters[$i + 2]);
+                        $i += 3;
+                        $changed = true;
+                        continue;
+                    }
+                }
+
+                if (isset($decision['payload']) && $mergeDebug !== null) {
+                    try { $mergeDebug($decision['payload']); } catch (\Throwable) {}
+                }
+                $out[] = $clusters[$i];
+                $i++;
             }
             $clusters = $out;
         }
         return $clusters;
+    }
+
+    private function emitMerge(array $payload, ?callable $mergeDebug): void {
+        if ($mergeDebug !== null) {
+            try { $mergeDebug($payload); } catch (\Throwable) {}
+        }
+        if ($this->logger !== null) {
+            try { $this->logger->debug('Journeys clustering: merged adjacent clusters', $payload); } catch (\Throwable) {}
+        }
+    }
+
+    private function isCountryRelatedNoMerge(array $decision): bool {
+        $reason = $decision['payload']['reason'] ?? null;
+        return in_array($reason, ['country_mismatch', 'country_null_a', 'country_null_b', 'country_null_both'], true);
     }
 
     /**

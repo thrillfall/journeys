@@ -32,6 +32,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.22.2 (2026-04-23)</h3>
+    <ul>
+      <li><b>Clustering:</b> Merge pass now absorbs tiny GPS-noise clusters (below <code>minClusterSize</code>) that sit between two same-country clusters, so a bogus single-photo coordinate in the middle of a trip no longer prevents the trip from being stitched. Observed on a New Zealand journey that split around two 1–2 image clusters with device-default Hong Kong coordinates.</li>
+      <li><b>Clustering debug:</b> <code>--debug-splits</code> now prints <code>MERGE (through noise)</code> with the absorbed cluster's size, fileid, datetime, and coordinates.</li>
+    </ul>
   <h3>0.22.1 (2026-04-23)</h3>
     <ul>
       <li><b>Clustering debug:</b> <code>--debug-splits</code> now prints <code>NO MERGE</code> events when the merge pass rejects a pair on country grounds (null on either side, or name mismatch), including resolved country strings, image coordinates, and fileids. Helps diagnose cases where adjacent clusters in the same country are not being stitched.</li>
@@ -328,7 +333,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.22.1</version>
+  <version>0.22.2</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

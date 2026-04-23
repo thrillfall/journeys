@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.2] - 2026-04-23
+### Changed
+- Clustering: merge pass now absorbs tiny GPS-noise clusters (below `minClusterSize`) that sit between two same-country clusters. Fixes cases where a single-photo cluster with a device-default coordinate (e.g. a spurious Hong Kong fix during a New Zealand trip) blocked adjacent legs from being stitched together. The noise image is preserved in the merged cluster, not dropped.
+- Clustering debug: `--debug-splits` now prints `MERGE (through noise)` events with the absorbed cluster's size, fileid, datetime, and coordinates.
+
 ## [0.22.1] - 2026-04-23
 ### Changed
 - Clustering debug: `--debug-splits` now emits `NO MERGE` events when the merge pass rejects a pair on country grounds (null country on either side, or name mismatch). Includes resolved country strings, image coordinates, and fileids for the cluster boundary. Helps diagnose cases where adjacent clusters in the same country are not being stitched (e.g. Memories Places index missing admin_level=2 for a coastal area).
