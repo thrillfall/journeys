@@ -32,6 +32,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.22.0 (2026-04-23)</h3>
+    <ul>
+      <li><b>Compatibility:</b> Declare support for Nextcloud 33 (<code>max-version</code> bumped from 32 to 33).</li>
+    </ul>
   <h3>0.21.0 (2026-04-22)</h3>
     <ul>
       <li><b>Clustering:</b> New post-clustering merge pass stitches adjacent clusters in the same country within 7 days, fixing over-splitting of multi-city road trips and long vacations with rest days. Away-from-home only; near-home clusters never merge.</li>
@@ -320,14 +324,14 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.21.0</version>
+  <version>0.22.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
   <screenshot>https://raw.githubusercontent.com/thrillfall/journeys/main/appinfo/journeys.png</screenshot>
   <bugs>https://github.com/thrillfall/journeys/issues</bugs>
   <dependencies>
-    <nextcloud min-version="30" max-version="32"/>
+    <nextcloud min-version="30" max-version="33"/>
   </dependencies>
   <bootstrap>OCA\Journeys\AppInfo\Application</bootstrap>
   <commands>

@@ -10,7 +10,7 @@ Hard dependencies on other Nextcloud apps:
 - **Memories** — this app does not scan the filesystem. It reads photo rows (id, path, datetaken, lat, lon) from the Memories index table (`oc_memories`), so the set of clusterable photos is whatever Memories has indexed.
 - **Photos** — albums are created through `OCA\Photos\Album\AlbumMapper`. Only `fileid` is used to add photos (mount-agnostic), not paths.
 
-Supported Nextcloud: `30–32`. PHP `>=8.0`.
+Supported Nextcloud: `30–33`. PHP `>=8.0`.
 
 ## Commands
 

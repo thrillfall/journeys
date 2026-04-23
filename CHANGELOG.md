@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.0] - 2026-04-23
+### Changed
+- Compatibility: declare support for Nextcloud 33 (`max-version` bumped from 32 to 33). Verified clean of APIs removed in NC 33 (`IJob::execute`, `IQueryBuilder::execute`, `Files::buildNotExistingFileName`, legacy Search provider classes).
+
 ## [0.21.0] - 2026-04-22
 ### Added
 - Clustering: new post-clustering merge pass that stitches adjacent clusters in the same country within 7 days, fixing over-splitting of multi-city road trips and long vacations with photo-less rest days. Away-from-home clusters only; near-home clusters never merge.
