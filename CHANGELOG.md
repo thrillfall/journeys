@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.1] - 2026-04-23
+### Changed
+- Clustering debug: `--debug-splits` now emits `NO MERGE` events when the merge pass rejects a pair on country grounds (null country on either side, or name mismatch). Includes resolved country strings, image coordinates, and fileids for the cluster boundary. Helps diagnose cases where adjacent clusters in the same country are not being stitched (e.g. Memories Places index missing admin_level=2 for a coastal area).
+
 ## [0.22.0] - 2026-04-23
 ### Changed
 - Compatibility: declare support for Nextcloud 33 (`max-version` bumped from 32 to 33). Verified clean of APIs removed in NC 33 (`IJob::execute`, `IQueryBuilder::execute`, `Files::buildNotExistingFileName`, legacy Search provider classes).

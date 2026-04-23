@@ -198,6 +198,48 @@ class ClusterMergerTest extends TestCase {
         $this->assertCount(2, $result);
     }
 
+    public function testCountryMismatchEmitsNoMergeEvent(): void {
+        $clusters = [
+            [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],
+            [ $this->img(2, '2024-07-02 10:00:00', '35.7', '139.7') ],
+        ];
+        $resolver = $this->countryResolver([
+            '48.8,2.3' => 'France',
+            '35.7,139.7' => 'Japan',
+        ]);
+        $events = [];
+        $this->merger->mergeAdjacent($clusters, null, $resolver, function(array $ev) use (&$events) {
+            $events[] = $ev;
+        });
+        $this->assertCount(1, $events);
+        $this->assertSame('no_merge', $events[0]['type']);
+        $this->assertSame('country_mismatch', $events[0]['reason']);
+        $this->assertSame('France', $events[0]['country_a']);
+        $this->assertSame('Japan', $events[0]['country_b']);
+    }
+
+    public function testCountryNullOnOneSideEmitsNoMergeEvent(): void {
+        // Mirrors the real-world Napier issue: middle cluster's country resolves to null
+        // while its neighbors resolve to the same country.
+        $clusters = [
+            [ $this->img(1, '2024-11-09 10:00:00', '-36.8', '174.7') ],
+            [ $this->img(2, '2024-11-10 10:00:00', '-39.5', '176.9') ],
+        ];
+        $resolver = $this->countryResolver([
+            '-36.8,174.7' => 'New Zealand',
+            // '-39.5,176.9' intentionally unmapped → resolver returns null
+        ]);
+        $events = [];
+        $this->merger->mergeAdjacent($clusters, null, $resolver, function(array $ev) use (&$events) {
+            $events[] = $ev;
+        });
+        $this->assertCount(1, $events);
+        $this->assertSame('no_merge', $events[0]['type']);
+        $this->assertSame('country_null_b', $events[0]['reason']);
+        $this->assertSame('New Zealand', $events[0]['country_a']);
+        $this->assertNull($events[0]['country_b']);
+    }
+
     public function testMergeDebugCallbackReceivesPayload(): void {
         $clusters = [
             [ $this->img(1, '2024-07-01 10:00:00', '48.8', '2.3') ],

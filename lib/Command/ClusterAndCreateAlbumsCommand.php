@@ -402,6 +402,35 @@ class ClusterAndCreateAlbumsCommand extends Command {
                         return;
                     }
 
+                    if ($type === 'no_merge') {
+                        $reason = isset($ev['reason']) ? (string)$ev['reason'] : '';
+                        $gapDays = isset($ev['gap_days']) ? (float)$ev['gap_days'] : 0.0;
+                        $distKm = isset($ev['distance_km']) ? (float)$ev['distance_km'] : 0.0;
+                        $countryA = array_key_exists('country_a', $ev) ? $ev['country_a'] : null;
+                        $countryB = array_key_exists('country_b', $ev) ? $ev['country_b'] : null;
+                        $aEnd = isset($ev['a_end']) && is_array($ev['a_end']) ? $ev['a_end'] : [];
+                        $bStart = isset($ev['b_start']) && is_array($ev['b_start']) ? $ev['b_start'] : [];
+                        $output->writeln(sprintf(
+                            "<comment>NO MERGE (%s):</comment> countryA=%s countryB=%s gap=%.2fd dist=%.1fkm sizes=%d+%d aEnd(fid=%s dt=%s lat=%s lon=%s) bStart(fid=%s dt=%s lat=%s lon=%s)",
+                            $reason,
+                            $countryA === null ? 'null' : (string)$countryA,
+                            $countryB === null ? 'null' : (string)$countryB,
+                            $gapDays,
+                            $distKm,
+                            (int)($ev['cluster_a_size'] ?? 0),
+                            (int)($ev['cluster_b_size'] ?? 0),
+                            (string)($aEnd['fileid'] ?? ''),
+                            (string)($aEnd['datetaken'] ?? ''),
+                            (string)($aEnd['lat'] ?? ''),
+                            (string)($aEnd['lon'] ?? ''),
+                            (string)($bStart['fileid'] ?? ''),
+                            (string)($bStart['datetaken'] ?? ''),
+                            (string)($bStart['lat'] ?? ''),
+                            (string)($bStart['lon'] ?? ''),
+                        ));
+                        return;
+                    }
+
                     if ($type === 'home_boundary') {
                         $prevNear = !empty($ev['prev_near']);
                         $currNear = !empty($ev['curr_near']);

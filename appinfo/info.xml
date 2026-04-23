@@ -32,6 +32,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.22.1 (2026-04-23)</h3>
+    <ul>
+      <li><b>Clustering debug:</b> <code>--debug-splits</code> now prints <code>NO MERGE</code> events when the merge pass rejects a pair on country grounds (null on either side, or name mismatch), including resolved country strings, image coordinates, and fileids. Helps diagnose cases where adjacent clusters in the same country are not being stitched.</li>
+    </ul>
   <h3>0.22.0 (2026-04-23)</h3>
     <ul>
       <li><b>Compatibility:</b> Declare support for Nextcloud 33 (<code>max-version</code> bumped from 32 to 33).</li>
@@ -324,7 +328,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.22.0</version>
+  <version>0.22.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

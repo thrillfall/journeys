@@ -87,6 +87,9 @@ class ClusterMerger {
                     $i += 2;
                     $changed = true;
                 } else {
+                    if (isset($decision['payload']) && $mergeDebug !== null) {
+                        try { $mergeDebug($decision['payload']); } catch (\Throwable) {}
+                    }
                     $out[] = $clusters[$i];
                     $i++;
                 }
@@ -133,7 +136,32 @@ class ClusterMerger {
         $countryA = $resolveCountry($a);
         $countryB = $resolveCountry($b);
         if ($countryA === null || $countryB === null || $countryA !== $countryB) {
-            return ['merge' => false];
+            $reason = $countryA === null && $countryB === null ? 'country_null_both'
+                : ($countryA === null ? 'country_null_a'
+                : ($countryB === null ? 'country_null_b' : 'country_mismatch'));
+            return ['merge' => false, 'payload' => [
+                'type' => 'no_merge',
+                'reason' => $reason,
+                'gap_seconds' => $gapSec,
+                'gap_days' => round($gapSec / 86400, 2),
+                'distance_km' => round($this->haversine($aLast->lat, $aLast->lon, $bFirst->lat, $bFirst->lon), 2),
+                'country_a' => $countryA,
+                'country_b' => $countryB,
+                'cluster_a_size' => count($a),
+                'cluster_b_size' => count($b),
+                'a_end' => [
+                    'fileid' => $aLast->fileid,
+                    'datetaken' => $aLast->datetaken,
+                    'lat' => $aLast->lat,
+                    'lon' => $aLast->lon,
+                ],
+                'b_start' => [
+                    'fileid' => $bFirst->fileid,
+                    'datetaken' => $bFirst->datetaken,
+                    'lat' => $bFirst->lat,
+                    'lon' => $bFirst->lon,
+                ],
+            ]];
         }
 
         $distanceKm = $this->haversine($aLast->lat, $aLast->lon, $bFirst->lat, $bFirst->lon);
