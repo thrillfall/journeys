@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.3] - 2026-04-25
+### Changed
+- Video rendering: per-cluster image cap now scales with trip length so multi-week journeys produce longer recap videos. The previous fixed default of 80 images stays in effect for trips up to a week, then climbs by 4 images per extra day up to an absolute cap of 120 (≈3:30 at the default 2.5 s per image). The `--max-images` CLI flag still acts as an explicit override.
+
 ## [0.22.2] - 2026-04-23
 ### Changed
 - Clustering: merge pass now absorbs tiny GPS-noise clusters (below `minClusterSize`) that sit between two same-country clusters. Fixes cases where a single-photo cluster with a device-default coordinate (e.g. a spurious Hong Kong fix during a New Zealand trip) blocked adjacent legs from being stitched together. The noise image is preserved in the merged cluster, not dropped.

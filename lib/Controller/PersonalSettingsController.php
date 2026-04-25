@@ -425,7 +425,7 @@ class PersonalSettingsController extends Controller {
         $duration = (float)($this->request->getParam('durationSeconds') ?? 2.5);
         $width = (int)($this->request->getParam('width') ?? 1920);
         $fps = (int)($this->request->getParam('fps') ?? 30);
-        $maxImages = (int)($this->request->getParam('maxImages') ?? 80);
+        $maxImages = (int)($this->request->getParam('maxImages') ?? 120);
 
         try {
             $result = $this->clusterVideoJobRunner->renderForAlbum(
@@ -435,7 +435,7 @@ class PersonalSettingsController extends Controller {
                 $duration,
                 $width,
                 $fps,
-                $maxImages > 0 ? $maxImages : 80,
+                $maxImages > 0 ? $maxImages : 120,
                 null,
                 null,
                 (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeMotionFromGCam', 1)),
@@ -493,7 +493,7 @@ class PersonalSettingsController extends Controller {
         $duration = (float)($this->request->getParam('durationSeconds') ?? 2.5);
         $width = (int)($this->request->getParam('width') ?? 1920);
         $fps = (int)($this->request->getParam('fps') ?? 30);
-        $maxImages = (int)($this->request->getParam('maxImages') ?? 80);
+        $maxImages = (int)($this->request->getParam('maxImages') ?? 120);
 
         try {
             $result = $this->clusterVideoJobRunner->renderForAlbumLandscape(
@@ -503,7 +503,7 @@ class PersonalSettingsController extends Controller {
                 $duration,
                 $width,
                 $fps,
-                $maxImages > 0 ? $maxImages : 80,
+                $maxImages > 0 ? $maxImages : 120,
             );
         } catch (NoImagesFoundException $e) {
             return new JSONResponse(['error' => $e->getMessage()], 404);

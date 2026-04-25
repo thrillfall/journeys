@@ -104,10 +104,16 @@ class ClusterVideoImageProvider {
             ? $boostFacesOverride
             : (bool)((int)$this->config->getUserValue($user, 'journeys', 'boostFaces', 1));
         $preferredOrientation = $this->resolvePreferredOrientation($user);
-        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $maxImages, $boostFaces, $preferredOrientation);
 
         $clusterStart = $this->createDateTimeImmutable($wanted[0]->datetaken ?? null);
         $clusterEnd = $this->createDateTimeImmutable($wanted[count($wanted) - 1]->datetaken ?? null);
+
+        // Scale image cap by trip duration so a 3-week journey gets a longer
+        // recap than a weekend (still bounded so the video stays under ~5 min
+        // at 2.5 s per image). $maxImages is the absolute upper bound — an
+        // explicit --max-images on the CLI can still pin it lower.
+        $effectiveMax = self::scaleMaxImagesByDaySpan($maxImages, $clusterStart, $clusterEnd);
+        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $effectiveMax, $boostFaces, $preferredOrientation);
 
         // Lookup metadata from tracked clusters by album id
         $tracked = $this->albumCreator->getTrackedClusters($user);
@@ -276,5 +282,21 @@ class ClusterVideoImageProvider {
 
     private function intervalsOverlap(int $aStart, int $aEnd, int $bStart, int $bEnd): bool {
         return !($aEnd < $bStart || $bEnd < $aStart);
+    }
+
+    /**
+     * Pick the per-cluster image cap based on how many days the trip spanned.
+     * Stays at the previous default of 80 for trips up to a week so short trips
+     * are unchanged, then climbs by 4 images per extra day until the absolute
+     * cap is reached (120 keeps the video at ~5 min with the default 2.5 s per
+     * image).
+     */
+    public static function scaleMaxImagesByDaySpan(int $absoluteMax, DateTimeImmutable $start, DateTimeImmutable $end): int {
+        $absoluteMax = max(1, $absoluteMax);
+        $base = min(80, $absoluteMax);
+        $deltaSeconds = $end->getTimestamp() - $start->getTimestamp();
+        $daySpan = max(1, (int)floor($deltaSeconds / 86400) + 1);
+        $extraDays = max(0, $daySpan - 7);
+        return min($absoluteMax, $base + $extraDays * 4);
     }
 }

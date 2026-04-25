@@ -37,7 +37,7 @@ class RenderClusterVideoCommand extends Command {
             ->addOption('duration-seconds', null, InputOption::VALUE_REQUIRED, 'Per-image duration (seconds)', 2.5)
             ->addOption('width', null, InputOption::VALUE_REQUIRED, 'Output width (height auto, maintains aspect)', 1920)
             ->addOption('fps', null, InputOption::VALUE_REQUIRED, 'Output frames per second', 30)
-            ->addOption('max-images', null, InputOption::VALUE_REQUIRED, 'Maximum number of images to include (faster render)', 80)
+            ->addOption('max-images', null, InputOption::VALUE_REQUIRED, 'Absolute cap on images included; the per-cluster target scales from 80 (≤7-day trips) up to this cap based on trip length', 120)
             ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output mp4 path (absolute inside server)')
             ->addOption('no-motion', null, InputOption::VALUE_NONE, 'Disable inclusion of GCam Motion Photos')
             ->addOption('no-title', null, InputOption::VALUE_NONE, 'Disable cluster name title overlay (enabled by default)')
@@ -61,7 +61,7 @@ class RenderClusterVideoCommand extends Command {
         $outputOption = $input->getOption('output');
         $outPath = is_string($outputOption) && $outputOption !== '' ? $outputOption : null;
         $maxImagesOption = (int)$input->getOption('max-images');
-        $maxImages = $maxImagesOption > 0 ? $maxImagesOption : 80;
+        $maxImages = $maxImagesOption > 0 ? $maxImagesOption : 120;
         $includeMotion = !(bool)$input->getOption('no-motion');
         $verbose = (bool)$input->getOption('ffmpeg-verbose');
 
