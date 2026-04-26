@@ -7,30 +7,32 @@ use OCP\IRequest;
 use OCP\IUserSession;
 use OCP\IConfig;
 
-use OCA\Journeys\Exception\ClusterNotFoundException;
-use OCA\Journeys\Exception\NoImagesFoundException;
 use OCA\Journeys\Service\AlbumCreator;
-use OCA\Journeys\Service\ClusterVideoJobRunner;
+use OCA\Journeys\Service\RenderedVideoLister;
+use OCA\Journeys\Service\VideoRenderJobScheduler;
 
 class PersonalSettingsController extends Controller {
     private $userSession;
     private $clusteringManager;
     private $userConfig;
     private AlbumCreator $albumCreator;
-    private ClusterVideoJobRunner $clusterVideoJobRunner;
+    private VideoRenderJobScheduler $videoRenderJobScheduler;
+    private RenderedVideoLister $renderedVideoLister;
 
-    public function __construct($appName, IRequest $request, IUserSession $userSession, 
+    public function __construct($appName, IRequest $request, IUserSession $userSession,
         \OCA\Journeys\Service\ClusteringManager $clusteringManager,
         IConfig $userConfig,
         AlbumCreator $albumCreator,
-        ClusterVideoJobRunner $clusterVideoJobRunner,
+        VideoRenderJobScheduler $videoRenderJobScheduler,
+        RenderedVideoLister $renderedVideoLister,
     ) {
         parent::__construct($appName, $request);
         $this->userSession = $userSession;
         $this->clusteringManager = $clusteringManager;
-        $this->userConfig = $userConfig; // Now using IConfig
+        $this->userConfig = $userConfig;
         $this->albumCreator = $albumCreator;
-        $this->clusterVideoJobRunner = $clusterVideoJobRunner;
+        $this->videoRenderJobScheduler = $videoRenderJobScheduler;
+        $this->renderedVideoLister = $renderedVideoLister;
     }
 
     /**
@@ -362,10 +364,24 @@ class PersonalSettingsController extends Controller {
             return (int)($b['album_id'] ?? 0) <=> (int)($a['album_id'] ?? 0);
         });
 
-        $clusters = array_map(function (array $cluster) use ($userId) {
+        // Sorted newest-first by RenderedVideoLister, so the first match per cluster is the latest.
+        $renderedVideos = $this->renderedVideoLister->listForUser($userId);
+
+        $clusters = array_map(function (array $cluster) use ($userId, $renderedVideos) {
             $imageCount = 0;
             if (!empty($cluster['album_id'])) {
                 $imageCount = count($this->albumCreator->getAlbumFileIdsForUser($userId, (int)$cluster['album_id']));
+            }
+
+            $needle = $this->buildVideoNameNeedle((string)($cluster['name'] ?? ''));
+            $matchedVideo = null;
+            if ($needle !== '') {
+                foreach ($renderedVideos as $video) {
+                    if (str_contains(strtolower((string)$video['name']), $needle)) {
+                        $matchedVideo = $video;
+                        break;
+                    }
+                }
             }
 
             return [
@@ -377,6 +393,9 @@ class PersonalSettingsController extends Controller {
                     'start' => $cluster['start_dt'],
                     'end' => $cluster['end_dt'],
                 ],
+                'hasVideo' => $matchedVideo !== null,
+                'videoFileId' => $matchedVideo !== null ? (int)$matchedVideo['fileId'] : null,
+                'videoName' => $matchedVideo !== null ? (string)$matchedVideo['name'] : null,
             ];
         }, $tracked);
 
@@ -405,67 +424,7 @@ class PersonalSettingsController extends Controller {
      * @NoCSRFRequired
      */
     public function renderClusterVideo(): JSONResponse {
-        $user = $this->userSession->getUser();
-        if (!$user) {
-            return new JSONResponse(['error' => 'No user'], 401);
-        }
-
-        $albumIdParam = $this->request->getParam('albumId');
-        if ($albumIdParam === null || $albumIdParam === '') {
-            return new JSONResponse(['error' => 'Missing albumId'], 400);
-        }
-
-        $albumId = (int)$albumIdParam;
-        if ($albumId <= 0) {
-            return new JSONResponse(['error' => 'Invalid albumId'], 400);
-        }
-
-        $userId = $user->getUID();
-        $minGap = max(0, (int)($this->request->getParam('minGapSeconds') ?? 5));
-        $duration = (float)($this->request->getParam('durationSeconds') ?? 2.5);
-        $width = (int)($this->request->getParam('width') ?? 1920);
-        $fps = (int)($this->request->getParam('fps') ?? 30);
-        $maxImages = (int)($this->request->getParam('maxImages') ?? 120);
-
-        try {
-            $result = $this->clusterVideoJobRunner->renderForAlbum(
-                $userId,
-                $albumId,
-                $minGap,
-                $duration,
-                $width,
-                $fps,
-                $maxImages > 0 ? $maxImages : 120,
-                null,
-                null,
-                (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeMotionFromGCam', 1)),
-            );
-        } catch (NoImagesFoundException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 404);
-        } catch (ClusterNotFoundException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 404);
-        } catch (\Throwable $e) {
-            $detail = $e->getMessage();
-            if ($this->isFfmpegMissingError($detail)) {
-                return new JSONResponse([
-                    'error' => 'Video rendering is unavailable because ffmpeg is not installed on the server. Please ask your administrator to install ffmpeg and try again.',
-                    'detail' => $detail,
-                ], 500);
-            }
-
-            return new JSONResponse([
-                'error' => 'Failed to render video',
-                'detail' => $detail,
-            ], 500);
-        }
-
-        return new JSONResponse([
-            'success' => true,
-            'path' => $result['path'],
-            'storedInUserFiles' => $result['storedInUserFiles'],
-            'imageCount' => $result['imageCount'],
-            'clusterName' => $result['clusterName'],
-        ]);
+        return $this->enqueueRender('portrait');
     }
 
     /**
@@ -473,6 +432,24 @@ class PersonalSettingsController extends Controller {
      * @NoCSRFRequired
      */
     public function renderClusterVideoLandscape(): JSONResponse {
+        return $this->enqueueRender('landscape');
+    }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    public function listRenderedVideos(): JSONResponse {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new JSONResponse(['error' => 'No user'], 401);
+        }
+        return new JSONResponse([
+            'videos' => $this->renderedVideoLister->listForUser($user->getUID()),
+        ]);
+    }
+
+    private function enqueueRender(string $orientation): JSONResponse {
         $user = $this->userSession->getUser();
         if (!$user) {
             return new JSONResponse(['error' => 'No user'], 401);
@@ -489,64 +466,28 @@ class PersonalSettingsController extends Controller {
         }
 
         $userId = $user->getUID();
-        $minGap = max(0, (int)($this->request->getParam('minGapSeconds') ?? 5));
-        $duration = (float)($this->request->getParam('durationSeconds') ?? 2.5);
-        $width = (int)($this->request->getParam('width') ?? 1920);
-        $fps = (int)($this->request->getParam('fps') ?? 30);
-        $maxImages = (int)($this->request->getParam('maxImages') ?? 120);
 
-        try {
-            $result = $this->clusterVideoJobRunner->renderForAlbumLandscape(
-                $userId,
-                $albumId,
-                $minGap,
-                $duration,
-                $width,
-                $fps,
-                $maxImages > 0 ? $maxImages : 120,
-            );
-        } catch (NoImagesFoundException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 404);
-        } catch (ClusterNotFoundException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 404);
-        } catch (\Throwable $e) {
-            $detail = $e->getMessage();
-            if ($this->isFfmpegMissingError($detail)) {
-                return new JSONResponse([
-                    'error' => 'Video rendering is unavailable because ffmpeg is not installed on the server. Please ask your administrator to install ffmpeg and try again.',
-                    'detail' => $detail,
-                ], 500);
-            }
-
-            return new JSONResponse([
-                'error' => 'Failed to render video',
-                'detail' => $detail,
-            ], 500);
+        $fileIds = $this->albumCreator->getAlbumFileIdsForUser($userId, $albumId);
+        if (empty($fileIds)) {
+            return new JSONResponse(['error' => 'Album not found or empty'], 404);
         }
+
+        $this->videoRenderJobScheduler->enqueue($userId, $albumId, $orientation);
 
         return new JSONResponse([
             'success' => true,
-            'path' => $result['path'],
-            'storedInUserFiles' => $result['storedInUserFiles'],
-            'imageCount' => $result['imageCount'],
-            'clusterName' => $result['clusterName'],
+            'queued' => true,
+            'albumId' => $albumId,
+            'orientation' => $orientation,
         ]);
     }
 
-    private function isFfmpegMissingError(string $message): bool {
-        $normalized = strtolower($message);
-        if (str_contains($normalized, 'ffmpeg failed') && str_contains($normalized, 'not found')) {
-            return true;
-        }
-
-        if (str_contains($normalized, 'ffmpeg') && str_contains($normalized, 'no such file or directory')) {
-            return true;
-        }
-
-        if (str_contains($normalized, 'unable to find') && str_contains($normalized, 'ffmpeg')) {
-            return true;
-        }
-
-        return false;
+    private function buildVideoNameNeedle(string $clusterName): string {
+        // Mirror VideoRenderPrimitives::sanitizeFileName() so the cluster name we
+        // search for matches what was actually written to disk.
+        $name = str_replace(['\\', '/'], '-', $clusterName);
+        $name = preg_replace('/[^A-Za-z0-9\.\-_ ]+/', '', $name) ?? '';
+        $name = preg_replace('/\s+/', ' ', $name) ?? $name;
+        return strtolower(trim($name));
     }
 }

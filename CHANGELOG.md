@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.0] - 2026-04-26
+### Added
+- Settings: filter toolbar above the journeys list — year, month, and free-text location/name search with a result counter and a "Clear" reset, so instances with many journeys stay manageable.
+- Settings: new "Rendered videos" section lists every `.mp4` in `Documents/Journeys Movies/` (mtime, size, "Open in Files" deep link).
+- Settings: per-journey `▶ Watch` badge appears when a rendered video exists for the cluster and links straight to the file in the Files app.
+- Backend: new `GET /personal_settings/rendered_videos` endpoint backed by a `RenderedVideoLister` service; `listClusters` now returns `hasVideo`, `videoFileId`, `videoName` per cluster.
+
+### Changed
+- Settings UI: rebuilt the journeys list as a compact, mobile-friendly card grid (replacing the previous HTML tables). Each card shows name, dates, photo count and place on a single line; render buttons sit side-by-side and stay legible at narrow widths.
+- Settings: render endpoints (`render_cluster_video`, `render_cluster_video_landscape`) now enqueue a `RenderClusterVideoJob` instead of running ffmpeg synchronously inside the HTTP request. The page returns instantly, the user no longer has to keep the tab open through a multi-minute render, and behavior matches the existing daily-cron auto-render path.
+- Settings: render-button labels shortened to `Portrait` / `Landscape` so cards stay compact; the full action ("Re-render landscape video", etc.) lives in the button's title tooltip.
+
 ## [0.22.4] - 2026-04-26
 ### Fixed
 - Video rendering: cap ffmpeg's decoder, filter, and encoder thread pools to 2 each (`-threads 2 -filter_threads 2 -filter_complex_threads 2`) to bound peak memory in `zoompan`/`xfade` filter graphs. With ffmpeg's default of `nproc`, concurrent full-resolution frame buffers had OOM-killed or frozen multi-core servers rendering large albums.

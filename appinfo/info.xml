@@ -14,7 +14,8 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗺️ Location & Time Clustering:** Group images by when and where they were taken
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
-- **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels (requires `ffmpeg` on the server)
+- **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels. Renders run as background jobs (the settings page returns instantly) and land in `Documents/Journeys Movies/`. Requires `ffmpeg` on the server.
+- **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters plus a `▶ Watch` shortcut to existing rendered videos — built for instances with many journeys.
 - **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
 
 ## 🚀 OCC Command Usage
@@ -32,6 +33,14 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.23.0 (2026-04-26)</h3>
+    <ul>
+      <li><b>Settings:</b> Redesigned the journeys list as a compact, mobile-friendly card grid. Each card shows dates, photo count and place inline; the previous HTML tables are gone.</li>
+      <li><b>Settings:</b> New filter toolbar above the journeys list — year, month, and free-text location/name search with a result counter, for managing instances with many journeys.</li>
+      <li><b>Settings:</b> New "Rendered videos" section lists every <code>.mp4</code> in <code>Documents/Journeys Movies/</code> with mtime and size, plus an "Open in Files" link.</li>
+      <li><b>Settings:</b> Per-journey <code>▶ Watch</code> badge appears when a rendered video exists for that cluster and links straight to it in the Files app.</li>
+      <li><b>Video rendering:</b> Triggering a render from the settings page now enqueues a <code>RenderClusterVideoJob</code> instead of running ffmpeg synchronously inside the HTTP request, so the page returns instantly and you no longer have to keep the tab open through a multi-minute render.</li>
+    </ul>
   <h3>0.22.4 (2026-04-26)</h3>
     <ul>
       <li><b>Video rendering:</b> Cap ffmpeg's decoder, filter, and encoder thread pools to 2 each (<code>-threads 2 -filter_threads 2 -filter_complex_threads 2</code>) to bound peak memory in <code>zoompan</code>/<code>xfade</code> filter graphs. Without this, ffmpeg defaults to <code>nproc</code> and concurrent full-resolution frame buffers had OOM-killed or frozen multi-core servers rendering large albums.</li>
@@ -341,7 +350,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.22.4</version>
+  <version>0.23.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
