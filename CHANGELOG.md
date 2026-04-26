@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.22.4] - 2026-04-26
+### Fixed
+- Video rendering: cap ffmpeg's decoder, filter, and encoder thread pools to 2 each (`-threads 2 -filter_threads 2 -filter_complex_threads 2`) to bound peak memory in `zoompan`/`xfade` filter graphs. With ffmpeg's default of `nproc`, concurrent full-resolution frame buffers had OOM-killed or frozen multi-core servers rendering large albums.
+
 ## [0.22.3] - 2026-04-25
 ### Changed
 - Video rendering: per-cluster image cap now scales with trip length so multi-week journeys produce longer recap videos. The previous fixed default of 80 images stays in effect for trips up to a week, then climbs by 4 images per extra day up to an absolute cap of 120 (≈3:30 at the default 2.5 s per image). The `--max-images` CLI flag still acts as an explicit override.

@@ -32,6 +32,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.22.4 (2026-04-26)</h3>
+    <ul>
+      <li><b>Video rendering:</b> Cap ffmpeg's decoder, filter, and encoder thread pools to 2 each (<code>-threads 2 -filter_threads 2 -filter_complex_threads 2</code>) to bound peak memory in <code>zoompan</code>/<code>xfade</code> filter graphs. Without this, ffmpeg defaults to <code>nproc</code> and concurrent full-resolution frame buffers had OOM-killed or frozen multi-core servers rendering large albums.</li>
+    </ul>
   <h3>0.22.3 (2026-04-25)</h3>
     <ul>
       <li><b>Video rendering:</b> Per-cluster image cap now scales with trip length so multi-week journeys produce longer recap videos. The previous fixed default of 80 images stays in effect for trips up to a week, then climbs by 4 per extra day up to an absolute cap of 120 (≈3:30 at the default 2.5 s per image). <code>--max-images</code> still acts as an explicit override.</li>
@@ -337,7 +341,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.22.3</version>
+  <version>0.22.4</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

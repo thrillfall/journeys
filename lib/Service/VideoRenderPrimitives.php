@@ -21,6 +21,23 @@ trait VideoRenderPrimitives {
         return ($value % 2 === 0) ? $value : $value + 1;
     }
 
+    /**
+     * Standard ffmpeg command prefix. Caps decoder, filter, and encoder
+     * threads to 2 each — left at ffmpeg's default of nproc, concurrent
+     * full-resolution frame buffers in zoompan/xfade graphs have OOM-killed
+     * or frozen the host on multi-core servers.
+     *
+     * @return array<int,string>
+     */
+    private function ffmpegBaseCmd(string $logLevel): array {
+        return [
+            'ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel,
+            '-threads', '2',
+            '-filter_threads', '2',
+            '-filter_complex_threads', '2',
+        ];
+    }
+
     private function formatFloat(float $value): string {
         return number_format($value, 6, '.', '');
     }

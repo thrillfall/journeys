@@ -146,7 +146,7 @@ class ClusterVideoRenderer {
             : max(0.1, $holdDuration * $segmentCount + $transitionDuration);
 
         $logLevel = $verbose ? 'info' : 'error';
-        $cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel];
+        $cmd = $this->ffmpegBaseCmd($logLevel);
         if (!$verbose) {
             $cmd[] = '-nostats';
         }
@@ -416,8 +416,7 @@ class ClusterVideoRenderer {
     ): array {
         $offset = max(0.0, $left['duration'] - $transitionDuration);
         $logLevel = $verbose ? 'info' : 'error';
-        $cmd = [
-            'ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel,
+        $cmd = array_merge($this->ffmpegBaseCmd($logLevel), [
             '-i', $left['path'],
             '-i', $right['path'],
             '-filter_complex', sprintf('[0:v][1:v]xfade=transition=fade:duration=%s:offset=%s[vout]',
@@ -429,7 +428,7 @@ class ClusterVideoRenderer {
             '-pix_fmt', 'yuv420p',
             '-movflags', '+faststart',
             $outputPath,
-        ];
+        ]);
 
         $process = new Process($cmd);
         $process->setTimeout(null);
@@ -466,11 +465,10 @@ class ClusterVideoRenderer {
         string $finalOutputPath,
     ): string {
         $logLevel = $verbose ? 'info' : 'error';
-        $cmd = [
-            'ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel,
+        $cmd = array_merge($this->ffmpegBaseCmd($logLevel), [
             '-i', $videoPath,
             '-stream_loop', '-1', '-i', $audioTrack,
-        ];
+        ]);
 
         $fadeDur = min(5.0, max(0.5, $totalDurationSeconds * 0.08));
         $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);

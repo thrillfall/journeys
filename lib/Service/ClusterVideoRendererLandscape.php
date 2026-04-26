@@ -216,7 +216,7 @@ class ClusterVideoRendererLandscape {
         $totalDurationSeconds = $holdDuration * count($segments) + $transitionDuration;
 
         $logLevel = $verbose ? 'info' : 'error';
-        $cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel];
+        $cmd = $this->ffmpegBaseCmd($logLevel);
         if (!$verbose) {
             $cmd[] = '-nostats';
         }
@@ -534,7 +534,7 @@ class ClusterVideoRendererLandscape {
 
         $logLevel = $verbose ? 'info' : 'error';
         $cmd = array_merge(
-            ['ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel],
+            $this->ffmpegBaseCmd($logLevel),
             $inputs,
             ['-filter_complex', implode(';', $parts), '-map', '[vout]', '-r', (string)$fps, '-pix_fmt', 'yuv420p', '-movflags', '+faststart', $outputPath]
         );
@@ -575,7 +575,7 @@ class ClusterVideoRendererLandscape {
         $fadeDur = min(5.0, max(0.5, $videoDuration * 0.08));
         $fadeStart = max(0.0, $videoDuration - $fadeDur);
 
-        $cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', $logLevel];
+        $cmd = $this->ffmpegBaseCmd($logLevel);
         if (!$verbose) {
             $cmd[] = '-nostats';
         }
