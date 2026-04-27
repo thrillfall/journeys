@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.1] - 2026-04-27
+### Fixed
+- Video rendering: always chunk renders and pick chunk size from the largest source image (16 / 12 / 8 / 4 segments per chunk for ≤8 / ≤16 / ≤32 / >32 MP). The previous "render in one pass unless any input >13 MP" gate let typical phone-camera albums (12 MP) feed 60+ simultaneous `-loop 1 -i image.jpg` decoders to ffmpeg, which kept enough raw frame buffers resident to OOM-kill the renderer mid-album. Each chunk now runs as its own ffmpeg process so peak RSS is released between chunks. Verified end-to-end on an 88-image cluster.
+
 ## [0.23.0] - 2026-04-26
 ### Added
 - Settings: filter toolbar above the journeys list — year, month, and free-text location/name search with a result counter and a "Clear" reset, so instances with many journeys stay manageable.

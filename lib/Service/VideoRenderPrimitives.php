@@ -22,6 +22,29 @@ trait VideoRenderPrimitives {
     }
 
     /**
+     * Adaptive chunk size based on the largest source image. Each chunk feeds
+     * ffmpeg N simultaneous `-loop 1 -i image.jpg` inputs, all decoded into
+     * raw frame buffers at native resolution — peak memory scales with
+     * N × pixels. Smaller chunks for higher-res sources keep peak RSS
+     * bounded regardless of album length.
+     */
+    private function resolveChunkSize(int $maxPixels): int {
+        if ($maxPixels <= 0) {
+            return 12;
+        }
+        if ($maxPixels <= 8_000_000) {
+            return 16;
+        }
+        if ($maxPixels <= 16_000_000) {
+            return 12;
+        }
+        if ($maxPixels <= 32_000_000) {
+            return 8;
+        }
+        return 4;
+    }
+
+    /**
      * Standard ffmpeg command prefix. Caps decoder, filter, and encoder
      * threads to 2 each — left at ffmpeg's default of nproc, concurrent
      * full-resolution frame buffers in zoompan/xfade graphs have OOM-killed

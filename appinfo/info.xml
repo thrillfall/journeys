@@ -33,6 +33,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.23.1 (2026-04-27)</h3>
+    <ul>
+      <li><b>Video rendering:</b> Always chunk renders; chunk size adapts to the largest source image (16 / 12 / 8 / 4 segments per chunk for ≤8 / ≤16 / ≤32 / &gt;32 MP). Previously a 13 MP gate kept typical phone-camera albums (12 MP) on a single-pass path with 60+ <code>-loop 1 -i image.jpg</code> decoders open at once, which OOM-killed ffmpeg mid-album. Each chunk now runs as its own ffmpeg process so peak RSS is released between chunks. Verified end-to-end on an 88-image cluster.</li>
+    </ul>
   <h3>0.23.0 (2026-04-26)</h3>
     <ul>
       <li><b>Settings:</b> Redesigned the journeys list as a compact, mobile-friendly card grid. Each card shows dates, photo count and place inline; the previous HTML tables are gone.</li>
@@ -350,7 +354,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.23.0</version>
+  <version>0.23.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

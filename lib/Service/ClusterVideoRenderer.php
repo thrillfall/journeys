@@ -8,8 +8,6 @@ use Psr\Log\LoggerInterface;
 class ClusterVideoRenderer {
     use VideoRenderPrimitives;
 
-    private const MIN_SEGMENTS_PER_PASS = 4;
-    private const MAX_SEGMENTS_PER_PASS = 60;
     public function __construct(
         private IRootFolder $rootFolder,
         private ClusterVideoMusicProvider $musicProvider,
@@ -513,9 +511,6 @@ class ClusterVideoRenderer {
     }
 
     /**
-     * Decide chunking purely by image resolution.
-     * If any input exceeds 13 megapixels, use a small chunk size; otherwise render in one pass.
-     *
      * @param array<int,array{type:string,inputs:array<int,string>}> $segments
      */
     private function determineDynamicThreshold(array $segments): int {
@@ -528,14 +523,7 @@ class ClusterVideoRenderer {
                 }
             }
         }
-
-        // 13 MP threshold (13,000,000 pixels)
-        if ($maxPixels > 13000000) {
-            return max(self::MIN_SEGMENTS_PER_PASS, min(self::MAX_SEGMENTS_PER_PASS, 10));
-        }
-
-        // No need to chunk
-        return self::MAX_SEGMENTS_PER_PASS;
+        return $this->resolveChunkSize($maxPixels);
     }
 
     /**

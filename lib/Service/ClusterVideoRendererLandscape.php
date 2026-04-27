@@ -7,8 +7,6 @@ use Symfony\Component\Process\Process;
 class ClusterVideoRendererLandscape {
     use VideoRenderPrimitives;
 
-    private const CHUNK_THRESHOLD_PIXELS = 13_000_000; // 13MP
-    private const CHUNK_SIZE = 10;
     public function __construct(
         private IRootFolder $rootFolder,
         private ClusterVideoMusicProvider $musicProvider,
@@ -87,107 +85,78 @@ class ClusterVideoRendererLandscape {
         // Ensure we end on a still image when available to guarantee clean fade-out
         $segments = $this->ensureEndingStill($segments);
 
-        $shouldChunk = ($maxPixels > self::CHUNK_THRESHOLD_PIXELS);
+        $chunkSize = $this->resolveChunkSize($maxPixels);
+        $parts = array_chunk($segments, max(1, $chunkSize));
+        if (empty($parts)) {
+            throw new \RuntimeException('No segments available for chunked rendering');
+        }
+        $totalChunks = count($parts);
+        $this->emitProgress($outputHandler, sprintf('Rendering chunked landscape: %d parts', $totalChunks));
 
-        if (!$shouldChunk) {
-            $result = $this->renderChunk(
+        $chunkClips = [];
+        $idx = 0;
+        foreach ($parts as $chunkSegments) {
+            $this->emitProgress(
+                $outputHandler,
+                sprintf('Rendering chunk %d/%d (%d segments)', $idx + 1, $totalChunks, count($chunkSegments))
+            );
+            $chunkPath = $this->chunkOutputPath($workingDir, $idx);
+            $duration = $this->renderChunk(
                 $user,
-                $segments,
-                $tmpOut,
+                $chunkSegments,
+                $chunkPath,
                 $width,
                 $height,
                 $fps,
                 $holdDuration,
                 $transitionDuration,
                 $clipDuration,
-                $audioTrack,
+                null, // audio muxed after merge
                 $outputHandler,
-                $preferredFileName,
+                null,
                 $verbose,
-                $albumName,
-                $outputPath === null,
-            );
-        } else {
-            $parts = array_chunk($segments, self::CHUNK_SIZE);
-            if (empty($parts)) {
-                throw new \RuntimeException('No segments available for chunked rendering');
-            }
-            $totalChunks = count($parts);
-            $this->emitProgress($outputHandler, sprintf('Rendering chunked landscape: %d parts', $totalChunks));
-
-            $chunkClips = [];
-            $idx = 0;
-            foreach ($parts as $chunkSegments) {
-                $this->emitProgress(
-                    $outputHandler,
-                    sprintf('Rendering chunk %d/%d (%d segments)', $idx + 1, $totalChunks, count($chunkSegments))
-                );
-                $chunkPath = $this->chunkOutputPath($workingDir, $idx);
-                $duration = $this->renderChunk(
-                    $user,
-                    $chunkSegments,
-                    $chunkPath,
-                    $width,
-                    $height,
-                    $fps,
-                    $holdDuration,
-                    $transitionDuration,
-                    $clipDuration,
-                    null, // audio muxed after merge
-                    $outputHandler,
-                    null,
-                    $verbose,
-                    $albumName && $idx === 0 ? $albumName : null,
-                    false, // do not persist per chunk
-                )['duration'];
-                $chunkClips[] = ['path' => $chunkPath, 'duration' => $duration];
-                $idx++;
-            }
-
-            $mergePath = $this->chunkMergeOutputPath($workingDir, 0);
-            $this->emitProgress($outputHandler, sprintf('Merging chunked landscape video (%d parts)', $totalChunks));
-            $merged = $this->mergeChunks($chunkClips, $transitionDuration, $fps, $mergePath, $outputHandler, $verbose);
-            $finalPath = $merged['path'];
-            $finalDuration = $merged['duration'];
-
-            if ($audioTrack !== null && is_file($audioTrack)) {
-                $finalPath = $this->muxAudio(
-                    $finalPath,
-                    $audioTrack,
-                    $finalDuration,
-                    $transitionDuration,
-                    $outputHandler,
-                    $verbose,
-                    $tmpOut,
-                );
-            } else {
-                // Ensure target directory exists
-                $outDir = dirname($tmpOut);
-                if (!is_dir($outDir)) {
-                    @mkdir($outDir, 0777, true);
-                }
-                rename($finalPath, $tmpOut);
-            }
-
-            if ($outputPath !== null && $outputPath !== '') {
-                $result = [
-                    'path' => $tmpOut,
-                    'storedInUserFiles' => false,
-                    'duration' => $finalDuration,
-                ];
-            } else {
-                $virtualPath = $this->persistToUserFiles($user, $tmpOut, $preferredFileName, 'Journey-Landscape');
-                $result = [
-                    'path' => $virtualPath,
-                    'storedInUserFiles' => true,
-                    'duration' => $finalDuration,
-                ];
-            }
+                $albumName && $idx === 0 ? $albumName : null,
+                false, // do not persist per chunk
+            )['duration'];
+            $chunkClips[] = ['path' => $chunkPath, 'duration' => $duration];
+            $idx++;
         }
 
+        $mergePath = $this->chunkMergeOutputPath($workingDir, 0);
+        $this->emitProgress($outputHandler, sprintf('Merging chunked landscape video (%d parts)', $totalChunks));
+        $merged = $this->mergeChunks($chunkClips, $transitionDuration, $fps, $mergePath, $outputHandler, $verbose);
+        $finalPath = $merged['path'];
+        $finalDuration = $merged['duration'];
+
+        if ($audioTrack !== null && is_file($audioTrack)) {
+            $finalPath = $this->muxAudio(
+                $finalPath,
+                $audioTrack,
+                $finalDuration,
+                $transitionDuration,
+                $outputHandler,
+                $verbose,
+                $tmpOut,
+            );
+        } else {
+            $outDir = dirname($tmpOut);
+            if (!is_dir($outDir)) {
+                @mkdir($outDir, 0777, true);
+            }
+            rename($finalPath, $tmpOut);
+        }
+
+        if ($outputPath !== null && $outputPath !== '') {
+            return [
+                'path' => $tmpOut,
+                'storedInUserFiles' => false,
+            ];
+        }
+
+        $virtualPath = $this->persistToUserFiles($user, $tmpOut, $preferredFileName, 'Journey-Landscape');
         return [
-            'path' => $result['path'],
-            'storedInUserFiles' => (bool)($result['storedInUserFiles'] ?? false),
+            'path' => $virtualPath,
+            'storedInUserFiles' => true,
         ];
     }
 
