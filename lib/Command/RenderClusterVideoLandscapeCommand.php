@@ -79,7 +79,7 @@ class RenderClusterVideoLandscapeCommand extends Command {
         $boostFacesOverride = $input->getOption('no-face-boost') ? false : null;
 
         try {
-            $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, (int)$albumId, $minGap, $maxImages, $boostFacesOverride);
+            $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, (int)$albumId, $minGap, $maxImages, $boostFacesOverride, 'landscape');
         } catch (NoImagesFoundException) {
             $output->writeln('<comment>No images found for user.</comment>');
             return Command::SUCCESS;

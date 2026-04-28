@@ -85,7 +85,7 @@ class ClusterVideoImageProvider {
      * @return ClusterVideoSelection
      * @throws NoImagesFoundException
      */
-    public function getSelectedImagesForAlbumId(string $user, int $albumId, int $minGapSeconds, int $maxImages, ?bool $boostFacesOverride = null): ClusterVideoSelection {
+    public function getSelectedImagesForAlbumId(string $user, int $albumId, int $minGapSeconds, int $maxImages, ?bool $boostFacesOverride = null, ?string $orientationOverride = null): ClusterVideoSelection {
         // Get fileids for the album (owned by this user)
         $fileIds = $this->albumCreator->getAlbumFileIdsForUser($user, $albumId);
         if (empty($fileIds)) {
@@ -103,7 +103,23 @@ class ClusterVideoImageProvider {
         $boostFaces = $boostFacesOverride !== null
             ? $boostFacesOverride
             : (bool)((int)$this->config->getUserValue($user, 'journeys', 'boostFaces', 1));
-        $preferredOrientation = $this->resolvePreferredOrientation($user);
+        $preferredOrientation = $orientationOverride !== null
+            ? (in_array($orientationOverride, ['portrait', 'landscape'], true) ? $orientationOverride : 'portrait')
+            : $this->resolvePreferredOrientation($user);
+
+        // The landscape renderer drops every portrait-orientation file before timing,
+        // so a portrait-biased selection produces a much shorter video than expected.
+        // Pre-filter to landscape candidates (keeping unknowns as a safety fallback).
+        if ($preferredOrientation === 'landscape') {
+            $landscapeOnly = array_values(array_filter(
+                $wanted,
+                fn(Image $img) => $img->w === null || $img->h === null || $img->w >= $img->h,
+            ));
+            if (empty($landscapeOnly)) {
+                throw new NoImagesFoundException('No landscape-orientation images in album');
+            }
+            $wanted = $landscapeOnly;
+        }
 
         $clusterStart = $this->createDateTimeImmutable($wanted[0]->datetaken ?? null);
         $clusterEnd = $this->createDateTimeImmutable($wanted[count($wanted) - 1]->datetaken ?? null);

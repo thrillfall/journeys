@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.2] - 2026-04-28
+### Fixed
+- Video rendering: landscape videos are no longer truncated. Image selection for the landscape renderer now pre-filters to landscape-orientation candidates instead of inheriting the portrait-biased mix from the user's `videoOrientation` setting. Previously a 120-image selection from a multi-week journey produced a ~1-minute landscape video because `ClusterVideoRendererLandscape::filterLandscapeFiles` dropped every portrait frame after sampling, leaving only ~30–40 usable inputs.
+
 ## [0.23.1] - 2026-04-27
 ### Fixed
 - Video rendering: always chunk renders and pick chunk size from the largest source image (16 / 12 / 8 / 4 segments per chunk for ≤8 / ≤16 / ≤32 / >32 MP). The previous "render in one pass unless any input >13 MP" gate let typical phone-camera albums (12 MP) feed 60+ simultaneous `-loop 1 -i image.jpg` decoders to ffmpeg, which kept enough raw frame buffers resident to OOM-kill the renderer mid-album. Each chunk now runs as its own ffmpeg process so peak RSS is released between chunks. Verified end-to-end on an 88-image cluster.

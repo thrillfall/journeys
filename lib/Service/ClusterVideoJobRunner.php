@@ -115,7 +115,7 @@ class ClusterVideoJobRunner {
         ?callable $outputHandler = null,
         bool $includeMotion = true,
     ): array {
-        $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, $albumId, $minGapSeconds, $maxImages);
+        $selection = $this->imageProvider->getSelectedImagesForAlbumId($user, $albumId, $minGapSeconds, $maxImages, null, 'landscape');
 
         if (empty($selection->selectedImages)) {
             throw new NoImagesFoundException('No suitable images found for this cluster.');
