@@ -33,6 +33,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.23.3 (2026-05-05)</h3>
+    <ul>
+      <li><b>Video rendering:</b> Landscape chunked merge no longer collapses output to a fraction of expected length. The merge step now probes each chunk's actual on-disk duration before computing <code>xfade</code> offsets; previously it trusted the renderer's formula-based duration which overstated chunks containing motion-photo segments shorter than their nominal slot. The inflated offsets pushed <code>xfade</code> past the end of the running merged stream and ffmpeg silently dropped subsequent chunks. Verified on a 96-image / 8-chunk cluster: output went from 57s to 225s (expected). Different layer than the 0.23.2 orientation-filter fix.</li>
+    </ul>
   <h3>0.23.2 (2026-04-28)</h3>
     <ul>
       <li><b>Video rendering:</b> Landscape videos are no longer truncated. Image selection for the landscape renderer now pre-filters to landscape-orientation candidates instead of inheriting the portrait-biased mix from the user's <code>videoOrientation</code> setting. Previously a 120-image selection from a multi-week journey produced a ~1-minute landscape video because portrait frames were dropped after sampling, leaving only ~30–40 usable inputs.</li>
@@ -358,7 +362,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.23.2</version>
+  <version>0.23.3</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

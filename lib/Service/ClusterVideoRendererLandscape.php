@@ -461,16 +461,27 @@ class ClusterVideoRendererLandscape {
         ?callable $outputHandler,
         bool $verbose,
     ): array {
+        // Probe actual on-disk durations: caller-supplied durations are formula-based and overstate length when chunks contain motion videos shorter than their nominal slot. Feeding inflated durations to xfade as offsets makes the chain silently collapse — xfade with offset>left_duration drops the rest of the timeline.
+        $actualDurations = [];
+        foreach ($clips as $clip) {
+            $probe = new Process(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', $clip['path']]);
+            $probe->run();
+            $val = (float)trim($probe->getOutput());
+            if ($val <= 0.0) {
+                $val = (float)$clip['duration'];
+            }
+            $actualDurations[] = $val;
+        }
+
         if (count($clips) === 1) {
             // Single chunk, just copy
             $src = $clips[0]['path'];
-            $duration = $clips[0]['duration'];
             $outDir = dirname($outputPath);
             if (!is_dir($outDir)) {
                 @mkdir($outDir, 0777, true);
             }
             rename($src, $outputPath);
-            return ['path' => $outputPath, 'duration' => $duration];
+            return ['path' => $outputPath, 'duration' => $actualDurations[0]];
         }
 
         $inputs = [];
@@ -485,10 +496,11 @@ class ClusterVideoRendererLandscape {
             $parts[] = sprintf('[%1$d:v]fps=%2$d,format=yuv420p[vin%1$d]', $i, $fps);
         }
         $prevLabel = 'vin0';
-        $totalDuration = $clips[0]['duration'];
+        // xfade `offset` is measured from the start of the left input, which here is the running merged stream — must be cumulative, not the previous chunk's standalone duration.
+        $cumDuration = $actualDurations[0];
         for ($i = 1; $i < count($clips); $i++) {
             $outLabel = ($i === count($clips) - 1) ? 'vout' : sprintf('m%d', $i);
-            $offset = max(0.0, $clips[$i - 1]['duration'] - $transitionDuration);
+            $offset = max(0.0, $cumDuration - $transitionDuration);
             $parts[] = sprintf(
                 '[%1$s][vin%2$d]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
                 $prevLabel,
@@ -498,8 +510,9 @@ class ClusterVideoRendererLandscape {
                 $outLabel,
             );
             $prevLabel = $outLabel;
-            $totalDuration += $clips[$i]['duration'] - $transitionDuration;
+            $cumDuration += $actualDurations[$i] - $transitionDuration;
         }
+        $totalDuration = $cumDuration;
 
         $logLevel = $verbose ? 'info' : 'error';
         $cmd = array_merge(
