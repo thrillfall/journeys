@@ -14,11 +14,12 @@ class ClusterVideoFilePreparer {
     /**
      * @param string $user
      * @param Image[] $images
-     * @return array{workingDir: string, files: string[], copied: int}
+     * @return array{workingDir: string, files: string[], images: Image[], copied: int}
      */
     public function prepare(string $user, array $images): array {
         $workingDir = $this->createTempDir();
         $files = [];
+        $preparedImages = [];
         $copied = 0;
 
         $userFolder = $this->rootFolder->getUserFolder($user);
@@ -55,6 +56,7 @@ class ClusterVideoFilePreparer {
                 fclose($sourceStream);
                 fclose($destinationStream);
                 $files[] = $destinationPath;
+                $preparedImages[] = $img;
                 $index++;
                 $copied++;
                 $this->maybeExtractGcamTrailer($destinationPath);
@@ -72,6 +74,7 @@ class ClusterVideoFilePreparer {
         return [
             'workingDir' => $workingDir,
             'files' => $files,
+            'images' => $preparedImages,
             'copied' => $copied,
         ];
     }

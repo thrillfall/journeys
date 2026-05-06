@@ -152,6 +152,64 @@ class VideoTitleFormatter {
     }
 
     /**
+     * Format subtitle text for video overlay (smaller font, narrower wrap).
+     *
+     * @return array{text: string, fontSize: int}
+     */
+    public function formatSubtitleForVideo(string $text, int $videoWidth): array {
+        // Subtitle font ~3% of width, min 24px — smaller than the title.
+        $fontSize = max(24, (int)($videoWidth * 0.03));
+        $avgCharWidth = $fontSize * 0.6;
+        $maxCharsPerLine = max(10, (int)floor(($videoWidth * 0.8) / $avgCharWidth));
+        $wrapped = $this->wrapTextForDisplay($text, $maxCharsPerLine);
+        return [
+            'text' => $this->escapeForDrawtext($wrapped),
+            'fontSize' => $fontSize,
+        ];
+    }
+
+    /**
+     * Build a bottom-anchored drawtext filter for a location-group subtitle,
+     * timed in absolute timeline seconds. Applied to the post-xfade merged
+     * stream so a single subtitle can span multiple segments (up to ~5s).
+     */
+    public function buildTimedSubtitleDrawtextFilter(
+        string $inputLabel,
+        string $outputLabel,
+        string $text,
+        int $fontSize,
+        float $startTime,
+        float $duration,
+        int $shadowOffset = 2,
+        float $fadeIn = 0.5,
+        float $fadeOut = 0.5
+    ): string {
+        $fadeIn = max(0.05, $fadeIn);
+        $fadeOut = max(0.05, $fadeOut);
+        $endTime = $startTime + $duration;
+        $holdEnd = max($startTime + $fadeIn, $endTime - $fadeOut);
+        return sprintf(
+            '[%1$s]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:' .
+            'text=\'%2$s\':fontcolor=white:fontsize=%3$d:' .
+            'x=(w-text_w)/2:y=h-text_h-(h*0.06):' .
+            'shadowcolor=black:shadowx=%4$d:shadowy=%4$d:' .
+            'enable=\'between(t,%5$s,%6$s)\':' .
+            'alpha=\'if(lt(t,%7$s),(t-%5$s)/%8$s,if(lt(t,%9$s),1,(%6$s-t)/%10$s))\'[%11$s]',
+            $inputLabel,
+            $text,
+            $fontSize,
+            $shadowOffset,
+            $this->formatFloat($startTime),
+            $this->formatFloat($endTime),
+            $this->formatFloat($startTime + $fadeIn),
+            $this->formatFloat($fadeIn),
+            $this->formatFloat($holdEnd),
+            $this->formatFloat($fadeOut),
+            $outputLabel,
+        );
+    }
+
+    /**
      * Format float for FFmpeg filter (ensures proper decimal formatting)
      *
      * @param float $value The float value to format

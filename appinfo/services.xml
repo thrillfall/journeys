@@ -47,6 +47,11 @@
       <argument type="service" id="OCA\Journeys\Service\ClusterVideoFilePreparer"/>
       <argument type="service" id="OCA\Journeys\Service\ClusterVideoRenderer"/>
       <argument type="service" id="OCA\Journeys\Service\ClusterVideoRendererLandscape"/>
+      <argument type="service" id="OCP\IConfig"/>
+      <argument type="service" id="OCA\Journeys\Service\VideoSubtitleResolver"/>
+    </service>
+    <service id="OCA\Journeys\Service\VideoSubtitleResolver">
+      <argument type="service" id="OCA\Journeys\Service\SimplePlaceResolver"/>
     </service>
     <service id="OCA\Journeys\Service\HomeService">
       <argument type="service" id="OCP\IConfig"/>

@@ -123,6 +123,9 @@ class PersonalSettingsController extends Controller {
         // New: showVideoTitle toggle
         $showVideoTitle = filter_var($this->request->getParam('showVideoTitle') ?? true, FILTER_VALIDATE_BOOLEAN);
         $this->userConfig->setUserValue($userId, 'journeys', 'showVideoTitle', $showVideoTitle ? '1' : '0');
+        // New: showLocationSubtitles toggle (per-image place captions in video)
+        $showLocationSubtitles = filter_var($this->request->getParam('showLocationSubtitles') ?? true, FILTER_VALIDATE_BOOLEAN);
+        $this->userConfig->setUserValue($userId, 'journeys', 'showLocationSubtitles', $showLocationSubtitles ? '1' : '0');
         // New: boostFaces toggle (prefer images with faces in video selection)
         $boostFaces = filter_var($this->request->getParam('boostFaces') ?? true, FILTER_VALIDATE_BOOLEAN);
         $this->userConfig->setUserValue($userId, 'journeys', 'boostFaces', $boostFaces ? '1' : '0');
@@ -206,6 +209,9 @@ class PersonalSettingsController extends Controller {
             // New: showVideoTitle toggle
             $showVideoTitle = filter_var($this->request->getParam('showVideoTitle') ?? true, FILTER_VALIDATE_BOOLEAN);
             $this->userConfig->setUserValue($userId, 'journeys', 'showVideoTitle', $showVideoTitle ? '1' : '0');
+            // New: showLocationSubtitles toggle
+            $showLocationSubtitles = filter_var($this->request->getParam('showLocationSubtitles') ?? true, FILTER_VALIDATE_BOOLEAN);
+            $this->userConfig->setUserValue($userId, 'journeys', 'showLocationSubtitles', $showLocationSubtitles ? '1' : '0');
             // New: boostFaces toggle (prefer images with faces in video selection)
             $boostFaces = filter_var($this->request->getParam('boostFaces') ?? true, FILTER_VALIDATE_BOOLEAN);
             $this->userConfig->setUserValue($userId, 'journeys', 'boostFaces', $boostFaces ? '1' : '0');
@@ -301,6 +307,7 @@ class PersonalSettingsController extends Controller {
         $autoGenerateVideos = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'autoGenerateVideos', 0));
         $includeMotionFromGCam = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeMotionFromGCam', 1));
         $showVideoTitle = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'showVideoTitle', 1));
+        $showLocationSubtitles = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'showLocationSubtitles', 1));
         $boostFaces = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'boostFaces', 1));
         $videoOrientation = (string)$this->userConfig->getUserValue($userId, 'journeys', 'videoOrientation', 'portrait');
         return new JSONResponse([
@@ -320,6 +327,7 @@ class PersonalSettingsController extends Controller {
             'autoGenerateVideos' => $autoGenerateVideos,
             'includeMotionFromGCam' => $includeMotionFromGCam,
             'showVideoTitle' => $showVideoTitle,
+            'showLocationSubtitles' => $showLocationSubtitles,
             'boostFaces' => $boostFaces,
             'videoOrientation' => in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait',
             'nearTimeGap' => $nearTimeGap,

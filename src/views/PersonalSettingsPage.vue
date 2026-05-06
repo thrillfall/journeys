@@ -147,6 +147,12 @@
 									{{ t('journeys', 'Show cluster name title on videos') }}
 								</NcCheckboxRadioSwitch>
 							<NcCheckboxRadioSwitch
+									:checked="showLocationSubtitles"
+									type="switch"
+									@update:checked="value => onToggleSetting('showLocationSubtitles', value)">
+									{{ t('journeys', 'Show per-location subtitles on videos') }}
+								</NcCheckboxRadioSwitch>
+							<NcCheckboxRadioSwitch
 									:checked="boostFaces"
 									type="switch"
 									@update:checked="value => onToggleSetting('boostFaces', value)">
@@ -408,6 +414,7 @@ export default {
 			autoGenerateVideos: false,
 			includeMotionFromGCam: true,
 			showVideoTitle: true,
+			showLocationSubtitles: true,
 			boostFaces: true,
 			videoOrientation: 'portrait',
 			albums: [],
@@ -473,6 +480,7 @@ export default {
 				this.autoGenerateVideos = !!settingsResp.data.autoGenerateVideos
 				this.includeMotionFromGCam = !!settingsResp.data.includeMotionFromGCam
 				this.showVideoTitle = settingsResp.data.showVideoTitle !== undefined ? !!settingsResp.data.showVideoTitle : true
+				this.showLocationSubtitles = settingsResp.data.showLocationSubtitles !== undefined ? !!settingsResp.data.showLocationSubtitles : true
 				this.boostFaces = settingsResp.data.boostFaces !== undefined ? !!settingsResp.data.boostFaces : true
 				this.videoOrientation = settingsResp.data.videoOrientation || 'portrait'
 				if (typeof settingsResp.data.nearTimeGap !== 'undefined') this.nearTimeGap = settingsResp.data.nearTimeGap
@@ -648,6 +656,7 @@ export default {
 				autoGenerateVideos: this.autoGenerateVideos,
 				includeMotionFromGCam: this.includeMotionFromGCam,
 				showVideoTitle: this.showVideoTitle,
+				showLocationSubtitles: this.showLocationSubtitles,
 				boostFaces: this.boostFaces,
 				videoOrientation: this.videoOrientation,
 				nearTimeGap: this.nearTimeGap,

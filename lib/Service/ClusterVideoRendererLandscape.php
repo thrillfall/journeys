@@ -25,6 +25,7 @@ class ClusterVideoRendererLandscape {
      * @param string|null $preferredFileName Suggested filename when storing into user files
      * @param bool $includeMotion Replace landscape images with GCam motion videos when available
      * @param string|null $albumName Album name for title overlay (null to disable title)
+     * @param array<string,?string> $subtitlesByBasename Per-segment location subtitle keyed by file basename (no extension)
      * @return array{path: string, storedInUserFiles: bool}
      */
     public function render(
@@ -40,6 +41,7 @@ class ClusterVideoRendererLandscape {
         bool $includeMotion = true,
         bool $verbose = false,
         ?string $albumName = null,
+        array $subtitlesByBasename = [],
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -117,6 +119,7 @@ class ClusterVideoRendererLandscape {
                 $verbose,
                 $albumName && $idx === 0 ? $albumName : null,
                 false, // do not persist per chunk
+                $subtitlesByBasename,
             )['duration'];
             $chunkClips[] = ['path' => $chunkPath, 'duration' => $duration];
             $idx++;
@@ -181,6 +184,7 @@ class ClusterVideoRendererLandscape {
         bool $verbose,
         ?string $albumName,
         bool $persistToUserFiles,
+        array $subtitlesByBasename = [],
     ): array {
         $totalDurationSeconds = $holdDuration * count($segments) + $transitionDuration;
 
@@ -219,6 +223,12 @@ class ClusterVideoRendererLandscape {
         $parts = [];
         $prepLabels = [];
         $frameCount = max(2, (int) round($clipDuration * $fps));
+        // Resolve subtitle text per segment in final segment order.
+        $segmentSubtitles = [];
+        foreach ($segments as $seg) {
+            $base = pathinfo($seg['file'], PATHINFO_FILENAME);
+            $segmentSubtitles[] = $subtitlesByBasename[$base] ?? null;
+        }
         for ($i = 0; $i < count($segments); $i++) {
             $label = sprintf('kseg%d', $i);
             $seg = $segments[$i];
@@ -311,16 +321,7 @@ class ClusterVideoRendererLandscape {
             $prepLabels[] = '[' . $label . ']';
         }
         if (count($prepLabels) === 1) {
-            $fadeDur = min(0.8, max(0.3, $totalDurationSeconds * 0.1));
-            $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
-            $parts[] = sprintf(
-                '%strim=duration=%s,fps=%d,fade=t=out:st=%s:d=%s,format=yuv420p[vout]',
-                $prepLabels[0],
-                $this->formatFloat($totalDurationSeconds),
-                $fps,
-                $this->formatFloat($fadeStart),
-                $this->formatFloat($fadeDur),
-            );
+            $mergedLabel = trim($prepLabels[0], '[]');
         } else {
             // xfade chain with fade transitions at holdDuration offsets
             $prev = trim($prepLabels[0], '[]');
@@ -336,18 +337,30 @@ class ClusterVideoRendererLandscape {
                 );
                 $prev = $out;
             }
-            $final = ($prev === 'kseg0') ? 'kseg0' : 'mix_last';
-            $fadeDur = min(0.8, max(0.3, $totalDurationSeconds * 0.1));
-            $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
-            $parts[] = sprintf(
-                '[%1$s]trim=duration=%2$s,fps=%3$d,fade=t=out:st=%4$s:d=%5$s,format=yuv420p[vout]',
-                $final,
-                $this->formatFloat($totalDurationSeconds),
-                $fps,
-                $this->formatFloat($fadeStart),
-                $this->formatFloat($fadeDur),
-            );
+            $mergedLabel = ($prev === 'kseg0') ? 'kseg0' : 'mix_last';
         }
+
+        // One subtitle drawtext per location group, applied to the merged
+        // xfade stream so the caption can span multiple segments and reach
+        // the requested 5s when the group is long enough.
+        $subbedLabel = $this->appendGroupSubtitles(
+            $parts,
+            $mergedLabel,
+            $segmentSubtitles,
+            $holdDuration,
+            $width,
+        );
+
+        $fadeDur = min(0.8, max(0.3, $totalDurationSeconds * 0.1));
+        $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
+        $parts[] = sprintf(
+            '[%1$s]trim=duration=%2$s,fps=%3$d,fade=t=out:st=%4$s:d=%5$s,format=yuv420p[vout]',
+            $subbedLabel,
+            $this->formatFloat($totalDurationSeconds),
+            $fps,
+            $this->formatFloat($fadeStart),
+            $this->formatFloat($fadeDur),
+        );
 
         $cmd[] = '-filter_complex';
         $cmd[] = implode(';', $parts);
@@ -607,6 +620,67 @@ class ClusterVideoRendererLandscape {
         }
 
         return $outputPath;
+    }
+
+    /**
+     * Append one drawtext per location group to $parts (mutating it). Returns
+     * the final label after subtitles are applied (== $inputLabel when no
+     * usable groups exist).
+     *
+     * @param array<int,string>     $parts            ffmpeg filter parts (mutated)
+     * @param array<int,?string>    $segmentSubtitles per-segment subtitle text in render order
+     */
+    private function appendGroupSubtitles(
+        array &$parts,
+        string $inputLabel,
+        array $segmentSubtitles,
+        float $holdDuration,
+        int $width,
+    ): string {
+        if (count($segmentSubtitles) === 0) {
+            return $inputLabel;
+        }
+        // Run-length encode contiguous identical subtitles
+        $groups = [];
+        $count = count($segmentSubtitles);
+        $start = 0;
+        for ($i = 1; $i <= $count; $i++) {
+            $atEnd = $i === $count;
+            $cur = $atEnd ? null : $segmentSubtitles[$i];
+            $prev = $segmentSubtitles[$start];
+            if ($atEnd || $cur !== $prev) {
+                if (is_string($prev) && $prev !== '') {
+                    $groups[] = ['startIdx' => $start, 'length' => $i - $start, 'text' => $prev];
+                }
+                $start = $i;
+            }
+        }
+        if (count($groups) === 0) {
+            return $inputLabel;
+        }
+        $current = $inputLabel;
+        foreach ($groups as $gi => $g) {
+            $startTime = (float)$g['startIdx'] * $holdDuration;
+            $available = (float)$g['length'] * $holdDuration;
+            $targetDuration = min(5.0, $available * 0.9);
+            // Need room for fade in + fade out. Skip vanishingly short groups.
+            if ($targetDuration < 1.2) {
+                continue;
+            }
+            $formatted = $this->titleFormatter->formatSubtitleForVideo($g['text'], $width);
+            $outLabel = sprintf('subg%d', $gi);
+            $parts[] = $this->titleFormatter->buildTimedSubtitleDrawtextFilter(
+                $current,
+                $outLabel,
+                $formatted['text'],
+                $formatted['fontSize'],
+                $startTime,
+                $targetDuration,
+                3, // shadow offset for landscape
+            );
+            $current = $outLabel;
+        }
+        return $current;
     }
 
     private function chunkOutputPath(string $workingDir, int $index): string {

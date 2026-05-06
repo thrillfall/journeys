@@ -51,8 +51,8 @@ clean-dev: clean
 	rm -rf node_modules
 
 create-tag:
-	git tag -a v$(version) -m "Tagging the $(version) release."
-	git push origin v$(version)
+	git tag -a $(version) -m "Tagging the $(version) release."
+	git push origin $(version)
 
 appstore:
 	rm -rf $(build_dir)

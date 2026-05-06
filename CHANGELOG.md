@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.4] - 2026-05-06
+### Added
+- Video rendering: landscape videos now overlay per-location subtitles that fade in/out per location group (capped at 5s). Suppressed automatically when the journey resolves to a single place. New `showLocationSubtitles` user setting (default on).
+
 ## [0.23.3] - 2026-05-05
 ### Fixed
 - Video rendering: landscape chunked merge no longer collapses output to a fraction of expected length. `ClusterVideoRendererLandscape::mergeChunks` now probes each chunk's actual on-disk duration before computing cumulative `xfade` offsets; previously it trusted the renderer's formula-based `holdDuration*N + transition` figure, which overstated chunks containing motion-photo segments shorter than their nominal slot. The inflated offsets pushed `xfade` past the end of the running merged stream and ffmpeg silently dropped subsequent chunks. Reproduced on a 96-image / 8-chunk cluster: output went from 57s to 225s (expected). Different layer than the 0.23.2 orientation-filter fix that targeted the same symptom.

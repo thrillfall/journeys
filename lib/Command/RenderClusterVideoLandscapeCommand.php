@@ -8,6 +8,7 @@ use OCA\Journeys\Model\ClusterVideoSelection;
 use OCA\Journeys\Service\ClusterVideoFilePreparer;
 use OCA\Journeys\Service\ClusterVideoImageProvider;
 use OCA\Journeys\Service\ClusterVideoRendererLandscape;
+use OCA\Journeys\Service\VideoSubtitleResolver;
 use OCP\IConfig;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -24,6 +25,7 @@ class RenderClusterVideoLandscapeCommand extends Command {
         private ClusterVideoFilePreparer $filePreparer,
         private ClusterVideoRendererLandscape $videoRenderer,
         private IConfig $config,
+        private VideoSubtitleResolver $subtitleResolver,
     ) {
         parent::__construct(static::$defaultName);
     }
@@ -123,6 +125,10 @@ class RenderClusterVideoLandscapeCommand extends Command {
             }
 
             $output->writeln('<info>Starting ffmpeg (landscape)...</info>');
+            $showLocationSubtitles = (bool)((int)$this->config->getUserValue($user, 'journeys', 'showLocationSubtitles', 1));
+            $subtitlesByBasename = $showLocationSubtitles
+                ? $this->subtitleResolver->buildBasenameMap($filePaths, $preparation['images'] ?? [])
+                : [];
             $result = $this->videoRenderer->render(
                 $user,
                 $outPath,
@@ -138,6 +144,7 @@ class RenderClusterVideoLandscapeCommand extends Command {
                 $includeMotion,
                 $verbose,
                 $showTitle ? $selection->clusterName : null,
+                $subtitlesByBasename,
             );
             $output->writeln('<info>ffmpeg finished.</info>');
         } catch (\Throwable $e) {
