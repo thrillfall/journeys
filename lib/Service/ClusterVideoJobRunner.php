@@ -68,6 +68,10 @@ class ClusterVideoJobRunner {
 
         // Read user's title preference (default: true)
         $showTitle = (bool)((int)$this->config->getUserValue($user, 'journeys', 'showVideoTitle', 1));
+        $showLocationSubtitles = (bool)((int)$this->config->getUserValue($user, 'journeys', 'showLocationSubtitles', 1));
+        $subtitlesByBasename = $showLocationSubtitles
+            ? $this->subtitleResolver->buildBasenameMap($filePaths, $preparation['images'] ?? [])
+            : [];
 
         try {
             $result = $this->videoRenderer->render(
@@ -83,6 +87,7 @@ class ClusterVideoJobRunner {
                 $includeMotion,
                 false, // verbose
                 $showTitle ? $selection->clusterName : null,
+                $subtitlesByBasename,
             );
         } finally {
             $this->filePreparer->cleanup($workingDir);

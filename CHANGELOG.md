@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.5] - 2026-05-06
+### Added
+- Video rendering: per-location subtitles now also overlay portrait videos (previously landscape-only). Reuses the `showLocationSubtitles` toggle and the same group/5s-cap/single-location-suppression behavior.
+
 ## [0.23.4] - 2026-05-06
 ### Added
 - Video rendering: landscape videos now overlay per-location subtitles that fade in/out per location group (capped at 5s). Suppressed automatically when the journey resolves to a single place. New `showLocationSubtitles` user setting (default on).

@@ -26,6 +26,7 @@ class ClusterVideoRenderer {
      * @param callable(string, string):void|null $outputHandler Callback to stream ffmpeg stdout/stderr
      * @param string|null $preferredFileName Suggested filename when storing into user files
      * @param string|null $albumName Album name for title overlay (null to disable title)
+     * @param array<string,?string> $subtitlesByBasename Per-segment location subtitle keyed by file basename (no extension)
      * @return array{path: string, storedInUserFiles: bool}
      */
     public function render(
@@ -41,6 +42,7 @@ class ClusterVideoRenderer {
         bool $includeMotion = true,
         bool $verbose = false,
         ?string $albumName = null,
+        array $subtitlesByBasename = [],
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -99,6 +101,7 @@ class ClusterVideoRenderer {
             $verbose,
             $albumName,
             $segmentThreshold,
+            $subtitlesByBasename,
         );
 
         if ($outputPath !== null && $outputPath !== '') {
@@ -128,6 +131,7 @@ class ClusterVideoRenderer {
         ?callable $outputHandler,
         bool $verbose,
         ?string $albumName,
+        array $subtitlesByBasename = [],
     ): float {
         if (empty($segments)) {
             throw new \RuntimeException('No files provided to ffmpeg');
@@ -200,6 +204,7 @@ class ClusterVideoRenderer {
             $transitionDuration,
             $clipDuration,
             $albumName,
+            $subtitlesByBasename,
         );
 
         // If we have an audio input, append an audio fade-out filter graph and map it by label
@@ -328,6 +333,7 @@ class ClusterVideoRenderer {
         bool $verbose,
         ?string $albumName,
         int $chunkSize,
+        array $subtitlesByBasename = [],
     ): void {
         $clipFiles = [];
         $chunkIndex = 0;
@@ -353,6 +359,7 @@ class ClusterVideoRenderer {
                 $outputHandler,
                 $verbose,
                 $chunkAlbumName,
+                $subtitlesByBasename,
             );
             $clipFiles[] = ['path' => $clipPath, 'duration' => $duration];
             $chunkIndex++;
@@ -562,9 +569,17 @@ class ClusterVideoRenderer {
         float $transitionDuration,
         float $clipDuration,
         ?string $albumName,
+        array $subtitlesByBasename = [],
     ): array {
         $filterParts = [];
         $frameCount = max(2, (int) round($clipDuration * $fps));
+        // Resolve subtitle text per segment (use the first input file's basename).
+        $segmentSubtitles = [];
+        foreach ($segments as $seg) {
+            $primary = $seg['inputs'][0] ?? '';
+            $base = $primary !== '' ? pathinfo($primary, PATHINFO_FILENAME) : '';
+            $segmentSubtitles[] = $base !== '' ? ($subtitlesByBasename[$base] ?? null) : null;
+        }
 
         $inputIndex = 0;
         $segmentOutputLabels = [];
@@ -733,7 +748,16 @@ class ClusterVideoRenderer {
 
         // If only one segment, just output it
         if (count($segmentOutputLabels) === 1) {
-            $filterParts[] = sprintf('[%s]format=yuv420p[vout]', $segmentOutputLabels[0]);
+            $mergedLabel = $segmentOutputLabels[0];
+            $subbedLabel = $this->appendGroupSubtitles(
+                $filterParts,
+                $mergedLabel,
+                $segmentSubtitles,
+                $holdDuration,
+                $width,
+                2, // shadow offset for portrait
+            );
+            $filterParts[] = sprintf('[%s]format=yuv420p[vout]', $subbedLabel);
             return [implode(';', $filterParts), '[vout]'];
         }
 
@@ -755,12 +779,22 @@ class ClusterVideoRenderer {
         }
 
         $finalLabel = $prev === $segmentOutputLabels[0] ? $segmentOutputLabels[0] : 'mix_last';
+        // Apply per-location subtitles to the merged xfade stream so each
+        // group's caption can span multiple segments (capped at ~5s).
+        $subbedLabel = $this->appendGroupSubtitles(
+            $filterParts,
+            $finalLabel,
+            $segmentSubtitles,
+            $holdDuration,
+            $width,
+            2, // shadow offset for portrait
+        );
         // End fade-out (long enough to be visible even for short clips, including motion-only endings)
         $fadeDur = min(1.2, max(0.6, $totalDuration * 0.15));
         $fadeStart = max(0.0, $totalDuration - $fadeDur);
         $filterParts[] = sprintf(
             '[%1$s]trim=duration=%2$s,fps=%3$d,fade=t=out:st=%4$s:d=%5$s,format=yuv420p[vout]',
-            $finalLabel,
+            $subbedLabel,
             $this->formatFloat($totalDuration),
             $fps,
             $this->formatFloat($fadeStart),

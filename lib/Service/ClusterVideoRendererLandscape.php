@@ -349,6 +349,7 @@ class ClusterVideoRendererLandscape {
             $segmentSubtitles,
             $holdDuration,
             $width,
+            3, // shadow offset for landscape
         );
 
         $fadeDur = min(0.8, max(0.3, $totalDurationSeconds * 0.1));
@@ -620,67 +621,6 @@ class ClusterVideoRendererLandscape {
         }
 
         return $outputPath;
-    }
-
-    /**
-     * Append one drawtext per location group to $parts (mutating it). Returns
-     * the final label after subtitles are applied (== $inputLabel when no
-     * usable groups exist).
-     *
-     * @param array<int,string>     $parts            ffmpeg filter parts (mutated)
-     * @param array<int,?string>    $segmentSubtitles per-segment subtitle text in render order
-     */
-    private function appendGroupSubtitles(
-        array &$parts,
-        string $inputLabel,
-        array $segmentSubtitles,
-        float $holdDuration,
-        int $width,
-    ): string {
-        if (count($segmentSubtitles) === 0) {
-            return $inputLabel;
-        }
-        // Run-length encode contiguous identical subtitles
-        $groups = [];
-        $count = count($segmentSubtitles);
-        $start = 0;
-        for ($i = 1; $i <= $count; $i++) {
-            $atEnd = $i === $count;
-            $cur = $atEnd ? null : $segmentSubtitles[$i];
-            $prev = $segmentSubtitles[$start];
-            if ($atEnd || $cur !== $prev) {
-                if (is_string($prev) && $prev !== '') {
-                    $groups[] = ['startIdx' => $start, 'length' => $i - $start, 'text' => $prev];
-                }
-                $start = $i;
-            }
-        }
-        if (count($groups) === 0) {
-            return $inputLabel;
-        }
-        $current = $inputLabel;
-        foreach ($groups as $gi => $g) {
-            $startTime = (float)$g['startIdx'] * $holdDuration;
-            $available = (float)$g['length'] * $holdDuration;
-            $targetDuration = min(5.0, $available * 0.9);
-            // Need room for fade in + fade out. Skip vanishingly short groups.
-            if ($targetDuration < 1.2) {
-                continue;
-            }
-            $formatted = $this->titleFormatter->formatSubtitleForVideo($g['text'], $width);
-            $outLabel = sprintf('subg%d', $gi);
-            $parts[] = $this->titleFormatter->buildTimedSubtitleDrawtextFilter(
-                $current,
-                $outLabel,
-                $formatted['text'],
-                $formatted['fontSize'],
-                $startTime,
-                $targetDuration,
-                3, // shadow offset for landscape
-            );
-            $current = $outLabel;
-        }
-        return $current;
     }
 
     private function chunkOutputPath(string $workingDir, int $index): string {
