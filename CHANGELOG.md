@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.1] - 2026-05-07
+### Changed
+- Settings: clustering settings (basics, near/away thresholds, video & home, save / start-clustering buttons) are now grouped under a collapsible "Clustering settings" header — collapsed by default so the journeys grid is visible without scrolling past the configuration cards. Open/closed state persists in browser `localStorage` under `journeys.settingsExpanded`. The summary line shows the last clustering run timestamp at a glance so users know the daily cron is alive without expanding.
+
 ## [0.24.0] - 2026-05-07
 ### Added
 - Settings: user-editable journey names. Each journey card has a pencil button that opens a modal to set a custom name (e.g. "Christmas 2024", "Family reunion", "Sabbatical") on top of the auto-derived location/date title. The custom name becomes the card heading, the Photos album title, and the video title overlay; the auto-derived name is kept as a smaller secondary line and remains the source of truth in `oc_journeys_cluster_albums.name`.

@@ -2,6 +2,15 @@
 	<div class="journeys_settings">
 		<NcSettingsSection :title="t('journeys', 'Journeys Album Clustering')"
 			:description="t('journeys', 'Configure and start clustering your photos into journeys (vacations/trips).')">
+			<details class="settings-collapsible" :open="settingsExpanded" @toggle="onSettingsToggle">
+				<summary class="settings-collapsible__summary">
+					<span class="settings-collapsible__title">{{ t('journeys', 'Clustering settings') }}</span>
+					<span class="settings-collapsible__hint">
+						{{ lastRun
+							? t('journeys', 'Last run: {date}', { date: lastRun })
+							: t('journeys', 'Click to configure') }}
+					</span>
+				</summary>
 			<div class="settings-panels">
 				<section class="settings-card">
 					<header>
@@ -210,6 +219,7 @@
 				</NcNoteCard>
 			</div>
 			<NcNoteCard v-if="error" type="error">{{ error }}</NcNoteCard>
+			</details>
 
 			<section v-if="clusters.length" class="journeys-section">
 				<header class="section-header">
@@ -444,6 +454,13 @@ export default {
 			editingClusterId: null,
 			editingValue: '',
 			editSaving: false,
+			settingsExpanded: (() => {
+				try {
+					return window.localStorage.getItem('journeys.settingsExpanded') === '1'
+				} catch (e) {
+					return false
+				}
+			})(),
 			filterYear: '',
 			filterMonth: '',
 			filterLocation: '',
@@ -791,6 +808,15 @@ export default {
 		markQueued(albumId, orientation) {
 			this.$set(this.queuedRenders, `${albumId}-${orientation}`, true)
 		},
+		onSettingsToggle(event) {
+			const open = !!event.target.open
+			this.settingsExpanded = open
+			try {
+				window.localStorage.setItem('journeys.settingsExpanded', open ? '1' : '0')
+			} catch (e) {
+				// ignore: private mode / quota / disabled localStorage
+			}
+		},
 		startEditName(cluster) {
 			this.editingClusterId = cluster.id
 			// Seed the input with whatever name the user currently sees, so they can
@@ -939,6 +965,79 @@ export default {
 .journeys_settings {
   max-width: 960px;
   margin: 2em auto;
+}
+
+.settings-collapsible {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius, 8px);
+  background: var(--color-background-hover, transparent);
+  margin-bottom: 1.4rem;
+}
+
+.settings-collapsible[open] {
+  background: transparent;
+}
+
+.settings-collapsible__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  border-radius: var(--border-radius, 8px);
+}
+
+.settings-collapsible__summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-collapsible__summary::before {
+  content: '▸';
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--color-text-lighter);
+  transition: transform 0.15s ease;
+  width: 0.8rem;
+  flex-shrink: 0;
+}
+
+.settings-collapsible[open] > .settings-collapsible__summary::before {
+  transform: rotate(90deg);
+}
+
+.settings-collapsible__summary:hover,
+.settings-collapsible__summary:focus-visible {
+  background: var(--color-background-hover, rgba(0, 0, 0, 0.04));
+}
+
+.settings-collapsible__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-collapsible__hint {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--color-text-lighter);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-collapsible[open] > .settings-panels,
+.settings-collapsible[open] > .settings-actions {
+  margin: 0 1rem;
+}
+
+.settings-collapsible[open] > .settings-panels {
+  margin-top: 0.6rem;
+}
+
+.settings-collapsible[open] > .settings-actions {
+  margin-bottom: 1rem;
 }
 
 .settings-panels {

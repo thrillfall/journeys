@@ -35,6 +35,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.24.1 (2026-05-07)</h3>
+    <ul>
+      <li><b>Settings:</b> Clustering settings (basics, near/away thresholds, video & home, save / start-clustering buttons) are now grouped under a collapsible <i>Clustering settings</i> header — collapsed by default so the journeys grid is visible without scrolling. Open/closed state persists in browser <code>localStorage</code> under <code>journeys.settingsExpanded</code>. The summary line shows the last clustering run timestamp at a glance.</li>
+    </ul>
   <h3>0.24.0 (2026-05-07)</h3>
     <ul>
       <li><b>Settings:</b> User-editable journey names. Each journey card has a pencil button that opens a modal to set a custom name (e.g. <i>Christmas 2024</i>, <i>Family reunion</i>, <i>Sabbatical</i>) on top of the auto-derived location/date title. The custom name becomes the card heading, the Photos album title, and the video title overlay; the auto-derived name is kept as a secondary line for reference.</li>
@@ -382,7 +386,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.24.0</version>
+  <version>0.24.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
