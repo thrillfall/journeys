@@ -143,11 +143,15 @@ class AlbumCreator {
      * @param string $location
      * @return void
      */
-    public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null): ?int {
+    public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null, ?string $customName = null): ?int {
         $albumName = $this->sanitizeAlbumTitle($albumName);
+        $effectiveTitle = $albumName;
+        if ($customName !== null && trim($customName) !== '') {
+            $effectiveTitle = $this->sanitizeAlbumTitle($customName);
+        }
         // Always attempt to create a new album; do not reuse by name to avoid collisions with manually created albums
         try {
-            $album = $this->albumMapper->create($userId, $albumName, $location);
+            $album = $this->albumMapper->create($userId, $effectiveTitle, $location);
         } catch (\Throwable $e) {
             // If creation fails (e.g., name collision), log and skip this album without falling back to getByName
             try {
@@ -175,8 +179,10 @@ class AlbumCreator {
                 // Ignore if image is already in album or other non-fatal errors
             }
         }
-        // Track this album as clusterer-created for reliable purge and incremental boundary detection
-        $this->trackClusterAlbum($userId, (int)$album->getId(), $album->getTitle(), $location, $dtStart, $dtEnd);
+        // Track this album as clusterer-created for reliable purge and incremental boundary detection.
+        // The tracking row stores the auto-derived name (recoverable source of truth) and any custom_name
+        // separately, even though the Photos album title may already be the custom one.
+        $this->trackClusterAlbum($userId, (int)$album->getId(), $albumName, $location, $dtStart, $dtEnd, $customName);
         // Assign SystemTag to album folder (in addition to postfix logic)
         try {
             $userFolder = $this->rootFolder->getUserFolder($userId);
@@ -259,7 +265,7 @@ class AlbumCreator {
     /**
      * Track a clusterer-created album for a user.
      */
-    private function trackClusterAlbum(string $userId, int $albumId, string $name, string $location, ?\DateTime $dtStart, ?\DateTime $dtEnd): void {
+    private function trackClusterAlbum(string $userId, int $albumId, string $name, string $location, ?\DateTime $dtStart, ?\DateTime $dtEnd, ?string $customName = null): void {
         $table = $this->getTrackingTableName();
         // Delete existing row (if any) then insert, to avoid DB-specific upsert syntax
         $del = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ? AND album_id = ?");
@@ -267,7 +273,8 @@ class AlbumCreator {
         if ($delResult === false) {
             throw new \RuntimeException('Failed to delete existing tracking row for cluster album');
         }
-        $ins = $this->db->prepare("INSERT INTO {$table} (user_id, album_id, name, location, start_dt, end_dt) VALUES (?, ?, ?, ?, ?, ?)");
+        $ins = $this->db->prepare("INSERT INTO {$table} (user_id, album_id, name, location, start_dt, end_dt, custom_name) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $normalizedCustom = ($customName !== null && trim($customName) !== '') ? trim($customName) : null;
         $insResult = $ins->execute([
             $userId,
             $albumId,
@@ -275,10 +282,97 @@ class AlbumCreator {
             $location,
             $dtStart ? $dtStart->format('Y-m-d H:i:s') : null,
             $dtEnd ? $dtEnd->format('Y-m-d H:i:s') : null,
+            $normalizedCustom,
         ]);
         if ($insResult === false) {
             throw new \RuntimeException('Failed to insert tracking row for cluster album');
         }
+    }
+
+    /**
+     * Set or clear the user's custom display name for a tracked cluster album.
+     * Empty string or null clears the custom name (display falls back to auto-derived name).
+     */
+    public function setCustomName(string $userId, int $albumId, ?string $customName): bool {
+        $normalized = ($customName !== null && trim($customName) !== '') ? trim($customName) : null;
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("UPDATE {$table} SET custom_name = ? WHERE user_id = ? AND album_id = ?");
+            $res = $stmt->execute([$normalized, $userId, $albumId]);
+            return $res !== false;
+        } catch (\Throwable $e) {
+            try {
+                $this->logger->warning('Journeys: failed to set custom_name', [
+                    'app' => 'journeys',
+                    'userId' => $userId,
+                    'albumId' => $albumId,
+                    'exception' => $e->getMessage(),
+                ]);
+            } catch (\Throwable $ignored) {}
+            return false;
+        }
+    }
+
+    /**
+     * Rename the underlying Photos album. Best-effort: updates oc_photos_albums.name directly
+     * (AlbumMapper has no public rename method across NC 30–33). Returns true on success.
+     */
+    public function renamePhotosAlbum(string $userId, int $albumId, string $newTitle): bool {
+        $sanitized = $this->sanitizeAlbumTitle($newTitle);
+        if ($sanitized === '') {
+            return false;
+        }
+        try {
+            $stmt = $this->db->prepare('UPDATE *PREFIX*photos_albums SET name = ? WHERE album_id = ? AND user = ?');
+            $res = $stmt->execute([$sanitized, $albumId, $userId]);
+            return $res !== false;
+        } catch (\Throwable $e) {
+            try {
+                $this->logger->warning('Journeys: failed to rename Photos album', [
+                    'app' => 'journeys',
+                    'userId' => $userId,
+                    'albumId' => $albumId,
+                    'exception' => $e->getMessage(),
+                ]);
+            } catch (\Throwable $ignored) {}
+            return false;
+        }
+    }
+
+    /**
+     * Snapshot custom names along with the file IDs of each album, captured BEFORE a from-scratch
+     * re-clustering purge. Used by CustomNameReassigner to re-attach the names to the closest new
+     * cluster by Jaccard overlap.
+     *
+     * @return array<int, array{album_id:int, custom_name:string, file_ids:int[]}>
+     */
+    public function getCustomNameSnapshot(string $userId): array {
+        $out = [];
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("SELECT album_id, custom_name FROM {$table} WHERE user_id = ? AND custom_name IS NOT NULL AND custom_name <> ''");
+            $res = $stmt->execute([$userId]);
+            $rows = $res ? $res->fetchAll() : [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+        foreach ($rows as $row) {
+            $albumId = isset($row['album_id']) ? (int)$row['album_id'] : 0;
+            $customName = isset($row['custom_name']) ? (string)$row['custom_name'] : '';
+            if ($albumId <= 0 || $customName === '') {
+                continue;
+            }
+            $fileIds = $this->getAlbumFileIdsForUser($userId, $albumId);
+            if (empty($fileIds)) {
+                continue;
+            }
+            $out[] = [
+                'album_id' => $albumId,
+                'custom_name' => $customName,
+                'file_ids' => $fileIds,
+            ];
+        }
+        return $out;
     }
 
     /**
@@ -449,7 +543,7 @@ class AlbumCreator {
     public function getTrackedClusters(string $userId): array {
         try {
             $table = $this->getTrackingTableName();
-            $stmt = $this->db->prepare("SELECT album_id, name, location, start_dt, end_dt FROM {$table} WHERE user_id = ? ORDER BY start_dt ASC, album_id ASC");
+            $stmt = $this->db->prepare("SELECT album_id, name, location, start_dt, end_dt, custom_name FROM {$table} WHERE user_id = ? ORDER BY start_dt ASC, album_id ASC");
             $result = $stmt->execute([$userId]);
             $rows = $result ? $result->fetchAll() : [];
             if (!is_array($rows)) {
@@ -457,12 +551,17 @@ class AlbumCreator {
             }
 
             return array_map(function ($row) {
+                $custom = isset($row['custom_name']) && $row['custom_name'] !== null ? (string)$row['custom_name'] : null;
+                if ($custom !== null && trim($custom) === '') {
+                    $custom = null;
+                }
                 return [
                     'album_id' => isset($row['album_id']) ? (int)$row['album_id'] : 0,
                     'name' => isset($row['name']) ? (string)$row['name'] : '',
                     'location' => isset($row['location']) && $row['location'] !== null ? (string)$row['location'] : null,
                     'start_dt' => isset($row['start_dt']) ? (string)$row['start_dt'] : null,
                     'end_dt' => isset($row['end_dt']) ? (string)$row['end_dt'] : null,
+                    'custom_name' => $custom,
                 ];
             }, $rows);
         } catch (\Throwable $e) {

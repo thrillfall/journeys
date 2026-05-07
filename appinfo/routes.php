@@ -27,6 +27,11 @@ return [
             'verb' => 'GET',
         ],
         [
+            'name' => 'personal_settings#updateClusterName',
+            'url' => '/personal_settings/update_cluster_name',
+            'verb' => 'POST',
+        ],
+        [
             'name' => 'personal_settings#renderClusterVideo',
             'url' => '/personal_settings/render_cluster_video',
             'verb' => 'POST',

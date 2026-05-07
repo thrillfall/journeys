@@ -22,6 +22,10 @@
       <argument type="service" id="Psr\Log\LoggerInterface"/>
     </service>
     <service id="OCA\Journeys\Service\AlbumCreator"/>
+    <service id="OCA\Journeys\Service\CustomNameReassigner">
+      <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
+      <argument type="service" id="Psr\Log\LoggerInterface"/>
+    </service>
     <service id="OCA\Journeys\Service\VideoStorySelector"/>
     <service id="OCA\Journeys\Service\ClusterVideoImageProvider">
       <argument type="service" id="OCA\Journeys\Service\ImageFetcher"/>
@@ -78,6 +82,7 @@
       <argument type="service" id="OCA\Journeys\Service\ClusterVideoJobRunner"/>
       <argument type="service" id="OCA\Journeys\Service\VideoRenderJobScheduler"/>
       <argument type="service" id="OCP\IConfig"/>
+      <argument type="service" id="OCA\Journeys\Service\CustomNameReassigner"/>
     </service>
     <service id="OCA\Journeys\Controller\PersonalSettingsController">
       <argument>%app_id%</argument>

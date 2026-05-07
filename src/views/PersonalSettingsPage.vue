@@ -259,7 +259,13 @@
 				<div v-else class="journey-grid">
 					<article v-for="cluster in filteredClusters" :key="cluster.id" class="journey-card">
 						<div class="journey-card__title">
-							<h4 :title="cluster.name">{{ cluster.name || t('journeys', 'Untitled journey') }}</h4>
+							<h4 :title="cluster.customName || cluster.name">{{ cluster.customName || cluster.name || t('journeys', 'Untitled journey') }}</h4>
+							<button type="button" class="journey-card__rename-btn"
+									:title="t('journeys', 'Edit name')"
+									@click="startEditName(cluster)">✎</button>
+							<button v-if="cluster.customName" type="button" class="journey-card__rename-btn"
+									:title="t('journeys', 'Reset to auto-derived name')"
+									@click="clearCustomName(cluster)">⟲</button>
 							<a v-if="cluster.hasVideo && cluster.videoFileId"
 									class="rendered-badge rendered-badge--link"
 									:href="openInFilesUrl({ fileId: cluster.videoFileId })"
@@ -272,6 +278,11 @@
 								{{ t('journeys', 'Rendered') }}
 							</span>
 						</div>
+						<p v-if="cluster.customName"
+								class="journey-card__autoname"
+								:title="cluster.name">
+							{{ cluster.name }}
+						</p>
 						<ul class="journey-card__meta">
 							<li v-if="compactDateRange(cluster.dateRange)" :title="formatDateRange(cluster.dateRange)">
 								{{ compactDateRange(cluster.dateRange) }}
@@ -371,18 +382,56 @@
 				</ul>
 			</section>
 		</NcSettingsSection>
+
+		<NcModal v-if="editingClusterId !== null"
+				:show="true"
+				size="normal"
+				@close="cancelEditName">
+			<div class="rename-modal">
+				<h3 class="rename-modal__title">{{ t('journeys', 'Rename journey') }}</h3>
+				<p class="rename-modal__hint">
+					{{ t('journeys', 'Give this journey a custom name. Use it for events that aren’t a place — e.g. Christmas 2024, Family reunion, Sabbatical.') }}
+				</p>
+				<label for="journeyRenameInput" class="rename-modal__label">{{ t('journeys', 'Name') }}</label>
+				<input id="journeyRenameInput"
+						ref="renameInput"
+						class="rename-modal__input"
+						type="text"
+						v-model="editingValue"
+						:disabled="editSaving"
+						:placeholder="t('journeys', 'Custom name')"
+						@keyup.enter="saveCustomName(editingCluster)"
+						@keyup.esc="cancelEditName" />
+				<p class="rename-modal__autoname">
+					{{ t('journeys', 'Auto-derived name:') }} <span>{{ editingCluster ? editingCluster.name : '' }}</span>
+				</p>
+				<div class="rename-modal__actions">
+					<NcButton :disabled="editSaving" @click="cancelEditName">
+						{{ t('journeys', 'Cancel') }}
+					</NcButton>
+					<NcButton v-if="editingCluster && editingCluster.customName"
+							:disabled="editSaving"
+							@click="clearFromModal">
+						{{ t('journeys', 'Reset to auto') }}
+					</NcButton>
+					<NcButton type="primary" :disabled="editSaving" @click="saveCustomName(editingCluster)">
+						{{ editSaving ? t('journeys', 'Saving…') : t('journeys', 'Save') }}
+					</NcButton>
+				</div>
+			</div>
+		</NcModal>
 	</div>
 </template>
 
 <script>
-import { NcSettingsSection, NcCheckboxRadioSwitch, NcTextField, NcButton, NcNoteCard } from '@nextcloud/vue'
+import { NcSettingsSection, NcCheckboxRadioSwitch, NcTextField, NcButton, NcNoteCard, NcModal } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
 import axios from '@nextcloud/axios'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 
 export default {
 	name: 'PersonalSettingsPage',
-	components: { NcSettingsSection, NcCheckboxRadioSwitch, NcTextField, NcButton, NcNoteCard },
+	components: { NcSettingsSection, NcCheckboxRadioSwitch, NcTextField, NcButton, NcNoteCard, NcModal },
 	data() {
 		return {
 			isProcessing: false,
@@ -392,6 +441,9 @@ export default {
 			clusters: [],
 			renderedVideos: [],
 			queuedRenders: {},
+			editingClusterId: null,
+			editingValue: '',
+			editSaving: false,
 			filterYear: '',
 			filterMonth: '',
 			filterLocation: '',
@@ -441,6 +493,10 @@ export default {
 		hasActiveFilter() {
 			return this.filterYear !== '' || this.filterMonth !== '' || (this.filterLocation || '').trim() !== ''
 		},
+		editingCluster() {
+			if (this.editingClusterId === null) return null
+			return this.clusters.find(c => c.id === this.editingClusterId) || null
+		},
 		filteredClusters() {
 			const year = this.filterYear ? Number(this.filterYear) : null
 			const month = this.filterMonth ? Number(this.filterMonth) : null
@@ -454,7 +510,7 @@ export default {
 					if (!this.clusterCoversMonth(cluster, month, year)) return false
 				}
 				if (needle !== '') {
-					const haystack = `${cluster.name || ''} ${cluster.location || ''}`.toLowerCase()
+					const haystack = `${cluster.customName || ''} ${cluster.name || ''} ${cluster.location || ''}`.toLowerCase()
 					if (!haystack.includes(needle)) return false
 				}
 				return true
@@ -735,6 +791,92 @@ export default {
 		markQueued(albumId, orientation) {
 			this.$set(this.queuedRenders, `${albumId}-${orientation}`, true)
 		},
+		startEditName(cluster) {
+			this.editingClusterId = cluster.id
+			// Seed the input with whatever name the user currently sees, so they can
+			// tweak it instead of starting from an empty field.
+			this.editingValue = cluster.customName || cluster.name || ''
+			this.editSaving = false
+			this.$nextTick(() => {
+				const el = this.$refs.renameInput
+				if (el) {
+					el.focus()
+					el.select()
+				}
+			})
+		},
+		cancelEditName() {
+			this.editingClusterId = null
+			this.editingValue = ''
+			this.editSaving = false
+		},
+		async clearFromModal() {
+			const cluster = this.editingCluster
+			if (!cluster) return
+			this.editSaving = true
+			try {
+				await this.clearCustomName(cluster)
+				this.cancelEditName()
+			} finally {
+				this.editSaving = false
+			}
+		},
+		async saveCustomName(cluster) {
+			if (!cluster || !cluster.id) {
+				return
+			}
+			const trimmed = (this.editingValue || '').trim()
+			// Saving the auto-derived name unchanged is equivalent to clearing the custom name.
+			const payload = (trimmed === '' || trimmed === (cluster.name || '').trim()) ? '' : trimmed
+			if (payload === (cluster.customName || '')) {
+				this.cancelEditName()
+				return
+			}
+			this.editSaving = true
+			try {
+				const resp = await axios.post(generateUrl('/apps/journeys/personal_settings/update_cluster_name'), {
+					albumId: cluster.id,
+					customName: payload,
+				})
+				const updated = resp.data || {}
+				const idx = this.clusters.findIndex(c => c.id === cluster.id)
+				if (idx !== -1) {
+					this.$set(this.clusters, idx, {
+						...this.clusters[idx],
+						customName: updated.customName ?? null,
+					})
+				}
+				showSuccess(this.t('journeys', 'Journey name updated.'))
+				this.cancelEditName()
+			} catch (e) {
+				const message = e?.response?.data?.error || e?.message || this.t('journeys', 'Failed to update name.')
+				showError(message)
+				this.editSaving = false
+			}
+		},
+		async clearCustomName(cluster) {
+			if (!cluster || !cluster.id) {
+				return
+			}
+			try {
+				const resp = await axios.post(generateUrl('/apps/journeys/personal_settings/update_cluster_name'), {
+					albumId: cluster.id,
+					customName: '',
+				})
+				const updated = resp.data || {}
+				const idx = this.clusters.findIndex(c => c.id === cluster.id)
+				if (idx !== -1) {
+					this.$set(this.clusters, idx, {
+						...this.clusters[idx],
+						customName: updated.customName ?? null,
+					})
+				}
+				showSuccess(this.t('journeys', 'Reverted to auto-derived name.'))
+			} catch (e) {
+				const message = e?.response?.data?.error || e?.message || this.t('journeys', 'Failed to update name.')
+				showError(message)
+			}
+		},
 		async renderCluster(cluster, orientation) {
 			if (!cluster || !cluster.id) {
 				return
@@ -990,6 +1132,106 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.journey-card__rename-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius, 4px);
+  cursor: pointer;
+  color: var(--color-text-lighter);
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0.15rem 0.35rem;
+  flex-shrink: 0;
+}
+
+.journey-card__rename-btn:hover:not(:disabled),
+.journey-card__rename-btn:focus:not(:disabled) {
+  background: var(--color-background-hover, rgba(0, 0, 0, 0.04));
+  color: var(--color-main-text);
+}
+
+.journey-card__rename-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.journey-card__autoname {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-maxcontrast, var(--color-text-lighter));
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rename-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.2rem 1.4rem 1.1rem;
+  min-width: min(480px, 100%);
+  max-width: 560px;
+}
+
+.rename-modal__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.rename-modal__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-lighter);
+  line-height: 1.35;
+}
+
+.rename-modal__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-text-lighter);
+  margin-top: 0.3rem;
+}
+
+.rename-modal__input {
+  width: 100%;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border-dark, var(--color-border));
+  border-radius: var(--border-radius, 4px);
+  background: var(--color-main-background);
+  color: var(--color-main-text);
+  box-sizing: border-box;
+}
+
+.rename-modal__input:focus {
+  outline: none;
+  border-color: var(--color-primary-element, var(--color-primary));
+}
+
+.rename-modal__autoname {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-lighter);
+}
+
+.rename-modal__autoname span {
+  color: var(--color-main-text);
+  font-weight: 500;
+}
+
+.rename-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .rendered-badge {

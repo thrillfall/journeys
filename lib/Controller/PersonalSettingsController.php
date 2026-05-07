@@ -395,6 +395,7 @@ class PersonalSettingsController extends Controller {
             return [
                 'id' => (int)$cluster['album_id'],
                 'name' => $cluster['name'],
+                'customName' => $cluster['custom_name'] ?? null,
                 'imageCount' => $imageCount,
                 'location' => $cluster['location'],
                 'dateRange' => [
@@ -424,6 +425,61 @@ class PersonalSettingsController extends Controller {
         return new JSONResponse([
             'clusters' => $clusters,
             'albums' => $albums,
+        ]);
+    }
+
+    /**
+     * @NoAdminRequired
+     */
+    public function updateClusterName(): JSONResponse {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new JSONResponse(['error' => 'No user'], 401);
+        }
+        $userId = $user->getUID();
+
+        $albumIdParam = $this->request->getParam('albumId');
+        $albumId = (int)$albumIdParam;
+        if ($albumId <= 0) {
+            return new JSONResponse(['error' => 'Invalid albumId'], 400);
+        }
+
+        $trackedIds = $this->albumCreator->getTrackedAlbumIds($userId);
+        if (!in_array($albumId, $trackedIds, true)) {
+            return new JSONResponse(['error' => 'Album not found'], 404);
+        }
+
+        $rawCustom = $this->request->getParam('customName');
+        $customName = null;
+        if (is_string($rawCustom)) {
+            $trimmed = trim($rawCustom);
+            $customName = $trimmed !== '' ? $trimmed : null;
+        }
+
+        $ok = $this->albumCreator->setCustomName($userId, $albumId, $customName);
+        if (!$ok) {
+            return new JSONResponse(['error' => 'Failed to update custom name'], 500);
+        }
+
+        // Keep the underlying Photos album title in sync: use the custom name when set,
+        // restore the auto-derived name on clear (so re-deriving / fallbacks remain accurate).
+        $autoName = null;
+        foreach ($this->albumCreator->getTrackedClusters($userId) as $row) {
+            if ((int)($row['album_id'] ?? 0) === $albumId) {
+                $autoName = (string)($row['name'] ?? '');
+                break;
+            }
+        }
+        if ($customName !== null) {
+            $this->albumCreator->renamePhotosAlbum($userId, $albumId, $customName);
+        } elseif ($autoName !== null && $autoName !== '') {
+            $this->albumCreator->renamePhotosAlbum($userId, $albumId, $autoName);
+        }
+
+        return new JSONResponse([
+            'id' => $albumId,
+            'name' => $autoName,
+            'customName' => $customName,
         ]);
     }
 

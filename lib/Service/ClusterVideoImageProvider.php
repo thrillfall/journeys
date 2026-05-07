@@ -267,7 +267,10 @@ class ClusterVideoImageProvider {
     }
 
     private function normalizeTrackedRow(array $row): ?array {
-        $name = isset($row['name']) ? trim((string)$row['name']) : '';
+        $autoName = isset($row['name']) ? trim((string)$row['name']) : '';
+        $custom = isset($row['custom_name']) && $row['custom_name'] !== null ? trim((string)$row['custom_name']) : '';
+        // The video title overlay uses the custom name when set; the auto-derived name is the fallback.
+        $name = $custom !== '' ? $custom : $autoName;
         $location = isset($row['location']) && $row['location'] !== null ? trim((string)$row['location']) : null;
 
         $start = $this->safeParseDateTime($row['start_dt'] ?? null);

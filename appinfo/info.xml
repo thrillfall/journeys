@@ -18,6 +18,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters plus a `▶ Watch` shortcut to existing rendered videos — built for instances with many journeys.
 - **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
 - **🧹 Auto-cleanup of empty albums:** Journey albums whose photos you've all deleted are removed automatically on the next clustering run, so empty placeholders don't pile up. Manual albums are never touched.
+- **✏️ User-editable journey names:** Set a custom name (e.g. *Christmas 2024*, *Family reunion*, *Sabbatical*) on top of the auto-derived location/date title. Custom names become the card heading, the Photos album title, and the video title overlay — and they survive `--from-scratch` reclustering by matching old names to new clusters via file-ID overlap.
 
 ## 🚀 OCC Command Usage
 
@@ -34,6 +35,12 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.24.0 (2026-05-07)</h3>
+    <ul>
+      <li><b>Settings:</b> User-editable journey names. Each journey card has a pencil button that opens a modal to set a custom name (e.g. <i>Christmas 2024</i>, <i>Family reunion</i>, <i>Sabbatical</i>) on top of the auto-derived location/date title. The custom name becomes the card heading, the Photos album title, and the video title overlay; the auto-derived name is kept as a secondary line for reference.</li>
+      <li><b>Clustering:</b> Custom journey names survive <code>--from-scratch</code> reclustering. The clusterer snapshots each named album's file IDs before purge and re-attaches the name to whichever new album has the highest file-ID overlap (Jaccard &ge; 0.5). Names below threshold are dropped, so the system stays robust across algorithm changes, place-resolver improvements, and retroactive photo additions that shift cluster boundaries.</li>
+      <li><b>DB migration:</b> New nullable <code>custom_name</code> column on <code>oc_journeys_cluster_albums</code>.</li>
+    </ul>
   <h3>0.23.6 (2026-05-07)</h3>
     <ul>
       <li><b>Clustering:</b> Tracked albums whose photos have all been deleted are now removed automatically on the next clustering run (daily cron, OCC, or settings UI). Manual albums and tracked albums that still hold photos are left untouched. Closes <a href="https://github.com/thrillfall/journeys/issues/24">#24</a>.</li>
@@ -375,7 +382,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.23.6</version>
+  <version>0.24.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

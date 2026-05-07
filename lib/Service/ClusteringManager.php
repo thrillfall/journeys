@@ -24,8 +24,9 @@ class ClusteringManager {
     private ClusterVideoJobRunner $videoJobRunner;
     private VideoRenderJobScheduler $videoScheduler;
     private IConfig $config;
+    private CustomNameReassigner $customNameReassigner;
 
-    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, ClusterMerger $clusterMerger, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator, ClusterVideoJobRunner $videoJobRunner, VideoRenderJobScheduler $videoScheduler, IConfig $config) {
+    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, ClusterMerger $clusterMerger, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator, ClusterVideoJobRunner $videoJobRunner, VideoRenderJobScheduler $videoScheduler, IConfig $config, CustomNameReassigner $customNameReassigner) {
         $this->imageFetcher = $imageFetcher;
         $this->clusterer = $clusterer;
         $this->clusterMerger = $clusterMerger;
@@ -39,6 +40,7 @@ class ClusteringManager {
         $this->videoJobRunner = $videoJobRunner;
         $this->videoScheduler = $videoScheduler;
         $this->config = $config;
+        $this->customNameReassigner = $customNameReassigner;
     }
 
     /**
@@ -50,7 +52,11 @@ class ClusteringManager {
         // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
         $purgedAlbums = 0;
         $prunedEmptyAlbums = 0;
+        $customNameSnapshot = [];
         if ($fromScratch) {
+            // Capture user-set custom names + their file IDs BEFORE purging so we can re-attach
+            // the names to the matching newly-created clusters by file-ID overlap.
+            $customNameSnapshot = $this->albumCreator->getCustomNameSnapshot($userId);
             $purgedAlbums = $this->albumCreator->purgeClusterAlbums($userId);
         } else {
             // Drop tracked albums whose photos were all deleted by the user
@@ -371,6 +377,10 @@ class ClusteringManager {
             ];
             $created++;
         }
+        $reassignReport = ['matched' => [], 'dropped' => []];
+        if ($fromScratch && !empty($customNameSnapshot)) {
+            $reassignReport = $this->customNameReassigner->reassign($userId, $customNameSnapshot);
+        }
         // Send one aggregated notification for the run if any clusters were created
         if ($created > 0) {
             $this->notifyClusterSummary($userId, $clusterSummaries);
@@ -383,6 +393,8 @@ class ClusteringManager {
             'purgedAlbums' => $purgedAlbums,
             'fetchStats' => $fetchStats,
             'prunedEmptyAlbums' => $prunedEmptyAlbums,
+            'customNamesReassigned' => count($reassignReport['matched']),
+            'customNamesDropped' => count($reassignReport['dropped']),
         ];
     }
 

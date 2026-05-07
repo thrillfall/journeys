@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.0] - 2026-05-07
+### Added
+- Settings: user-editable journey names. Each journey card has a pencil button that opens a modal to set a custom name (e.g. "Christmas 2024", "Family reunion", "Sabbatical") on top of the auto-derived location/date title. The custom name becomes the card heading, the Photos album title, and the video title overlay; the auto-derived name is kept as a smaller secondary line and remains the source of truth in `oc_journeys_cluster_albums.name`.
+- Clustering: custom journey names survive `--from-scratch` reclustering. Before purge, `AlbumCreator::getCustomNameSnapshot` captures each named album's file IDs; after rebuilding, `CustomNameReassigner` greedily attaches each old name to the new album with the highest file-ID Jaccard overlap (≥ 0.5). Names whose best match falls below threshold are dropped. Robust against algorithm changes, place-resolver improvements, and retroactive photo additions that shift cluster boundaries.
+- DB migration: new nullable `custom_name` column on `oc_journeys_cluster_albums` (Version0404Date20260507).
+- API: `POST /apps/journeys/personal_settings/update_cluster_name` accepts `{albumId, customName}`. Empty `customName` clears the override and restores the Photos album title to the auto-derived name.
+
 ## [0.23.6] - 2026-05-07
 ### Added
 - Clustering: tracked journey albums whose photos have all been deleted are now removed automatically on the next clustering run (daily cron, OCC, or settings UI). New `AlbumCreator::pruneEmptyClusterAlbums` runs ahead of fetching/clustering so it executes even on days with no new photos. Stale tracking rows pointing at albums that were deleted externally are cleaned at the same time. Manual albums and tracked albums that still hold photos are untouched. Closes #24.
