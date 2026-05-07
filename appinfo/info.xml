@@ -35,6 +35,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.24.3 (2026-05-07)</h3>
+    <ul>
+      <li><b>Video rendering:</b> Per-location subtitles for multi-city trips now use city names instead of sub-city districts. Paris is captioned as <i>Paris</i> (not <i>13e arrondissement</i>), Frankfurt as <i>Frankfurt am Main</i> (not <i>Süd</i>). Single-city journeys still fall back to suburb-level so movement within one city keeps varying the caption.</li>
+    </ul>
   <h3>0.24.2 (2026-05-07)</h3>
     <ul>
       <li><b>Settings:</b> Personal-settings sidebar entry now shows a globe icon (<code>actions/public.svg</code>) instead of the generic settings cog, so Journeys is easier to spot in the personal-settings menu.</li>
@@ -390,7 +394,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.24.2</version>
+  <version>0.24.3</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

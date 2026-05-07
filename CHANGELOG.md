@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.3] - 2026-05-07
+### Fixed
+- Video rendering: per-location subtitles for multi-city trips now use city names instead of sub-city districts (e.g. *Paris* instead of *13e arrondissement*, *Frankfurt am Main* instead of *Süd*). The resolver now picks both a city (admin_level 8/7/6) and a suburb (most specific ≥8) per photo; if the journey spans 2+ distinct cities it captions with the city, otherwise it falls back to the suburb so single-city trips still get intra-city differentiation.
+
 ## [0.24.2] - 2026-05-07
 ### Changed
 - Settings: personal-settings sidebar entry now shows a globe icon (`actions/public.svg`) instead of the generic settings cog, making Journeys easier to spot in the personal-settings menu.
