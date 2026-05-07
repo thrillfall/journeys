@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.2] - 2026-05-07
+### Changed
+- Settings: personal-settings sidebar entry now shows a globe icon (`actions/public.svg`) instead of the generic settings cog, making Journeys easier to spot in the personal-settings menu.
+
 ## [0.24.1] - 2026-05-07
 ### Changed
 - Settings: clustering settings (basics, near/away thresholds, video & home, save / start-clustering buttons) are now grouped under a collapsible "Clustering settings" header — collapsed by default so the journeys grid is visible without scrolling past the configuration cards. Open/closed state persists in browser `localStorage` under `journeys.settingsExpanded`. The summary line shows the last clustering run timestamp at a glance so users know the daily cron is alive without expanding.

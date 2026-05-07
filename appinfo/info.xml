@@ -35,6 +35,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.24.2 (2026-05-07)</h3>
+    <ul>
+      <li><b>Settings:</b> Personal-settings sidebar entry now shows a globe icon (<code>actions/public.svg</code>) instead of the generic settings cog, so Journeys is easier to spot in the personal-settings menu.</li>
+    </ul>
   <h3>0.24.1 (2026-05-07)</h3>
     <ul>
       <li><b>Settings:</b> Clustering settings (basics, near/away thresholds, video & home, save / start-clustering buttons) are now grouped under a collapsible <i>Clustering settings</i> header — collapsed by default so the journeys grid is visible without scrolling. Open/closed state persists in browser <code>localStorage</code> under <code>journeys.settingsExpanded</code>. The summary line shows the last clustering run timestamp at a glance.</li>
@@ -386,7 +390,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.24.1</version>
+  <version>0.24.2</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
