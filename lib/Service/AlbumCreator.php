@@ -40,6 +40,81 @@ class AlbumCreator {
         }
         return $deleted;
     }
+
+    /**
+     * Delete tracked clusterer-created albums that have become empty
+     * (e.g. the user removed all the photos the album referenced) and
+     * drop tracking rows for albums that were already removed externally.
+     *
+     * @param string $userId
+     * @return int Number of albums deleted from the Photos app
+     */
+    public function pruneEmptyClusterAlbums(string $userId): int {
+        $deleted = 0;
+        $table = $this->getTrackingTableName();
+        try {
+            $stmt = $this->db->prepare("SELECT album_id FROM {$table} WHERE user_id = ?");
+            $result = $stmt->execute([$userId]);
+            $rows = $result ? $result->fetchAll() : [];
+        } catch (\Throwable $e) {
+            return 0;
+        }
+        foreach ($rows as $row) {
+            $albumId = isset($row['album_id']) ? (int)$row['album_id'] : 0;
+            if ($albumId <= 0) {
+                continue;
+            }
+            try {
+                $ownStmt = $this->db->prepare('SELECT album_id FROM *PREFIX*photos_albums WHERE album_id = ? AND user = ?');
+                $ownRes = $ownStmt->execute([$albumId, $userId]);
+                $ownRow = $ownRes ? $ownRes->fetch() : false;
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if ($ownRow === false) {
+                // Album no longer exists or was reassigned; drop the stale tracking row.
+                $this->deleteTrackingRow($userId, $albumId);
+                continue;
+            }
+            try {
+                $countStmt = $this->db->prepare('SELECT 1 FROM *PREFIX*photos_albums_files WHERE album_id = ? LIMIT 1');
+                $countRes = $countStmt->execute([$albumId]);
+                $hasFiles = $countRes ? ($countRes->fetch() !== false) : true;
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if ($hasFiles) {
+                continue;
+            }
+            try {
+                $this->albumMapper->delete($albumId);
+                $deleted++;
+            } catch (\Throwable $e) {
+                try {
+                    $this->logger->warning('Journeys: failed to delete empty cluster album', [
+                        'app' => 'journeys',
+                        'userId' => $userId,
+                        'albumId' => $albumId,
+                        'exception' => $e->getMessage(),
+                    ]);
+                } catch (\Throwable $ignored) {}
+                // Leave tracking row in place so we retry next run.
+                continue;
+            }
+            $this->deleteTrackingRow($userId, $albumId);
+        }
+        return $deleted;
+    }
+
+    private function deleteTrackingRow(string $userId, int $albumId): void {
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ? AND album_id = ?");
+            $stmt->execute([$userId, $albumId]);
+        } catch (\Throwable $e) {
+            // best-effort
+        }
+    }
     public const CLUSTERER_MARKER = '[clusterer]';
     private AlbumMapper $albumMapper;
     private IUserManager $userManager;

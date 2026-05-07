@@ -511,6 +511,10 @@ class ClusterAndCreateAlbumsCommand extends Command {
             $output->writeln('<error>' . $result['error'] . '</error>');
             return Command::FAILURE;
         }
+        $prunedEmpty = (int)($result['prunedEmptyAlbums'] ?? 0);
+        if ($prunedEmpty > 0) {
+            $output->writeln(sprintf('<info>Removed %d empty journey album%s.</info>', $prunedEmpty, $prunedEmpty === 1 ? '' : 's'));
+        }
         $output->writeln('Found ' . $result['clustersCreated'] . ' clusters. Creating albums...\n');
         if (!$clustersPrinted) {
             foreach ($result['clusters'] as $cluster) {

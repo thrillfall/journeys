@@ -69,7 +69,11 @@ class DailyClusteringJob extends TimedJob {
                 } elseif (isset($result['error'])) {
                     $this->logger->warning('Journeys daily job: clustering error', [ 'user' => $uid, 'error' => $result['error'] ]);
                 } else {
-                    $this->logger->info('Journeys daily job: clusters processed', [ 'user' => $uid, 'created' => $result['clustersCreated'] ]);
+                    $this->logger->info('Journeys daily job: clusters processed', [
+                        'user' => $uid,
+                        'created' => $result['clustersCreated'],
+                        'prunedEmpty' => $result['prunedEmptyAlbums'] ?? 0,
+                    ]);
                 }
             } catch (\Throwable $e) {
                 $this->logger->error('Journeys daily job failed for user', [ 'user' => isset($uid) ? $uid : 'unknown', 'exception' => $e->getMessage() ]);

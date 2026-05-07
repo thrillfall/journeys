@@ -17,6 +17,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels. Renders run as background jobs (the settings page returns instantly) and land in `Documents/Journeys Movies/`. Per-location subtitles fade in/out as the journey moves between places. Requires `ffmpeg` on the server.
 - **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters plus a `▶ Watch` shortcut to existing rendered videos — built for instances with many journeys.
 - **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
+- **🧹 Auto-cleanup of empty albums:** Journey albums whose photos you've all deleted are removed automatically on the next clustering run, so empty placeholders don't pile up. Manual albums are never touched.
 
 ## 🚀 OCC Command Usage
 
@@ -33,6 +34,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.23.6 (2026-05-07)</h3>
+    <ul>
+      <li><b>Clustering:</b> Tracked albums whose photos have all been deleted are now removed automatically on the next clustering run (daily cron, OCC, or settings UI). Manual albums and tracked albums that still hold photos are left untouched. Closes <a href="https://github.com/thrillfall/journeys/issues/24">#24</a>.</li>
+    </ul>
   <h3>0.23.5 (2026-05-06)</h3>
     <ul>
       <li><b>Video rendering:</b> Per-location subtitles now also overlay portrait videos (previously landscape-only). Same group/cap/single-location-suppression behavior; reuses the <code>showLocationSubtitles</code> toggle.</li>
@@ -370,7 +375,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.23.5</version>
+  <version>0.23.6</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

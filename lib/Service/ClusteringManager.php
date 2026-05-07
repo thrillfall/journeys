@@ -49,8 +49,14 @@ class ClusteringManager {
     public function clusterForUser(string $userId, int $maxTimeGap = 86400, float $maxDistanceKm = 100.0, int $minClusterSize = 3, bool $homeAware = false, ?array $home = null, ?array $thresholds = null, bool $fromScratch = false, int $recentCutoffDays = 2, bool $cronContext = false, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?int $fromTs = null, ?int $toTs = null, ?callable $clusterProgress = null, ?callable $splitDebug = null, bool $mergeAdjacent = true): array {
         // Purge behavior depends on mode: from-scratch purges, incremental preserves existing albums
         $purgedAlbums = 0;
+        $prunedEmptyAlbums = 0;
         if ($fromScratch) {
             $purgedAlbums = $this->albumCreator->purgeClusterAlbums($userId);
+        } else {
+            // Drop tracked albums whose photos were all deleted by the user
+            // (issue #24). Runs before fetching/clustering so it executes even
+            // when the run has nothing new to cluster.
+            $prunedEmptyAlbums = $this->albumCreator->pruneEmptyClusterAlbums($userId);
         }
         $images = $this->imageFetcher->fetchImagesForUser($userId, $includeGroupFolders, $includeSharedImages, $fromTs, $toTs);
         $fetchStats = $this->imageFetcher->getLastFetchStats();
@@ -74,6 +80,7 @@ class ClusteringManager {
                 'lastRun' => date('c'),
                 'clustersCreated' => 0,
                 'fetchStats' => $fetchStats,
+                'prunedEmptyAlbums' => $prunedEmptyAlbums,
             ];
         }
 
@@ -102,6 +109,7 @@ class ClusteringManager {
                 'lastRun' => date('c'),
                 'clustersCreated' => 0,
                 'fetchStats' => $fetchStats,
+                'prunedEmptyAlbums' => $prunedEmptyAlbums,
             ];
         }
 
@@ -189,6 +197,7 @@ class ClusteringManager {
                     'clusters' => [],
                     'purgedAlbums' => $purgedAlbums,
                     'fetchStats' => $fetchStats,
+                    'prunedEmptyAlbums' => $prunedEmptyAlbums,
                 ];
             }
         }
@@ -207,6 +216,7 @@ class ClusteringManager {
                     'clusters' => [],
                     'purgedAlbums' => $purgedAlbums,
                     'fetchStats' => $fetchStats,
+                    'prunedEmptyAlbums' => $prunedEmptyAlbums,
                 ];
             }
         }
@@ -372,6 +382,7 @@ class ClusteringManager {
             'clusters' => array_reverse($clusterSummaries),
             'purgedAlbums' => $purgedAlbums,
             'fetchStats' => $fetchStats,
+            'prunedEmptyAlbums' => $prunedEmptyAlbums,
         ];
     }
 

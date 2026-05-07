@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.6] - 2026-05-07
+### Added
+- Clustering: tracked journey albums whose photos have all been deleted are now removed automatically on the next clustering run (daily cron, OCC, or settings UI). New `AlbumCreator::pruneEmptyClusterAlbums` runs ahead of fetching/clustering so it executes even on days with no new photos. Stale tracking rows pointing at albums that were deleted externally are cleaned at the same time. Manual albums and tracked albums that still hold photos are untouched. Closes #24.
+
 ## [0.23.5] - 2026-05-06
 ### Added
 - Video rendering: per-location subtitles now also overlay portrait videos (previously landscape-only). Reuses the `showLocationSubtitles` toggle and the same group/5s-cap/single-location-suppression behavior.
