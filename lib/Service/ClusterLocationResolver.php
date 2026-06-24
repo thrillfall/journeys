@@ -40,6 +40,12 @@ class ClusterLocationResolver {
                         return $a['admin_level'] <=> $b['admin_level'];
                     });
                     foreach ($places as $place) {
+                        // Real administrative boundaries are admin_level 2..12;
+                        // OSM also has timezone polygons (e.g. "Etc/GMT-2") with
+                        // admin_level <= 0 — exclude those.
+                        if ((int)$place['admin_level'] < 2) {
+                            continue;
+                        }
                         // Only consider city-level (admin_level <= 8) or broader
                         if ((int)$place['admin_level'] <= 8) {
                             $locations[] = [
@@ -155,10 +161,45 @@ class ClusterLocationResolver {
      */
     private function getPlaceName(int $osmId): ?string {
         $query = $this->db->getQueryBuilder();
-        $query->select('name')
+        $query->select('name', 'other_names')
             ->from($this->planetTable)
             ->where($query->expr()->eq('osm_id', $query->createNamedParameter($osmId)));
         $row = $query->executeQuery()->fetch();
-        return $row ? $row['name'] : null;
+        if (!$row) {
+            return null;
+        }
+        return $this->preferLatinName((string)$row['name'], $row['other_names'] ?? null);
+    }
+
+    /**
+     * Prefer a Latin-script place name (English / international) over the local
+     * OSM name when the latter is in a non-Latin script (e.g. Greek, Cyrillic).
+     * Memories' planet `other_names` is a JSON map of language code → name.
+     */
+    private function preferLatinName(string $name, ?string $otherNames): string {
+        if ($name !== '' && $this->isLatinScript($name)) {
+            return $name;
+        }
+        if ($otherNames !== null && $otherNames !== '') {
+            $data = json_decode($otherNames, true);
+            if (is_array($data)) {
+                foreach (['en', 'name:en', 'int_name'] as $key) {
+                    if (!empty($data[$key]) && is_string($data[$key]) && $this->isLatinScript($data[$key])) {
+                        return $data[$key];
+                    }
+                }
+                foreach ($data as $value) {
+                    if (is_string($value) && $value !== '' && $this->isLatinScript($value)) {
+                        return $value;
+                    }
+                }
+            }
+        }
+        return $name; // no Latin alternative — keep the original
+    }
+
+    /** True if the string contains no common non-Latin-script letters. */
+    private function isLatinScript(string $s): bool {
+        return !preg_match('/[\p{Greek}\p{Cyrillic}\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}\p{Arabic}\p{Hebrew}\p{Thai}\p{Devanagari}]/u', $s);
     }
 }

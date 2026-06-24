@@ -15,6 +15,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
 - **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels. Renders run as background jobs (the settings page returns instantly) and land in `Documents/Journeys Movies/`. Per-location subtitles fade in/out as the journey moves between places. Requires `ffmpeg` on the server.
+- **📔 Journals (travel diary):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread across that day), write text, and curate the photos. Publish a Journal to a revocable public link — a mobile-friendly timeline with locations, a visited countries/cities overview and a cover photo. Share a Journal with other users or groups for full co-editing.
 - **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters plus a `▶ Watch` shortcut to existing rendered videos — built for instances with many journeys.
 - **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
 - **🧹 Auto-cleanup of empty albums:** Journey albums whose photos you've all deleted are removed automatically on the next clustering run, so empty placeholders don't pile up. Manual albums are never touched.
@@ -35,6 +36,13 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.25.0 (2026-06-24)</h3>
+    <ul>
+      <li><b>New — Journals (travel diary):</b> A new <b>Journeys</b> app in the sidebar for keeping a travel diary alongside the auto-clustered albums. Create a Journal, add a day entry (auto-seeded with up to 20 photos spread evenly across that day), write journal text, and curate/reorder photos. Multiple entries per day allowed.</li>
+      <li><b>Public sharing:</b> Publish a Journal to a revocable public link — a mobile-friendly timeline with per-day location labels, a visited countries/cities overview, a cover photo, a prev/next photo lightbox, and OpenGraph tags for link previews. Photos are served only through the share token.</li>
+      <li><b>Collaboration:</b> Share a Journal with other users or groups. Everyone can co-edit entries, text and photos; each person adds photos from their own library and anyone can remove. Managing collaborators, publishing and deleting stay owner-only.</li>
+      <li><b>Place names:</b> Diary locations now prefer an English/Latin-script name (e.g. <i>Greece</i> instead of <i>Ελλάς</i>) and ignore timezone boundaries. This also improves clustering album and video names.</li>
+    </ul>
   <h3>0.24.3 (2026-05-07)</h3>
     <ul>
       <li><b>Video rendering:</b> Per-location subtitles for multi-city trips now use city names instead of sub-city districts. Paris is captioned as <i>Paris</i> (not <i>13e arrondissement</i>), Frankfurt as <i>Frankfurt am Main</i> (not <i>Süd</i>). Single-city journeys still fall back to suburb-level so movement within one city keeps varying the caption.</li>
@@ -394,7 +402,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.24.3</version>
+  <version>0.25.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
@@ -419,4 +427,12 @@ Album titles are generated from the **resolved place name** and the **date range
     <personal>OCA\Journeys\Settings\PersonalSettings</personal>
     <personal-section>OCA\Journeys\Sections\PersonalSection</personal-section>
   </settings>
+  <navigations>
+    <navigation>
+      <name>Journeys</name>
+      <route>journeys.page.index</route>
+      <icon>app.svg</icon>
+      <order>80</order>
+    </navigation>
+  </navigations>
 </info>

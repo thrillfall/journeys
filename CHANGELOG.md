@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.0] - 2026-06-24
+### Added
+- Journals: new **Journeys** sidebar app for keeping a travel diary — create a Journal, add day entries auto-seeded with up to 20 photos spread evenly across that day, write text, and curate/reorder photos (multiple entries per day allowed).
+- Public sharing: publish a Journal to a revocable public link — server-rendered, mobile-friendly timeline with per-day locations, a visited countries/cities overview, cover photo, a prev/next photo lightbox, and OpenGraph link previews. Photos are served only through the token, scoped to that Journal.
+- Collaboration: share a Journal with users or groups (native sharee picker, honoring core share-enumeration settings). Full co-edit; contributors add photos from their own library, anyone can remove; membership/publish/delete stay owner-only. Deleting a user purges their Journals and contributions.
+### Changed
+- Place names: diary locations prefer an English/Latin-script name over the local script (e.g. *Greece* not *Ελλάς*) and skip OSM timezone polygons. Shared resolver, so clustering album/video names improve too.
+
 ## [0.24.3] - 2026-05-07
 ### Fixed
 - Video rendering: per-location subtitles for multi-city trips now use city names instead of sub-city districts (e.g. *Paris* instead of *13e arrondissement*, *Frankfurt am Main* instead of *Süd*). The resolver now picks both a city (admin_level 8/7/6) and a suburb (most specific ≥8) per photo; if the journey spans 2+ distinct cities it captions with the city, otherwise it falls back to the suburb so single-city trips still get intra-city differentiation.

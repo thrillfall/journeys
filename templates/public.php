@@ -1,0 +1,135 @@
+<?php
+/** @var array $_ */
+?>
+<div class="jd-public">
+	<div class="jd-inner">
+	<?php if (!empty($_['cover'])): ?>
+		<div class="jd-hero"><img src="<?php p($_['cover']); ?>" alt="" loading="eager"></div>
+	<?php endif; ?>
+	<header class="jd-pub-header">
+		<h1><?php p($_['title']); ?></h1>
+		<?php if (!empty($_['description'])): ?>
+			<p class="jd-pub-desc"><?php p($_['description']); ?></p>
+		<?php endif; ?>
+
+		<?php if (!empty($_['overview'])): ?>
+			<div class="jd-overview">
+				<?php foreach ($_['overview'] as $c): ?>
+					<span class="jd-country">
+						<strong><?php p($c['country']); ?></strong>
+						<?php if (!empty($c['cities'])): ?>
+							<span class="jd-cities">— <?php p(implode(', ', $c['cities'])); ?></span>
+						<?php endif; ?>
+					</span>
+				<?php endforeach; ?>
+			</div>
+		<?php endif; ?>
+	</header>
+
+	<?php if (empty($_['entries'])): ?>
+		<p class="jd-empty"><?php p($l->t('This journal has no entries yet.')); ?></p>
+	<?php endif; ?>
+
+	<?php $lb = 0; $lbTotal = array_sum(array_map(static fn($e) => count($e['photos']), $_['entries'])); ?>
+	<ol class="jd-timeline">
+		<?php foreach ($_['entries'] as $e): ?>
+			<li class="jd-entry">
+				<div class="jd-entry-meta">
+					<time class="jd-date"><?php p($e['date']); ?></time>
+					<?php if (!empty($e['place'])): ?>
+						<span class="jd-place">📍 <?php p($e['place']); ?></span>
+					<?php endif; ?>
+				</div>
+				<?php if (!empty($e['title'])): ?>
+					<h2 class="jd-entry-title"><?php p($e['title']); ?></h2>
+				<?php endif; ?>
+				<?php if (!empty($e['body'])): ?>
+					<p class="jd-body"><?php print_unescaped(nl2br(htmlspecialchars($e['body'], ENT_QUOTES))); ?></p>
+				<?php endif; ?>
+				<?php if (!empty($e['photos'])): ?>
+					<div class="jd-photos">
+						<?php foreach ($e['photos'] as $ph): $lb++; ?>
+							<figure class="jd-photo">
+								<a href="#lb<?php p($lb); ?>" class="jd-photo__open">
+									<img src="<?php p($ph['thumb']); ?>" alt="" loading="lazy">
+								</a>
+								<?php if (!empty($ph['caption'])): ?>
+									<figcaption><?php p($ph['caption']); ?></figcaption>
+								<?php endif; ?>
+							</figure>
+							<div id="lb<?php p($lb); ?>" class="jd-lightbox">
+								<a href="#_" class="jd-lightbox__bg"></a>
+								<?php if ($lbTotal > 1): $prev = $lb > 1 ? $lb - 1 : $lbTotal; $next = $lb < $lbTotal ? $lb + 1 : 1; ?>
+									<a class="jd-lb-nav jd-lb-prev" href="#lb<?php p($prev); ?>" aria-label="Previous">&lsaquo;</a>
+									<a class="jd-lb-nav jd-lb-next" href="#lb<?php p($next); ?>" aria-label="Next">&rsaquo;</a>
+								<?php endif; ?>
+								<a href="#_" class="jd-lightbox__close" aria-label="Close">&times;</a>
+								<img src="<?php p($ph['url']); ?>" alt="">
+								<?php if (!empty($ph['caption'])): ?>
+									<div class="jd-lb-caption"><?php p($ph['caption']); ?></div>
+								<?php endif; ?>
+							</div>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+			</li>
+		<?php endforeach; ?>
+	</ol>
+
+	<footer class="jd-pub-footer">
+		<?php p($l->t('Shared from a Journeys travel diary')); ?>
+	</footer>
+	</div>
+</div>
+
+<style>
+/* NC's public #content is fixed-height with overflow clipped, so the page must
+   own its scroll. Full-width scroller + centered inner column keeps it centered. */
+.jd-public { flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
+.jd-inner { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; font-family: var(--font-face, sans-serif); }
+.jd-hero { margin: -24px -16px 24px; }
+.jd-hero img { width: 100%; max-height: 360px; object-fit: cover; display: block; }
+.jd-photo__open { display: block; }
+.jd-lightbox { display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.9);
+	align-items: center; justify-content: center; }
+.jd-lightbox:target { display: flex; }
+.jd-lightbox__bg { position: absolute; inset: 0; }
+.jd-lightbox img { max-width: 94vw; max-height: 92vh; object-fit: contain; position: relative; z-index: 1; }
+/* The NC header (z-index 2000) sits above #content's stacking context (which is
+   fixed → always a stacking context), so it overlaps the lightbox's top strip.
+   Keep the close button clear of the 50px header and give it a real hit box. */
+.jd-lightbox__close { position: absolute; top: 60px; right: 16px; z-index: 3;
+	width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+	color: #fff; font-size: 34px; line-height: 1; text-decoration: none;
+	background: rgba(0, 0, 0, .5); border-radius: 50%; }
+/* Prev/next: tall click zones on each side of the image (pure-CSS :target nav). */
+.jd-lb-nav { position: absolute; top: 0; bottom: 0; width: 20%; max-width: 140px; z-index: 2;
+	display: flex; align-items: center; text-decoration: none; color: #fff;
+	font-size: 60px; line-height: 1; opacity: .75; -webkit-user-select: none; user-select: none; }
+.jd-lb-nav:hover { opacity: 1; }
+.jd-lb-prev { left: 0; justify-content: flex-start; padding-left: 16px; }
+.jd-lb-next { right: 0; justify-content: flex-end; padding-right: 16px; }
+.jd-lb-caption { position: absolute; bottom: 18px; left: 0; right: 0; z-index: 2; text-align: center;
+	color: #fff; font-size: .95em; padding: 0 16px; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+.jd-pub-header { text-align: center; margin-bottom: 32px; }
+.jd-pub-header h1 { font-size: 2em; margin: 0 0 8px; }
+.jd-pub-desc { color: #666; margin: 0 0 16px; }
+.jd-overview { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; }
+.jd-country { background: var(--color-background-dark, #ededed); border-radius: 16px; padding: 4px 14px; font-size: .95em; }
+.jd-cities { color: #777; }
+.jd-timeline { list-style: none; padding: 0; margin: 0; }
+.jd-entry { border-left: 3px solid var(--color-primary-element, #0082c9); padding: 0 0 28px 20px; position: relative; }
+.jd-entry::before { content: ''; position: absolute; left: -8px; top: 4px; width: 13px; height: 13px; border-radius: 50%; background: var(--color-primary-element, #0082c9); }
+.jd-entry-meta { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.jd-date { font-weight: 700; }
+.jd-place { color: #777; font-size: .92em; }
+.jd-entry-title { font-size: 1.3em; margin: 4px 0 6px; }
+.jd-body { line-height: 1.55; margin: 0 0 12px; white-space: normal; }
+.jd-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.jd-photo { margin: 0; }
+.jd-photo img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; display: block; background: #e0e0e0; }
+.jd-photo figcaption { font-size: .85em; color: #777; margin-top: 4px; }
+.jd-empty, .jd-pub-footer { text-align: center; color: #999; }
+.jd-pub-footer { margin-top: 40px; font-size: .85em; }
+@media (max-width: 500px) { .jd-photo img { height: 150px; } }
+</style>
