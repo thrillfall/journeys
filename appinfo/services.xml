@@ -39,6 +39,12 @@
       <argument type="service" id="OCP\Files\IRootFolder"/>
       <argument type="service" id="OCP\IPreview"/>
     </service>
+    <service id="OCA\Journeys\Service\StaticRouteMapService">
+      <argument type="service" id="OCP\Files\AppData\IAppDataFactory"/>
+      <argument type="service" id="OCP\Http\Client\IClientService"/>
+      <argument type="service" id="OCP\IConfig"/>
+      <argument type="service" id="Psr\Log\LoggerInterface"/>
+    </service>
     <service id="OCA\Journeys\Service\CustomNameReassigner">
       <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
       <argument type="service" id="Psr\Log\LoggerInterface"/>
@@ -134,6 +140,7 @@
       <argument type="service" id="OCP\IRequest"/>
       <argument type="service" id="OCA\Journeys\Service\JournalService"/>
       <argument type="service" id="OCA\Journeys\Service\PhotoPreviewResponder"/>
+      <argument type="service" id="OCA\Journeys\Service\StaticRouteMapService"/>
       <argument type="service" id="OCP\IURLGenerator"/>
     </service>
   </services>

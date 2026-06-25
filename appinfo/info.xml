@@ -11,7 +11,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 **Requires the Memories app!**
 
 > ### 🆕 New: Journals — your travel diary
-> Keep a hand-written travel diary right inside Nextcloud. Create a Journal, add day entries (auto-filled with photos from that day), write your story, and curate the pictures. **Publish to a revocable public link** — a mobile-friendly timeline with locations, a visited countries & cities overview and a cover photo — or **share with other users and groups for full co-editing.** Find it in the new **Journeys** sidebar app.
+> Keep a hand-written travel diary right inside Nextcloud. Create a Journal, add day entries (auto-filled with photos from that day), write your story, and curate the pictures. **Publish to a revocable public link** — a mobile-friendly timeline with locations, a route map, a visited countries & cities overview and a cover photo — or **share with other users and groups for full co-editing.** Find it in the new **Journeys** sidebar app.
 
 ## ✨ Features
 - **🗺️ Location & Time Clustering:** Group images by when and where they were taken
@@ -39,6 +39,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.26.0 (2026-06-25)</h3>
+    <ul>
+      <li><b>Journals public page:</b> Added a travel map — an OpenStreetMap basemap with the route line and numbered stops between geolocated days (shown when 2+ entries have distinct locations). The image is rendered and cached on the server and served as a plain image, so the public page needs no JavaScript. The tile source is configurable via the <code>mapTileUrl</code> app config value.</li>
+      <li><b>Journals public page:</b> Removed the Nextcloud logo and the "Nextcloud – a safe home…" footer for a cleaner shared page.</li>
+    </ul>
   <h3>0.25.1 (2026-06-25)</h3>
     <ul>
       <li><b>Journals public page:</b> Added an oldest/newest sort toggle for the day-by-day timeline.</li>
@@ -410,7 +415,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.25.1</version>
+  <version>0.26.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

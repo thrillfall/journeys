@@ -75,5 +75,6 @@ return [
         // --- Travel diary: public share page (Increment 3) ---
         ['name' => 'publicDiary#show', 'url' => '/s/{token}', 'verb' => 'GET'],
         ['name' => 'publicDiary#photo', 'url' => '/s/{token}/photo/{fileid}', 'verb' => 'GET'],
+        ['name' => 'publicDiary#map', 'url' => '/s/{token}/map', 'verb' => 'GET'],
     ],
 ];

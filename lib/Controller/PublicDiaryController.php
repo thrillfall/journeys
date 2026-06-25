@@ -4,7 +4,10 @@ namespace OCA\Journeys\Controller;
 use OCA\Journeys\Model\JournalEntry;
 use OCA\Journeys\Service\PhotoPreviewResponder;
 use OCA\Journeys\Service\JournalService;
+use OCA\Journeys\Service\StaticRouteMapService;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\NotFoundResponse;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IRequest;
@@ -23,6 +26,7 @@ class PublicDiaryController extends Controller {
         IRequest $request,
         private JournalService $journalService,
         private PhotoPreviewResponder $photoResponder,
+        private StaticRouteMapService $routeMapService,
         private IURLGenerator $urlGenerator,
     ) {
         parent::__construct($appName, $request);
@@ -52,6 +56,11 @@ class PublicDiaryController extends Controller {
         ], $entries);
 
         $overview = $this->buildOverview($entries);
+        // The map image is generated lazily by the map() endpoint; here we only
+        // decide whether to emit the <img> (route needs 2+ distinct points).
+        $mapUrl = count($this->buildMapPoints($entries)) >= 2
+            ? $this->urlGenerator->linkToRoute('journeys.publicDiary.map', ['token' => $token])
+            : null;
         // Cover: explicit journal cover (if still attached) else first available photo.
         $cover = null;
         if ($journal->coverFileid && $this->journalService->journalHasPhoto($journal->id, $journal->coverFileid)) {
@@ -77,6 +86,7 @@ class PublicDiaryController extends Controller {
             'overview' => $overview,
             'entries' => $viewEntries,
             'cover' => $cover,
+            'mapUrl' => $mapUrl,
         ], TemplateResponse::RENDER_AS_PUBLIC);
     }
 
@@ -97,6 +107,26 @@ class PublicDiaryController extends Controller {
         // falling back to the journal owner (robust against stale owner_uid).
         $owner = $this->journalService->getPhotoOwnerUid($journal->id, $fileid);
         return $this->photoResponder->serve([$owner, $journal->userId], $fileid, $this->request->getParam('size'));
+    }
+
+    /**
+     * Static PNG travel-route map for the journal, generated/cached server-side.
+     * @PublicPage
+     * @NoCSRFRequired
+     */
+    public function map(string $token) {
+        $journal = $this->journalService->getJournalByToken($token);
+        if ($journal === null) {
+            return new NotFoundResponse();
+        }
+        $points = $this->buildMapPoints($this->journalService->listEntries($journal->id));
+        $png = $this->routeMapService->pngForPoints($points);
+        if ($png === null) {
+            return new NotFoundResponse();
+        }
+        $resp = new DataDisplayResponse($png, Http::STATUS_OK, ['Content-Type' => 'image/png']);
+        $resp->cacheFor(86400, false, true);
+        return $resp;
     }
 
     // -- helpers --------------------------------------------------------------
@@ -125,6 +155,33 @@ class PublicDiaryController extends Controller {
                 : $e->placeLabel;
         }
         return $e->city ?? $e->country;
+    }
+
+    /**
+     * Geolocated entries in chronological order, for the inline SVG route map.
+     * Only entries that carry coordinates are plotted; the label is the entry's
+     * resolved place (falling back to its date). Returned empty when fewer than
+     * two distinct coordinates exist (a one-point "map" isn't worth drawing).
+     * @param JournalEntry[] $entries
+     * @return array<int,array{lat:float,lon:float,label:string}>
+     */
+    private function buildMapPoints(array $entries): array {
+        $points = [];
+        foreach ($entries as $e) {
+            if ($e->lat === null || $e->lon === null) {
+                continue;
+            }
+            $points[] = [
+                'lat' => $e->lat,
+                'lon' => $e->lon,
+                'label' => $this->placeText($e) ?? $e->entryDate,
+            ];
+        }
+        $distinct = [];
+        foreach ($points as $p) {
+            $distinct[round($p['lat'], 4) . ',' . round($p['lon'], 4)] = true;
+        }
+        return count($distinct) >= 2 ? $points : [];
     }
 
     /**

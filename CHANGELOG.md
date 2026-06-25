@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.0] - 2026-06-25
+### Added
+- Journals public page: travel map showing the route between geolocated days — an OpenStreetMap basemap with a route line and numbered stops, rendered and cached server-side and served as a plain `<img>` (no client JS, no CSP changes; shown when 2+ entries have distinct coordinates). Tile source is overridable via the `mapTileUrl` app config value.
+### Changed
+- Journals public page: removed the Nextcloud logo and the "Nextcloud – a safe home…" footer for a cleaner shared page.
+
 ## [0.25.1] - 2026-06-25
 ### Added
 - Journals public page: oldest/newest sort toggle for the day-by-day timeline (pure-CSS, no JS — the public-page CSP forbids inline script).

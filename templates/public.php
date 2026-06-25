@@ -26,6 +26,13 @@
 		<?php endif; ?>
 	</header>
 
+	<?php if (!empty($_['mapUrl'])): ?>
+	<div class="jd-map">
+		<img class="jd-map-img" src="<?php p($_['mapUrl']); ?>" loading="lazy"
+			alt="<?php p($l->t('Map of the journey route')); ?>">
+	</div>
+	<?php endif; ?>
+
 	<?php if (empty($_['entries'])): ?>
 		<p class="jd-empty"><?php p($l->t('This journal has no entries yet.')); ?></p>
 	<?php endif; ?>
@@ -130,6 +137,10 @@ body > footer { display: none; }
 .jd-pub-header h1 { font-size: 2em; margin: 0 0 8px; }
 .jd-pub-desc { color: var(--color-text-maxcontrast, #767676); margin: 0 0 16px; }
 .jd-overview { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; }
+/* Static route map: a server-rendered OSM basemap with the route + numbered
+   stops baked in, served as a plain <img> (no client JS, no CSP changes). */
+.jd-map { margin: 0 0 32px; border-radius: 12px; overflow: hidden; background: var(--color-background-dark, #ededed); }
+.jd-map-img { display: block; width: 100%; height: auto; }
 .jd-country { background: var(--color-background-dark, #ededed); color: var(--color-main-text, #222); border-radius: 16px; padding: 4px 14px; font-size: .95em; }
 .jd-cities { color: var(--color-text-maxcontrast, #767676); }
 /* Sort toggle: pure-CSS, no JS (public-page CSP forbids inline script). The
