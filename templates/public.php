@@ -93,6 +93,11 @@
 </div>
 
 <style>
+/* Strip Nextcloud branding from this shared page: the logo+name in the header
+   and the "Nextcloud – a safe home for all your data" footer. visibility:hidden
+   on the appname keeps the 50px header height the lightbox close button relies on. */
+#header #nextcloud { visibility: hidden; }
+body > footer { display: none; }
 /* NC's public #content is fixed-height with overflow clipped, so the page must
    own its scroll. Full-width scroller + centered inner column keeps it centered. */
 .jd-public { flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
