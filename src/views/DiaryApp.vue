@@ -359,7 +359,7 @@ export default {
    vertical scroll — otherwise tall journals get cut off with no scrollbar. */
 .journeys-diary { height: 100%; overflow-y: auto; box-sizing: border-box; }
 .diary-view { max-width: 900px; margin: 0 auto; padding: 24px 16px 80px; }
-.diary-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+.diary-header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
 	h2 { flex: 1; margin: 0; } }
 .diary-loading { margin: 40px auto; }
 .journal-list { list-style: none; padding: 0; }
@@ -419,4 +419,17 @@ export default {
 		color: var(--color-primary-element-text); border-radius: 50%; width: 22px; height: 22px;
 		display: flex; align-items: center; justify-content: center; font-size: 14px; } }
 .picker__footer { margin-top: 16px; text-align: right; }
+
+/* Mobile: the header packs back/title/refresh/share/delete into one row — on a
+   narrow sidebar that overflows and the buttons become untappable. Give the
+   title its own full-width row so the action buttons wrap below at full size. */
+@media (max-width: 700px) {
+	.diary-view { padding: 16px 12px 80px; }
+	.diary-header { gap: 8px; }
+	.journal-title-input { flex: 1 1 100%; font-size: 1.2em; }
+	.add-day { flex-wrap: wrap; }
+	.add-day__date { flex: 1 1 auto; }
+	.entry-card { padding: 12px; }
+	.entry-card__head { flex-wrap: wrap; }
+}
 </style>

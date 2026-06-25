@@ -36,10 +36,15 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.25.1 (2026-06-25)</h3>
+    <ul>
+      <li><b>Journals public page:</b> Added an oldest/newest sort toggle for the day-by-day timeline.</li>
+      <li><b>Mobile fixes:</b> Editor action buttons no longer overflow off-screen on narrow/mobile views (the header wraps and the title gets its own row); public page text is now readable in dark mode, with a tighter small-screen layout.</li>
+    </ul>
   <h3>0.25.0 (2026-06-24)</h3>
     <ul>
       <li><b>New — Journals (travel diary):</b> A new <b>Journeys</b> app in the sidebar for keeping a travel diary alongside the auto-clustered albums. Create a Journal, add a day entry (auto-seeded with up to 20 photos spread evenly across that day), write journal text, and curate/reorder photos. Multiple entries per day allowed.</li>
-      <li><b>Public sharing:</b> Publish a Journal to a revocable public link — a mobile-friendly timeline with per-day location labels, a visited countries/cities overview, a cover photo, a prev/next photo lightbox, and OpenGraph tags for link previews. Photos are served only through the share token.</li>
+      <li><b>Public sharing:</b> Publish a Journal to a revocable public link — a mobile-friendly timeline with per-day location labels, a visited countries/cities overview, a cover photo, an oldest/newest sort toggle, a prev/next photo lightbox, and OpenGraph tags for link previews. Photos are served only through the share token.</li>
       <li><b>Collaboration:</b> Share a Journal with other users or groups. Everyone can co-edit entries, text and photos; each person adds photos from their own library and anyone can remove. Managing collaborators, publishing and deleting stay owner-only.</li>
       <li><b>Place names:</b> Diary locations now prefer an English/Latin-script name (e.g. <i>Greece</i> instead of <i>Ελλάς</i>) and ignore timezone boundaries. This also improves clustering album and video names.</li>
     </ul>
@@ -402,7 +407,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.25.0</version>
+  <version>0.25.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

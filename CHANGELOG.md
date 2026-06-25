@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.1] - 2026-06-25
+### Added
+- Journals public page: oldest/newest sort toggle for the day-by-day timeline (pure-CSS, no JS — the public-page CSP forbids inline script).
+### Fixed
+- Journals editor: action buttons (back/title/share/delete) overflowed off-screen and were untappable on narrow/mobile screens; the header now wraps and gives the title its own full-width row.
+- Journals public page: low-contrast grey text was hard to read (especially in dark mode) — colors are now theme-aware, plus a tighter small-screen layout (smaller headings, denser photo grid).
+
 ## [0.25.0] - 2026-06-24
 ### Added
 - Journals: new **Journeys** sidebar app for keeping a travel diary — create a Journal, add day entries auto-seeded with up to 20 photos spread evenly across that day, write text, and curate/reorder photos (multiple entries per day allowed).

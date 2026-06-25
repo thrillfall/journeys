@@ -30,6 +30,16 @@
 		<p class="jd-empty"><?php p($l->t('This journal has no entries yet.')); ?></p>
 	<?php endif; ?>
 
+	<?php if (count($_['entries']) > 1): ?>
+		<input type="checkbox" id="jd-order" class="jd-order-cb">
+		<div class="jd-sort">
+			<label for="jd-order" class="jd-order-label">
+				<span class="jd-order-text jd-order-text--asc">↑ <?php p($l->t('Oldest first')); ?></span>
+				<span class="jd-order-text jd-order-text--desc">↓ <?php p($l->t('Newest first')); ?></span>
+			</label>
+		</div>
+	<?php endif; ?>
+
 	<?php $lb = 0; $lbTotal = array_sum(array_map(static fn($e) => count($e['photos']), $_['entries'])); ?>
 	<ol class="jd-timeline">
 		<?php foreach ($_['entries'] as $e): ?>
@@ -86,7 +96,7 @@
 /* NC's public #content is fixed-height with overflow clipped, so the page must
    own its scroll. Full-width scroller + centered inner column keeps it centered. */
 .jd-public { flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
-.jd-inner { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; font-family: var(--font-face, sans-serif); }
+.jd-inner { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; font-family: var(--font-face, sans-serif); color: var(--color-main-text, #222); }
 .jd-hero { margin: -24px -16px 24px; }
 .jd-hero img { width: 100%; max-height: 360px; object-fit: cover; display: block; }
 .jd-photo__open { display: block; }
@@ -113,23 +123,43 @@
 	color: #fff; font-size: .95em; padding: 0 16px; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
 .jd-pub-header { text-align: center; margin-bottom: 32px; }
 .jd-pub-header h1 { font-size: 2em; margin: 0 0 8px; }
-.jd-pub-desc { color: #666; margin: 0 0 16px; }
+.jd-pub-desc { color: var(--color-text-maxcontrast, #767676); margin: 0 0 16px; }
 .jd-overview { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; }
-.jd-country { background: var(--color-background-dark, #ededed); border-radius: 16px; padding: 4px 14px; font-size: .95em; }
-.jd-cities { color: #777; }
-.jd-timeline { list-style: none; padding: 0; margin: 0; }
+.jd-country { background: var(--color-background-dark, #ededed); color: var(--color-main-text, #222); border-radius: 16px; padding: 4px 14px; font-size: .95em; }
+.jd-cities { color: var(--color-text-maxcontrast, #767676); }
+/* Sort toggle: pure-CSS, no JS (public-page CSP forbids inline script). The
+   hidden checkbox reverses the flex column and flips the label text. */
+.jd-order-cb { position: absolute; opacity: 0; pointer-events: none; }
+.jd-sort { display: flex; justify-content: flex-end; margin: 0 0 16px; }
+.jd-order-label { cursor: pointer; -webkit-user-select: none; user-select: none; font-size: .9em;
+	padding: 7px 16px; border-radius: 18px; border: 1px solid var(--color-border, #ddd);
+	color: var(--color-main-text, #222); background: var(--color-background-hover, #f5f5f5); }
+.jd-order-text--desc { display: none; }
+.jd-order-cb:checked ~ .jd-sort .jd-order-text--asc { display: none; }
+.jd-order-cb:checked ~ .jd-sort .jd-order-text--desc { display: inline; }
+.jd-order-cb:focus-visible ~ .jd-sort .jd-order-label { outline: 2px solid var(--color-primary-element, #0082c9); }
+.jd-timeline { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+.jd-order-cb:checked ~ .jd-timeline { flex-direction: column-reverse; }
 .jd-entry { border-left: 3px solid var(--color-primary-element, #0082c9); padding: 0 0 28px 20px; position: relative; }
 .jd-entry::before { content: ''; position: absolute; left: -8px; top: 4px; width: 13px; height: 13px; border-radius: 50%; background: var(--color-primary-element, #0082c9); }
 .jd-entry-meta { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
 .jd-date { font-weight: 700; }
-.jd-place { color: #777; font-size: .92em; }
+.jd-place { color: var(--color-text-maxcontrast, #767676); font-size: .92em; }
 .jd-entry-title { font-size: 1.3em; margin: 4px 0 6px; }
 .jd-body { line-height: 1.55; margin: 0 0 12px; white-space: normal; }
 .jd-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
 .jd-photo { margin: 0; }
-.jd-photo img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; display: block; background: #e0e0e0; }
-.jd-photo figcaption { font-size: .85em; color: #777; margin-top: 4px; }
-.jd-empty, .jd-pub-footer { text-align: center; color: #999; }
+.jd-photo img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; display: block; background: var(--color-background-dark, #e0e0e0); }
+.jd-photo figcaption { font-size: .85em; color: var(--color-text-maxcontrast, #767676); margin-top: 4px; }
+.jd-empty, .jd-pub-footer { text-align: center; color: var(--color-text-maxcontrast, #888); }
 .jd-pub-footer { margin-top: 40px; font-size: .85em; }
-@media (max-width: 500px) { .jd-photo img { height: 150px; } }
+@media (max-width: 600px) {
+	.jd-inner { padding: 16px 14px 56px; }
+	.jd-pub-header { margin-bottom: 24px; }
+	.jd-pub-header h1 { font-size: 1.6em; }
+	.jd-body { line-height: 1.6; }
+	.jd-photos { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+	.jd-photo img { height: 150px; }
+	.jd-lb-nav { font-size: 44px; width: 26%; }
+}
 </style>
