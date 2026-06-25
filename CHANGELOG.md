@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 - Journals public page: travel map showing the route between geolocated days — an OpenStreetMap basemap with a route line and numbered stops, rendered and cached server-side and served as a plain `<img>` (no client JS, no CSP changes; shown when 2+ entries have distinct coordinates). Tile source is overridable via the `mapTileUrl` app config value.
 ### Changed
 - Journals public page: removed the Nextcloud logo and the "Nextcloud – a safe home…" footer for a cleaner shared page.
+- Diary entry location: the representative coordinate is now a medoid (an actual photo location) instead of the average of all photos. A day whose photos span a wide area (e.g. both shores of a bay) no longer averages out to a point in open water, so its map marker sits on land where photos were taken.
 
 ## [0.25.1] - 2026-06-25
 ### Added
