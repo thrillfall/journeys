@@ -71,7 +71,7 @@
 			<div class="add-day">
 				<input v-model="newDay" type="date" class="add-day__date">
 				<NcButton type="secondary" :disabled="!newDay" @click="addDay">
-					{{ t('journeys', 'Add day') }}
+					{{ addDayLabel }}
 				</NcButton>
 			</div>
 
@@ -79,7 +79,7 @@
 				:name="t('journeys', 'No entries yet')"
 				:description="t('journeys', 'Pick a day to add a journal entry.')" />
 
-			<div v-for="entry in currentJournal.entries" :key="entry.id" class="entry-card">
+			<div v-for="entry in sortedEntries" :key="entry.id" class="entry-card">
 				<div class="entry-card__head">
 					<span class="entry-card__date">{{ entry.date }}</span>
 					<span v-if="entry.location && entry.location.placeLabel" class="entry-card__place">
@@ -156,6 +156,13 @@ import NcEmptyContent from '@nextcloud/vue/dist/Components/NcEmptyContent.js'
 
 const API = generateUrl('/apps/journeys/diary')
 
+// Local (not UTC) YYYY-MM-DD — what a <input type="date"> expects.
+function todayStr() {
+	const d = new Date()
+	const p = n => String(n).padStart(2, '0')
+	return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 export default {
 	name: 'DiaryApp',
 	components: { NcButton, NcModal, NcLoadingIcon, NcEmptyContent },
@@ -164,7 +171,7 @@ export default {
 			loading: true,
 			journals: [],
 			currentJournal: null,
-			newDay: '',
+			newDay: todayStr(),
 			picker: { open: false, loading: false, entry: null, photos: [], selected: {} },
 			members: [],
 			shareeQuery: '',
@@ -176,6 +183,18 @@ export default {
 	},
 	async mounted() {
 		await this.loadJournals()
+	},
+	computed: {
+		sortedEntries() {
+			// Always newest day first; copy so we don't mutate the loaded array.
+			return [...(this.currentJournal?.entries ?? [])]
+				.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
+		},
+		addDayLabel() {
+			return this.newDay === todayStr()
+				? t('journeys', 'Add today')
+				: t('journeys', 'Add day')
+		},
 	},
 	methods: {
 		previewUrl(fileid) {
@@ -280,7 +299,7 @@ export default {
 		async addDay() {
 			if (!this.newDay) return
 			await axios.post(API + '/journals/' + this.currentJournal.id + '/entries', { date: this.newDay })
-			this.newDay = ''
+			this.newDay = todayStr()
 			await this.reloadCurrent()
 		},
 		markDirty(entry) {

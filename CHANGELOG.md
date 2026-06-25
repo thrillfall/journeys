@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Journals public page: removed the Nextcloud logo and the "Nextcloud – a safe home…" footer for a cleaner shared page.
 - Diary entry location: the representative coordinate is now a medoid (an actual photo location) instead of the average of all photos. A day whose photos span a wide area (e.g. both shores of a bay) no longer averages out to a point in open water, so its map marker sits on land where photos were taken.
+- Journals editor: the new-day date now defaults to today, so adding today's entry is a single click — the button reads "Add today" and switches to "Add day" once you pick a different date. Entries are always listed newest day first.
 
 ## [0.25.1] - 2026-06-25
 ### Added
