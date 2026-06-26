@@ -39,6 +39,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.27.1 (2026-06-26)</h3>
+    <ul>
+      <li><b>Internal:</b> Migrated controller route annotations (<code>@NoAdminRequired</code>, <code>@NoCSRFRequired</code>, <code>@PublicPage</code>) to PHP 8 attributes for forward-compatibility with future Nextcloud majors that drop docblock-annotation support. No behavior change.</li>
+    </ul>
   <h3>0.27.0 (2026-06-26)</h3>
     <ul>
       <li><b>Compatibility:</b> Declare support for Nextcloud 34 (<code>max-version</code> bumped from 33 to 34).</li>
@@ -426,7 +430,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.27.0</version>
+  <version>0.27.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

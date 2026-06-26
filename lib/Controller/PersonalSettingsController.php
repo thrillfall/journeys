@@ -2,6 +2,8 @@
 namespace OCA\Journeys\Controller;
 
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -35,9 +37,7 @@ class PersonalSettingsController extends Controller {
         $this->renderedVideoLister = $renderedVideoLister;
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function startClustering() {
         $user = $this->userSession->getUser();
         if (!$user) {
@@ -157,9 +157,7 @@ class PersonalSettingsController extends Controller {
         return new JSONResponse($result);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function saveClusteringSettings() {
         $user = $this->userSession->getUser();
         if (!$user) {
@@ -242,9 +240,7 @@ class PersonalSettingsController extends Controller {
         }
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function getClusteringSettings() {
         $user = $this->userSession->getUser();
         if (!$user) {
@@ -337,18 +333,14 @@ class PersonalSettingsController extends Controller {
         ]);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function lastRun() {
         // TODO: Return the timestamp of the last clustering run
         return new JSONResponse(['lastRun' => null]);
     }
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function listClusters(): JSONResponse {
         $user = $this->userSession->getUser();
         if (!$user) {
@@ -428,9 +420,7 @@ class PersonalSettingsController extends Controller {
         ]);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function updateClusterName(): JSONResponse {
         $user = $this->userSession->getUser();
         if (!$user) {
@@ -483,26 +473,20 @@ class PersonalSettingsController extends Controller {
         ]);
     }
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function renderClusterVideo(): JSONResponse {
         return $this->enqueueRender('portrait');
     }
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function renderClusterVideoLandscape(): JSONResponse {
         return $this->enqueueRender('landscape');
     }
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function listRenderedVideos(): JSONResponse {
         $user = $this->userSession->getUser();
         if (!$user) {

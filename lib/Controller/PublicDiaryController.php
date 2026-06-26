@@ -7,6 +7,8 @@ use OCA\Journeys\Service\JournalService;
 use OCA\Journeys\Service\StaticRouteMapService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\NotFoundResponse;
 use OCP\AppFramework\Http\TemplateResponse;
@@ -32,10 +34,8 @@ class PublicDiaryController extends Controller {
         parent::__construct($appName, $request);
     }
 
-    /**
-     * @PublicPage
-     * @NoCSRFRequired
-     */
+    #[PublicPage]
+    #[NoCSRFRequired]
     public function show(string $token) {
         $journal = $this->journalService->getJournalByToken($token);
         if ($journal === null) {
@@ -90,10 +90,8 @@ class PublicDiaryController extends Controller {
         ], TemplateResponse::RENDER_AS_PUBLIC);
     }
 
-    /**
-     * @PublicPage
-     * @NoCSRFRequired
-     */
+    #[PublicPage]
+    #[NoCSRFRequired]
     public function photo(string $token, int $fileid) {
         $journal = $this->journalService->getJournalByToken($token);
         if ($journal === null) {
@@ -111,9 +109,9 @@ class PublicDiaryController extends Controller {
 
     /**
      * Static PNG travel-route map for the journal, generated/cached server-side.
-     * @PublicPage
-     * @NoCSRFRequired
      */
+    #[PublicPage]
+    #[NoCSRFRequired]
     public function map(string $token) {
         $journal = $this->journalService->getJournalByToken($token);
         if ($journal === null) {

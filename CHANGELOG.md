@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.1] - 2026-06-26
+### Changed
+- Internal: migrated controller route annotations (`@NoAdminRequired`, `@NoCSRFRequired`, `@PublicPage`) to PHP 8 attributes for forward-compatibility with future Nextcloud majors that drop docblock-annotation support. No behavior change.
+
 ## [0.27.0] - 2026-06-26
 ### Changed
 - Compatibility: declare support for Nextcloud 34 (`max-version` bumped from 33 to 34).

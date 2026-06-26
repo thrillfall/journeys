@@ -11,6 +11,8 @@ use OCA\Journeys\Service\JournalService;
 use OCA\Journeys\Service\PhotoPreviewResponder;
 use OCA\Journeys\Service\PhotoSpread;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IConfig;
 use OCP\IGroupManager;
@@ -22,7 +24,7 @@ use OCP\Security\ISecureRandom;
 
 /**
  * Authoring API for the travel diary (Increment 1). All routes are
- * @NoAdminRequired; writes keep CSRF protection (the Vue client sends the
+ * non-admin (user-scoped); writes keep CSRF protection (the Vue client sends the
  * requesttoken). Every action is scoped to the logged-in user — JournalService
  * enforces ownership and reports foreign ids as not-found (404).
  */
@@ -50,10 +52,9 @@ class DiaryController extends Controller {
      * resolved under the photo's owner_uid — so collaborators see each other's
      * photos even though the file lives in another user's storage (which
      * /core/preview would refuse).
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
      */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function journalPhoto(int $id, int $fileid) {
         $userId = $this->uid();
         if ($userId === null) {
@@ -71,10 +72,8 @@ class DiaryController extends Controller {
 
     // -- journals ----------------------------------------------------------------
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function index(): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -84,9 +83,7 @@ class DiaryController extends Controller {
         return new JSONResponse(['journals' => $journals]);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function create(): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -101,10 +98,8 @@ class DiaryController extends Controller {
         return new JSONResponse(['journal' => $this->serializeJournal($journal, true, $userId)], 201);
     }
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function show(int $id): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -117,9 +112,7 @@ class DiaryController extends Controller {
         return new JSONResponse(['journal' => $this->serializeJournal($journal, true, $userId)]);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function update(int $id): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -135,9 +128,7 @@ class DiaryController extends Controller {
         return new JSONResponse(['journal' => $this->serializeJournal($this->journalService->getJournalWithEntries($userId, $id), true, $userId)]);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function destroy(int $id): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -153,9 +144,8 @@ class DiaryController extends Controller {
 
     /**
      * Generate (or return existing) public share token for a journal. Owner-only.
-     *
-     * @NoAdminRequired
      */
+    #[NoAdminRequired]
     public function share(int $id): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -176,9 +166,8 @@ class DiaryController extends Controller {
 
     /**
      * Revoke a journal's public share. Owner-only.
-     *
-     * @NoAdminRequired
      */
+    #[NoAdminRequired]
     public function unshare(int $id): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -196,10 +185,9 @@ class DiaryController extends Controller {
 
     /**
      * Autocomplete users + groups for the share picker (native sharee search).
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
      */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function sharees(): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -249,10 +237,8 @@ class DiaryController extends Controller {
         return new JSONResponse(['sharees' => $out]);
     }
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function members(int $id): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -265,9 +251,7 @@ class DiaryController extends Controller {
         }
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function addMember(int $id): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -293,9 +277,7 @@ class DiaryController extends Controller {
         return new JSONResponse(['members' => $this->journalService->listMembers($userId, $id)]);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function removeMember(int $id, string $type, string $principal): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -314,9 +296,8 @@ class DiaryController extends Controller {
     /**
      * Create a daily entry and auto-seed it with that day's home-storage photos,
      * then resolve the entry location from those photos.
-     *
-     * @NoAdminRequired
      */
+    #[NoAdminRequired]
     public function createEntry(int $id): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -351,9 +332,7 @@ class DiaryController extends Controller {
         return new JSONResponse(['entry' => $this->serializeEntry($this->loadEntry($userId, $id, $entryId))], 201);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function updateEntry(int $entryId): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -368,9 +347,7 @@ class DiaryController extends Controller {
         return new JSONResponse(['ok' => true]);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    #[NoAdminRequired]
     public function destroyEntry(int $entryId): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -387,9 +364,8 @@ class DiaryController extends Controller {
     /**
      * Replace an entry's photo selection (bare fileids or {fileid,caption}),
      * then re-resolve the entry location.
-     *
-     * @NoAdminRequired
      */
+    #[NoAdminRequired]
     public function setEntryPhotos(int $entryId): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -414,10 +390,8 @@ class DiaryController extends Controller {
 
     // -- photo pickers --------------------------------------------------------
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function dayPhotos(): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
@@ -430,10 +404,8 @@ class DiaryController extends Controller {
         return new JSONResponse(['photos' => $this->photoFetcher->fetchForDay($userId, $date)]);
     }
 
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function libraryPhotos(): JSONResponse {
         $userId = $this->uid();
         if ($userId === null) {
