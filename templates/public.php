@@ -81,7 +81,7 @@
 									<a class="jd-lb-nav jd-lb-next" href="#lb<?php p($next); ?>" aria-label="Next">&rsaquo;</a>
 								<?php endif; ?>
 								<a href="#_" class="jd-lightbox__close" aria-label="Close">&times;</a>
-								<img src="<?php p($ph['url']); ?>" alt="">
+								<img src="<?php p($ph['url']); ?>" alt="" loading="lazy">
 								<?php if (!empty($ph['caption'])): ?>
 									<div class="jd-lb-caption"><?php p($ph['caption']); ?></div>
 								<?php endif; ?>

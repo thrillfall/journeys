@@ -39,6 +39,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.26.1 (2026-06-26)</h3>
+    <ul>
+      <li><b>Journals public page:</b> Full-size lightbox images now lazy-load — each is fetched only when its photo is opened, instead of all downloading on initial page load. A long shared trip (e.g. 21 days with ~15 photos a day) no longer pulls tens of megabytes of hidden full-size images up front.</li>
+    </ul>
   <h3>0.26.0 (2026-06-25)</h3>
     <ul>
       <li><b>Journals public page:</b> Added a travel map — an OpenStreetMap basemap with the route line and numbered stops between geolocated days (shown when 2+ entries have distinct locations). The image is rendered and cached on the server and served as a plain image, so the public page needs no JavaScript. The tile source is configurable via the <code>mapTileUrl</code> app config value.</li>
@@ -417,7 +421,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.26.0</version>
+  <version>0.26.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

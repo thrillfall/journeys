@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.26.1] - 2026-06-26
+### Fixed
+- Journals public page: full-size lightbox images now `loading="lazy"` instead of all downloading on page load. The lightbox is `display:none`, but a browser still fetches a non-lazy `<img>` inside it — so a long trip (e.g. 21 days × ~15 photos) pulled tens of MB of hidden full-size images before any interaction. They're now fetched only when a photo is opened; thumbnails were already lazy.
+
 ## [0.26.0] - 2026-06-25
 ### Added
 - Journals public page: travel map showing the route between geolocated days — an OpenStreetMap basemap with a route line and numbered stops, rendered and cached server-side and served as a plain `<img>` (no client JS, no CSP changes; shown when 2+ entries have distinct coordinates). Tile source is overridable via the `mapTileUrl` app config value.
