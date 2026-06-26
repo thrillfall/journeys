@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.0] - 2026-06-26
+### Changed
+- Compatibility: declare support for Nextcloud 34 (`max-version` bumped from 33 to 34).
+- Dependencies: raise minimum PHP to 8.2 to match Nextcloud 34's supported PHP range.
+
 ## [0.26.1] - 2026-06-26
 ### Fixed
 - Journals public page: full-size lightbox images now `loading="lazy"` instead of all downloading on page load. The lightbox is `display:none`, but a browser still fetches a non-lazy `<img>` inside it — so a long trip (e.g. 21 days × ~15 photos) pulled tens of MB of hidden full-size images before any interaction. They're now fetched only when a photo is opened; thumbnails were already lazy.

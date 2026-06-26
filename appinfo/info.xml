@@ -39,6 +39,11 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.27.0 (2026-06-26)</h3>
+    <ul>
+      <li><b>Compatibility:</b> Declare support for Nextcloud 34 (<code>max-version</code> bumped from 33 to 34).</li>
+      <li><b>Dependencies:</b> Raise minimum PHP to 8.2 to match Nextcloud 34's supported PHP range.</li>
+    </ul>
   <h3>0.26.1 (2026-06-26)</h3>
     <ul>
       <li><b>Journals public page:</b> Full-size lightbox images now lazy-load — each is fetched only when its photo is opened, instead of all downloading on initial page load. A long shared trip (e.g. 21 days with ~15 photos a day) no longer pulls tens of megabytes of hidden full-size images up front.</li>
@@ -421,14 +426,14 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.26.1</version>
+  <version>0.27.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
   <screenshot>https://raw.githubusercontent.com/thrillfall/journeys/main/appinfo/journeys.png</screenshot>
   <bugs>https://github.com/thrillfall/journeys/issues</bugs>
   <dependencies>
-    <nextcloud min-version="30" max-version="33"/>
+    <nextcloud min-version="30" max-version="34"/>
   </dependencies>
   <bootstrap>OCA\Journeys\AppInfo\Application</bootstrap>
   <commands>

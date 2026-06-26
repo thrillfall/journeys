@@ -3,7 +3,7 @@
   "description": "Clusters user images into journeys for Nextcloud.",
   "type": "project",
   "require": {
-    "php": ">=8.0",
+    "php": ">=8.2",
     "ext-pdo": "*"
   },
   "autoload": {
