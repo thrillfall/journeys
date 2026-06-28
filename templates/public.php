@@ -108,7 +108,7 @@ body > footer { display: none; }
 /* NC's public #content is fixed-height with overflow clipped, so the page must
    own its scroll. Full-width scroller + centered inner column keeps it centered. */
 .jd-public { flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
-.jd-inner { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; font-family: var(--font-face, sans-serif); color: var(--color-main-text, #222); }
+.jd-inner { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; font-family: var(--font-face, sans-serif); color: var(--color-main-text, #222); font-size: 17px; line-height: 1.55; }
 .jd-hero { margin: -24px -16px 24px; }
 .jd-hero img { width: 100%; max-height: 360px; object-fit: cover; display: block; }
 .jd-photo__open { display: block; }
@@ -160,7 +160,10 @@ body > footer { display: none; }
 .jd-entry::before { content: ''; position: absolute; left: -8px; top: 4px; width: 13px; height: 13px; border-radius: 50%; background: var(--color-primary-element, #0082c9); }
 .jd-entry-meta { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
 .jd-date { font-weight: 700; }
-.jd-place { color: var(--color-text-maxcontrast, #767676); font-size: .92em; }
+/* Self-contained neutral pill: don't inherit the theme's low-contrast / accent
+   colors here — on some themes the place read as yellow-on-blue and was illegible. */
+.jd-place { color: var(--color-main-text, #222); background: var(--color-background-dark, #ededed);
+	border-radius: 12px; padding: 2px 10px; font-size: .9em; }
 .jd-entry-title { font-size: 1.3em; margin: 4px 0 6px; }
 .jd-body { line-height: 1.55; margin: 0 0 12px; white-space: normal; }
 .jd-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }

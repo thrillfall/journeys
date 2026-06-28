@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.0] - 2026-06-28
+### Added
+- Journals editor: per-photo captions — click any attached photo to write a short caption. Captions show on the public page beneath the photo and in the lightbox, and survive photo reordering and re-picking a day's selection.
+### Changed
+- Journals public page: larger base font for more comfortable reading.
+### Fixed
+- Journals public page: the per-entry location label could render as unreadable low-contrast text (e.g. yellow on a colored background) depending on the theme; it's now a high-contrast pill that reads on any theme.
+
 ## [0.27.1] - 2026-06-26
 ### Changed
 - Internal: migrated controller route annotations (`@NoAdminRequired`, `@NoCSRFRequired`, `@PublicPage`) to PHP 8 attributes for forward-compatibility with future Nextcloud majors that drop docblock-annotation support. No behavior change.

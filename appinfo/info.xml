@@ -18,7 +18,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
 - **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels. Renders run as background jobs (the settings page returns instantly) and land in `Documents/Journeys Movies/`. Per-location subtitles fade in/out as the journey moves between places. Requires `ffmpeg` on the server.
-- **📔 Journals (travel diary):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread across that day), write text, and curate the photos. Publish a Journal to a revocable public link — a mobile-friendly timeline with locations, a visited countries/cities overview and a cover photo. Share a Journal with other users or groups for full co-editing.
+- **📔 Journals (travel diary):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread across that day), write text, curate the photos and add a caption to each. Publish a Journal to a revocable public link — a mobile-friendly timeline with locations, a visited countries/cities overview and a cover photo. Share a Journal with other users or groups for full co-editing.
 - **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters plus a `▶ Watch` shortcut to existing rendered videos — built for instances with many journeys.
 - **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
 - **🧹 Auto-cleanup of empty albums:** Journey albums whose photos you've all deleted are removed automatically on the next clustering run, so empty placeholders don't pile up. Manual albums are never touched.
@@ -39,6 +39,12 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.28.0 (2026-06-28)</h3>
+    <ul>
+      <li><b>Journals editor:</b> Added per-photo captions — click any attached photo to write a short caption. Captions appear on the public page beneath the photo and in the full-size lightbox, and are preserved when you reorder photos or re-pick a day's selection.</li>
+      <li><b>Journals public page:</b> Increased the base font size for more comfortable reading.</li>
+      <li><b>Journals public page:</b> Fixed the per-entry location label, which could render as unreadable low-contrast text (e.g. yellow on a colored background) on some themes. It is now a high-contrast pill that reads clearly on any theme.</li>
+    </ul>
   <h3>0.27.1 (2026-06-26)</h3>
     <ul>
       <li><b>Internal:</b> Migrated controller route annotations (<code>@NoAdminRequired</code>, <code>@NoCSRFRequired</code>, <code>@PublicPage</code>) to PHP 8 attributes for forward-compatibility with future Nextcloud majors that drop docblock-annotation support. No behavior change.</li>
@@ -430,7 +436,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.27.1</version>
+  <version>0.28.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

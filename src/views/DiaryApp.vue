@@ -103,11 +103,13 @@
 				</div>
 
 				<div class="photo-grid">
-					<div v-for="(photo, idx) in entry.photos" :key="photo.id" class="photo-thumb">
+					<div v-for="(photo, idx) in entry.photos" :key="photo.id" class="photo-thumb"
+						:title="t('journeys', 'Click to add a caption')" @click="openCaption(entry, photo)">
 						<img :src="entryPhotoUrl(photo.fileid)" alt="" loading="lazy">
+						<span v-if="photo.caption" class="photo-thumb__caption" :title="photo.caption">{{ photo.caption }}</span>
 						<button class="photo-thumb__cover" :class="{ active: currentJournal.coverFileid === photo.fileid }"
-							title="Set as cover" @click="setCover(photo.fileid)">★</button>
-						<div class="photo-thumb__actions">
+							title="Set as cover" @click.stop="setCover(photo.fileid)">★</button>
+						<div class="photo-thumb__actions" @click.stop>
 							<button :disabled="idx === 0" title="left" @click="movePhoto(entry, idx, -1)">‹</button>
 							<button title="remove" @click="removePhoto(entry, idx)">✕</button>
 							<button :disabled="idx === entry.photos.length - 1" title="right" @click="movePhoto(entry, idx, 1)">›</button>
@@ -138,6 +140,20 @@
 				</div>
 				<div class="picker__footer">
 					<NcButton type="primary" @click="savePicker">{{ t('journeys', 'Save selection') }}</NcButton>
+				</div>
+			</div>
+		</NcModal>
+
+		<!-- ===================== PHOTO CAPTION MODAL ===================== -->
+		<NcModal v-if="caption.open" :title="t('journeys', 'Photo caption')" @close="closeCaption">
+			<div class="caption-edit">
+				<img v-if="caption.photo" :src="entryPhotoUrl(caption.photo.fileid)" alt="">
+				<textarea v-model="caption.text" class="caption-edit__text"
+					:placeholder="t('journeys', 'Write a short caption for this photo…')"></textarea>
+				<div class="caption-edit__footer">
+					<NcButton type="primary" :disabled="caption.saving" @click="saveCaption">
+						{{ caption.saving ? t('journeys', 'Saving…') : t('journeys', 'Save caption') }}
+					</NcButton>
 				</div>
 			</div>
 		</NcModal>
@@ -173,6 +189,7 @@ export default {
 			currentJournal: null,
 			newDay: todayStr(),
 			picker: { open: false, loading: false, entry: null, photos: [], selected: {} },
+			caption: { open: false, saving: false, entry: null, photo: null, text: '' },
 			members: [],
 			shareeQuery: '',
 			shareeResults: [],
@@ -324,9 +341,25 @@ export default {
 			await this.reloadCurrent()
 		},
 		async persistPhotos(entry) {
-			const fileids = entry.photos.map(p => p.fileid)
-			const { data } = await axios.put(API + '/entries/' + entry.id + '/photos', { photos: fileids })
+			const photos = entry.photos.map(p => ({ fileid: p.fileid, caption: p.caption || null }))
+			const { data } = await axios.put(API + '/entries/' + entry.id + '/photos', { photos })
 			entry.photos = data.photos
+		},
+		openCaption(entry, photo) {
+			this.caption = { open: true, saving: false, entry, photo, text: photo.caption || '' }
+		},
+		closeCaption() { this.caption.open = false },
+		async saveCaption() {
+			const { entry, photo } = this.caption
+			this.caption.saving = true
+			photo.caption = this.caption.text.trim() || null
+			try {
+				await this.persistPhotos(entry)
+				this.caption.open = false
+			} catch (e) {
+				showError(this.t('journeys', 'Could not save caption'))
+			}
+			this.caption.saving = false
 		},
 		movePhoto(entry, idx, dir) {
 			const j = idx + dir
@@ -364,7 +397,11 @@ export default {
 			const selected = this.picker.photos.map(p => p.fileid).filter(f => this.picker.selected[f])
 			// preserve photos not offered in this picker (other users' / other days')
 			const keep = entry.photos.map(p => p.fileid).filter(f => !candidates.has(f))
-			const { data } = await axios.put(API + '/entries/' + entry.id + '/photos', { photos: [...keep, ...selected] })
+			// keep existing captions for photos that survive this save
+			const capByFile = {}
+			entry.photos.forEach(p => { if (p.caption) capByFile[p.fileid] = p.caption })
+			const photos = [...keep, ...selected].map(fileid => ({ fileid, caption: capByFile[fileid] || null }))
+			const { data } = await axios.put(API + '/entries/' + entry.id + '/photos', { photos })
 			entry.photos = data.photos
 			if (data.location) entry.location = data.location
 			this.picker.open = false
@@ -419,8 +456,11 @@ export default {
 .entry-card__save { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .entry-card__saved { color: var(--color-success, #2d7d46); font-size: .9em; }
 .photo-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.photo-thumb { position: relative; width: 110px; height: 110px; border-radius: 6px; overflow: hidden;
+.photo-thumb { position: relative; width: 110px; height: 110px; border-radius: 6px; overflow: hidden; cursor: pointer;
 	img { width: 100%; height: 100%; object-fit: cover; display: block; background: var(--color-background-dark); }
+	&__caption { position: absolute; left: 0; right: 0; bottom: 18px; padding: 2px 6px;
+		background: rgba(0,0,0,.55); color: #fff; font-size: .72em; line-height: 1.25;
+		display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 	&__cover { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,.45); border: none;
 		color: #fff; cursor: pointer; font-size: 15px; border-radius: 4px; padding: 1px 4px;
 		&.active { color: #ffce3d; } }
@@ -438,6 +478,12 @@ export default {
 		color: var(--color-primary-element-text); border-radius: 50%; width: 22px; height: 22px;
 		display: flex; align-items: center; justify-content: center; font-size: 14px; } }
 .picker__footer { margin-top: 16px; text-align: right; }
+.caption-edit { padding: 16px; display: flex; flex-direction: column; gap: 12px;
+	img { max-width: 100%; max-height: 50vh; object-fit: contain; border-radius: 8px; align-self: center; background: var(--color-background-dark); }
+	&__text { width: 100%; min-height: 80px; resize: vertical; box-sizing: border-box;
+		border: 1px solid var(--color-border); border-radius: 6px; padding: 8px;
+		background: var(--color-main-background); color: var(--color-main-text); }
+	&__footer { text-align: right; } }
 
 /* Mobile: the header packs back/title/refresh/share/delete into one row — on a
    narrow sidebar that overflows and the buttons become untappable. Give the
