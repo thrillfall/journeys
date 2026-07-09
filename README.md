@@ -2,7 +2,7 @@
 
 Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.
 
-**Requires the [Memories](https://github.com/pulsejet/memories) app.**
+**Requires the [Memories](https://github.com/pulsejet/memories) and [Photos](https://github.com/nextcloud/photos) apps.**
 
 ## ✨ Features
 - **🗺️ Location & Time Clustering:** Group images by when and where they were taken
@@ -17,6 +17,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 
 ## Requirements
 - The Memories app must be installed and enabled.
+- The Photos app must be installed and enabled — journeys creates albums through it (`OCA\Photos\Album\AlbumMapper`). If Photos is disabled, journeys' OCC commands cannot be constructed and unrelated `occ` calls that enumerate commands (e.g. `occ db:add-missing-indices`) will fail with `Could not resolve OCA\Photos\Album\AlbumMapper`.
 - The Places setup in the Memories app must be completed (see Memories app documentation for details).
 - The Nextcloud server must have `ffmpeg` available in `PATH` for video rendering.
 
