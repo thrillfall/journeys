@@ -16,6 +16,7 @@
     </service>
     <service id="OCA\Journeys\Service\ImageFetcher">
       <argument type="service" id="OCA\Journeys\Service\FacePresenceProvider"/>
+      <argument type="service" id="OCP\IDBConnection"/>
     </service>
     <service id="OCA\Journeys\Service\Clusterer"/>
     <service id="OCA\Journeys\Service\ClusterMerger">

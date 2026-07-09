@@ -2,10 +2,12 @@
 namespace OCA\Journeys\Service;
 
 use OCA\Journeys\Model\Image;
+use OCP\IDBConnection;
 
 class ImageFetcher {
     public function __construct(
         private FacePresenceProvider $facePresenceProvider,
+        private IDBConnection $db,
     ) {}
 
     /** @var array{total:int,home:int,group:int,shared:int} */
@@ -33,8 +35,7 @@ class ImageFetcher {
      */
     public function fetchImagesForUser(string $user, bool $includeGroupFolders = false, bool $includeSharedImages = false, ?int $fromTs = null, ?int $toTs = null): array {
         // Get the DB connection from the server container
-        $server = \OC::$server;
-        $db = $server->getDatabaseConnection();
+        $db = $this->db;
 
         $fromDt = null;
         $toDt = null;
@@ -302,8 +303,7 @@ class ImageFetcher {
             return [];
         }
 
-        $server = \OC::$server;
-        $db = $server->getDatabaseConnection();
+        $db = $this->db;
 
         // Build placeholders for IN clause
         $placeholders = implode(',', array_fill(0, count($fileIds), '?'));

@@ -39,6 +39,12 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.28.1 (2026-07-09)</h3>
+    <ul>
+      <li><b>Fixed:</b> Nextcloud 34 clustering crashed with <code>Call to undefined method OC\Server::getDatabaseConnection()</code>. Database access now uses a dependency-injected <code>IDBConnection</code> instead of the server-container getter that Nextcloud 34 removed.</li>
+      <li><b>Internal:</b> Replaced the deprecated <code>\OC::$server->query()</code> with <code>get()</code> in the list-clusters command.</li>
+      <li><b>Packaging:</b> Declared the Photos app as a required dependency.</li>
+    </ul>
   <h3>0.28.0 (2026-06-28)</h3>
     <ul>
       <li><b>Journals editor:</b> Added per-photo captions — click any attached photo to write a short caption. Captions appear on the public page beneath the photo and in the full-size lightbox, and are preserved when you reorder photos or re-pick a day's selection.</li>
@@ -436,7 +442,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.28.0</version>
+  <version>0.28.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

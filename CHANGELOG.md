@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.28.1] - 2026-07-09
+### Fixed
+- Nextcloud 34: clustering crashed with `Call to undefined method OC\Server::getDatabaseConnection()`. `ImageFetcher` now receives an injected `IDBConnection` instead of the server-container getter that NC 34 removed.
+### Changed
+- Internal: replaced the deprecated `\OC::$server->query()` with `->get()` in the list-clusters command.
+- Packaging: declare the Photos app as a required dependency.
+
 ## [0.28.0] - 2026-06-28
 ### Added
 - Journals editor: per-photo captions — click any attached photo to write a short caption. Captions show on the public page beneath the photo and in the lightbox, and survive photo reordering and re-picking a day's selection.

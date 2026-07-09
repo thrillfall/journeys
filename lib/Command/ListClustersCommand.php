@@ -21,7 +21,7 @@ class ListClustersCommand extends Command {
         $user = (string)$input->getArgument('user');
 
         /** @var AlbumCreator $albumCreator */
-        $albumCreator = \OC::$server->query(AlbumCreator::class);
+        $albumCreator = \OC::$server->get(AlbumCreator::class);
         $tracked = array_values($albumCreator->getTrackedClusters($user));
 
         $clusterRows = array_map(static function (array $row): array {
