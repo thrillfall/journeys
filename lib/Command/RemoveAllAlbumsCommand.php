@@ -27,14 +27,14 @@ class RemoveAllAlbumsCommand extends Command
         $this->userManager = $userManager;
     }
 
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setDescription('Removes all Journeys-created cluster albums for a specific user.')
             ->addArgument('user', InputArgument::REQUIRED, 'The user ID for which to remove all Journeys cluster albums');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $userId = $input->getArgument('user');
