@@ -65,9 +65,20 @@ class AlbumCreator {
                 continue;
             }
             try {
-                $ownStmt = $this->db->prepare('SELECT album_id FROM *PREFIX*photos_albums WHERE album_id = ? AND user = ?');
-                $ownRes = $ownStmt->execute([$albumId, $userId]);
-                $ownRow = $ownRes ? $ownRes->fetch() : false;
+                // Use the query builder so the "user" column is quoted per
+                // platform: in raw PostgreSQL, unquoted `user` is the session
+                // user ('nextcloud'), so `AND user = ?` never matched, every
+                // tracked album looked deleted, the tracking table was wiped
+                // each run, and the daily job re-created the full album set
+                // every day (79k duplicate albums in one real install).
+                $qb = $this->db->getQueryBuilder();
+                $qb->select('album_id')
+                    ->from('photos_albums')
+                    ->where($qb->expr()->eq('album_id', $qb->createNamedParameter($albumId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+                    ->andWhere($qb->expr()->eq('user', $qb->createNamedParameter($userId)));
+                $ownRes = $qb->executeQuery();
+                $ownRow = $ownRes->fetch();
+                $ownRes->closeCursor();
             } catch (\Throwable $e) {
                 continue;
             }
@@ -226,9 +237,16 @@ class AlbumCreator {
 
     public function getAlbumNameForUser(string $userId, int $albumId): ?string {
         try {
-            $stmt = $this->db->prepare('SELECT name FROM *PREFIX*photos_albums WHERE album_id = ? AND user = ?');
-            $res = $stmt->execute([$albumId, $userId]);
-            $row = $res ? $res->fetch() : false;
+            // Query builder quotes "user" - unquoted it is the SESSION user on
+            // PostgreSQL and the match always fails (see pruneEmptyClusterAlbums).
+            $qb = $this->db->getQueryBuilder();
+            $qb->select('name')
+                ->from('photos_albums')
+                ->where($qb->expr()->eq('album_id', $qb->createNamedParameter($albumId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
+                ->andWhere($qb->expr()->eq('user', $qb->createNamedParameter($userId)));
+            $res = $qb->executeQuery();
+            $row = $res->fetch();
+            $res->closeCursor();
             if ($row === false || !isset($row['name'])) {
                 return null;
             }
