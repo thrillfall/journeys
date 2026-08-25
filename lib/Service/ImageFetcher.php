@@ -307,9 +307,14 @@ class ImageFetcher {
 
         // Build placeholders for IN clause
         $placeholders = implode(',', array_fill(0, count($fileIds), '?'));
+        // No FROM_UNIXTIME here: it is MySQL-only (PostgreSQL raises
+        // "function from_unixtime(bigint) does not exist" and the diary's
+        // photo-selection save 500s). Select the raw mtime and do the
+        // datetaken fallback in PHP, which is portable across all backends.
         $sql = "
             SELECT f.fileid,
-                   COALESCE(m.datetaken, FROM_UNIXTIME(f.mtime)) AS datetaken,
+                   m.datetaken,
+                   f.mtime,
                    m.lat, m.lon, m.w, m.h,
                    f.path
             FROM oc_filecache f
@@ -330,10 +335,15 @@ class ImageFetcher {
 
             foreach ($rows as $row) {
                 $fid = (int)$row['fileid'];
+                $datetaken = $row['datetaken'] ?? null;
+                if ($datetaken === null || $datetaken === '') {
+                    // Same fallback FROM_UNIXTIME provided, done portably.
+                    $datetaken = date('Y-m-d H:i:s', (int)($row['mtime'] ?? 0));
+                }
                 $images[] = new Image(
                     $fid,
                     $row['path'],
-                    (string)$row['datetaken'],
+                    (string)$datetaken,
                     $row['lat'] ?? null,
                     $row['lon'] ?? null,
                     isset($row['w']) ? (int)$row['w'] : null,
