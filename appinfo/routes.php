@@ -78,6 +78,7 @@ return [
         // --- Travel diary: shared photo libraries (Increment 8) ---
         ['name' => 'diary#setLibraryConsent', 'url' => '/diary/journals/{id}/library-consent', 'verb' => 'POST'],
         ['name' => 'diary#journalDayPhotos', 'url' => '/diary/journals/{id}/day-photos', 'verb' => 'GET'],
+        ['name' => 'diary#journalPhotoDays', 'url' => '/diary/journals/{id}/photo-days', 'verb' => 'GET'],
         ['name' => 'diary#libraryPhoto', 'url' => '/diary/journals/{id}/library-photo/{fileid}', 'verb' => 'GET'],
 
         // --- Travel diary: public share page (Increment 3) ---

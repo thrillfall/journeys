@@ -116,6 +116,34 @@
 				<NcButton type="secondary" :disabled="!newDay" @click="addDay">
 					{{ addDayLabel }}
 				</NcButton>
+				<span class="add-day__count">{{ selectedDayLabel }}</span>
+			</div>
+
+			<div class="daycal">
+				<div class="daycal__head">
+					<button class="daycal__nav" :title="t('journeys', 'Previous month')" @click="shiftMonth(-1)">‹</button>
+					<span class="daycal__month">{{ monthLabel }}</span>
+					<button class="daycal__nav" :title="t('journeys', 'Next month')" @click="shiftMonth(1)">›</button>
+					<NcLoadingIcon v-if="calendar.loading" :size="16" />
+					<span class="daycal__legend">{{ t('journeys', 'Highlighted days have photos') }}</span>
+				</div>
+				<div class="daycal__grid">
+					<span v-for="(w, i) in weekdayLabels" :key="'w' + i" class="daycal__weekday">{{ w }}</span>
+					<span v-for="i in calendarLeadingBlanks" :key="'b' + i" class="daycal__blank" />
+					<button v-for="cell in calendarCells" :key="cell.date"
+						class="daycal__day"
+						:class="{
+							'daycal__day--photos': cell.count > 0,
+							'daycal__day--entry': cell.hasEntry,
+							'daycal__day--selected': cell.date === newDay,
+							'daycal__day--today': cell.isToday,
+						}"
+						:title="cell.title"
+						@click="newDay = cell.date">
+						<span class="daycal__num">{{ cell.day }}</span>
+						<span v-if="cell.count" class="daycal__count">{{ cell.count }}</span>
+					</button>
+				</div>
 			</div>
 
 			<NcEmptyContent v-if="currentJournal.entries.length === 0"
@@ -233,6 +261,7 @@ export default {
 			journals: [],
 			currentJournal: null,
 			newDay: todayStr(),
+			calendar: { month: todayStr().slice(0, 7), counts: {}, loading: false },
 			picker: { open: false, loading: false, entry: null, photos: [], selected: {} },
 			caption: { open: false, saving: false, entry: null, photo: null, text: '' },
 			members: [],
@@ -245,6 +274,15 @@ export default {
 	},
 	async mounted() {
 		await this.loadJournals()
+	},
+	watch: {
+		// Typing a date from another month into the native input moves the grid.
+		newDay(date) {
+			if (date && date.slice(0, 7) !== this.calendar.month) {
+				this.calendar.month = date.slice(0, 7)
+				this.loadPhotoDays()
+			}
+		},
 	},
 	computed: {
 		sortedEntries() {
@@ -262,6 +300,45 @@ export default {
 			return this.newDay === todayStr()
 				? t('journeys', 'Add today')
 				: t('journeys', 'Add day')
+		},
+		entryDates() {
+			return new Set((this.currentJournal?.entries ?? []).map(e => e.date))
+		},
+		monthLabel() {
+			const [y, m] = this.calendar.month.split('-').map(Number)
+			return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+		},
+		weekdayLabels() {
+			// 2024-01-01 was a Monday, which is where the grid starts.
+			return Array.from({ length: 7 }, (_, i) =>
+				new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: 'short' }))
+		},
+		calendarLeadingBlanks() {
+			const [y, m] = this.calendar.month.split('-').map(Number)
+			return (new Date(y, m - 1, 1).getDay() + 6) % 7
+		},
+		calendarCells() {
+			const [y, m] = this.calendar.month.split('-').map(Number)
+			const today = todayStr()
+			const pad = n => String(n).padStart(2, '0')
+			return Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => {
+				const day = i + 1
+				const date = `${y}-${pad(m)}-${pad(day)}`
+				const count = this.calendar.counts[date] ?? 0
+				const hasEntry = this.entryDates.has(date)
+				const parts = [count
+					? this.t('journeys', '{count} photos', { count })
+					: this.t('journeys', 'No photos')]
+				if (hasEntry) parts.push(this.t('journeys', 'already has an entry'))
+				return { date, day, count, hasEntry, isToday: date === today, title: `${date} — ${parts.join(', ')}` }
+			})
+		},
+		selectedDayLabel() {
+			const count = this.calendar.counts[this.newDay] ?? 0
+			if (!this.newDay || this.calendar.month !== this.newDay.slice(0, 7)) return ''
+			return count
+				? this.t('journeys', '{count} photos on this day', { count })
+				: this.t('journeys', 'No photos on this day')
 		},
 		visitedLine() {
 			const s = this.currentJournal?.stats
@@ -346,6 +423,32 @@ export default {
 			this.shareeResults = []
 			this.membersOpen = false
 			if (data.journal.isOwner) this.loadMembers()
+			this.calendar.month = this.newDay.slice(0, 7)
+			this.calendar.counts = {}
+			this.loadPhotoDays()
+		},
+		async loadPhotoDays() {
+			const month = this.calendar.month
+			const [y, m] = month.split('-').map(Number)
+			const last = String(new Date(y, m, 0).getDate()).padStart(2, '0')
+			this.calendar.loading = true
+			try {
+				const { data } = await axios.get(API + '/journals/' + this.currentJournal.id + '/photo-days',
+					{ params: { from: `${month}-01`, to: `${month}-${last}` } })
+				// A slower earlier month must not overwrite the month now on screen.
+				if (this.calendar.month === month) this.calendar.counts = data.days ?? {}
+			} catch (e) {
+				// A missing photo index is not worth an error toast — the grid just
+				// shows no highlights and the picker still works.
+			} finally {
+				this.calendar.loading = false
+			}
+		},
+		shiftMonth(delta) {
+			const [y, m] = this.calendar.month.split('-').map(Number)
+			const d = new Date(y, m - 1 + delta, 1)
+			this.calendar.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+			this.loadPhotoDays()
 		},
 		closeJournal() { this.currentJournal = null; this.loadJournals() },
 		async loadMembers() {
@@ -530,8 +633,8 @@ export default {
 		overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	&__stats { color: var(--color-text-maxcontrast); font-size: 0.85em; }
 	&__dates { color: var(--color-text-maxcontrast); font-size: 0.9em; white-space: nowrap; } }
-.completed-badge { color: var(--color-success, #2d7d46); font-weight: 700;
-	&--pill { background: var(--color-success, #2d7d46); color: var(--color-primary-element-text, #fff);
+.completed-badge { color: var(--color-success-text, #2d7d46); font-weight: 700;
+	&--pill { background: var(--color-success, #d8f3da); color: var(--color-success-text, #2d7d46);
 		border-radius: 12px; padding: 2px 10px; font-size: .85em; } }
 /* Its own surface: the app background is a colored gradient, on which
    --color-text-maxcontrast is barely legible. */
@@ -569,7 +672,29 @@ export default {
 .consent__hint { margin: 2px 0 0 4px; color: var(--color-text-maxcontrast); font-size: .85em; }
 .consent__sharers { margin: 8px 0 0 4px; font-size: .85em; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
 	color: var(--color-text-maxcontrast); }
-.add-day { display: flex; gap: 8px; align-items: center; margin: 16px 0 24px; }
+.add-day { display: flex; gap: 8px; align-items: center; margin: 16px 0 8px; }
+.add-day__count { color: var(--color-text-maxcontrast); font-size: .9em; }
+.daycal { background: var(--color-main-background); border: 1px solid var(--color-border);
+	border-radius: 8px; padding: 8px 12px 12px; margin-bottom: 24px; max-width: 420px;
+	&__head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+	&__month { font-weight: 600; min-width: 9em; text-align: center; }
+	&__nav { background: none; border: none; cursor: pointer; font-size: 1.2em; line-height: 1;
+		padding: 2px 8px; border-radius: 4px; color: var(--color-main-text);
+		&:hover { background: var(--color-background-hover); } }
+	&__legend { margin-left: auto; color: var(--color-text-maxcontrast); font-size: .8em; }
+	&__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+	&__weekday { text-align: center; font-size: .75em; color: var(--color-text-maxcontrast); padding-bottom: 2px; }
+	&__blank { }
+	&__day { position: relative; aspect-ratio: 1; border: 2px solid transparent; border-radius: 6px;
+		background: none; cursor: pointer; color: var(--color-main-text); font-size: .9em;
+		display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;
+		&:hover { background: var(--color-background-hover); }
+		&--photos { background: var(--color-primary-element-light, var(--color-background-dark)); font-weight: 600; }
+		&--today { text-decoration: underline; }
+		&--selected { border-color: var(--color-primary-element); }
+		&--entry::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px;
+			border-radius: 50%; background: var(--color-success-text, #2d7d46); } }
+	&__count { font-size: .65em; color: var(--color-text-maxcontrast); } }
 .entry-card { border: 1px solid var(--color-border); border-radius: 10px;
 	padding: 16px; margin-bottom: 18px; background: var(--color-main-background); }
 .entry-card__head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px;

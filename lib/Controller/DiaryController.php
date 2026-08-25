@@ -519,6 +519,51 @@ class DiaryController extends Controller {
         return new JSONResponse(['photos' => $photos]);
     }
 
+    /**
+     * Photo count per calendar day in a range, so the day picker can mark the
+     * days that actually hold pictures. Same sources as journalDayPhotos: the
+     * caller's own library, plus consenting members' libraries for the days
+     * inside the journal's date range — the counts must not advertise a day the
+     * picker would then refuse to show.
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function journalPhotoDays(int $id): JSONResponse {
+        $userId = $this->uid();
+        if ($userId === null) {
+            return $this->noUser();
+        }
+        $journal = $this->journalService->getJournal($userId, $id);
+        if ($journal === null) {
+            return $this->notFound();
+        }
+        $from = (string)$this->request->getParam('from', '');
+        $to = (string)$this->request->getParam('to', '');
+        if ($from === '' || $to === '') {
+            return new JSONResponse(['error' => 'from and to are required'], 400);
+        }
+
+        $days = $this->photoFetcher->countsByDay($userId, $from, $to);
+
+        if ($journal->startDate && $journal->endDate) {
+            $sharedFrom = max($from, $journal->startDate);
+            $sharedTo = min($to, $journal->endDate);
+            if ($sharedFrom <= $sharedTo) {
+                foreach ($this->journalService->libraryOwnersFor($userId, $id) as $owner) {
+                    if ($owner === $userId) {
+                        continue;
+                    }
+                    foreach ($this->photoFetcher->countsByDay($owner, $sharedFrom, $sharedTo) as $day => $count) {
+                        $days[$day] = ($days[$day] ?? 0) + $count;
+                    }
+                }
+            }
+        }
+
+        ksort($days);
+        return new JSONResponse(['days' => $days]);
+    }
+
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function libraryPhotos(): JSONResponse {

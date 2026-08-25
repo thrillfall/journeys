@@ -12,6 +12,8 @@ use OCP\IDBConnection;
 class DiaryPhotoFetcher {
 
     private const SHARED_PROVIDER = 'OCA\\Files_Sharing\\MountProvider';
+    private const PHOTO_COLUMNS = 'm.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path';
+    private const DAY_COLUMNS = 'm.fileid, m.datetaken';
 
     public function __construct(
         private IDBConnection $db,
@@ -84,6 +86,30 @@ class DiaryPhotoFetcher {
     }
 
     /**
+     * How many photos each calendar day in the range holds, for marking the
+     * days worth writing about in the day picker. Days without photos are
+     * absent rather than zero.
+     *
+     * Grouped in PHP because there is no portable date-truncating expression:
+     * MySQL's DATE(), PostgreSQL's cast and SQLite's date() disagree on a
+     * datetime column. The range is the month on screen, not a whole library.
+     *
+     * @return array<string,int> 'Y-m-d' => count
+     */
+    public function countsByDay(string $user, string $fromDate, string $toDate): array {
+        $window = $this->window($fromDate, $toDate);
+        if ($window === null) {
+            return [];
+        }
+        $counts = [];
+        foreach ($this->rowsInWindow($user, $window[0], $window[1], null, self::DAY_COLUMNS) as $row) {
+            $day = substr((string)$row['datetaken'], 0, 10);
+            $counts[$day] = ($counts[$day] ?? 0) + 1;
+        }
+        return $counts;
+    }
+
+    /**
      * Capture time per fileid from the Memories index, for merge sorting an
      * entry's photos chronologically across contributors.
      *
@@ -123,7 +149,7 @@ class DiaryPhotoFetcher {
      *
      * @return array<int,array<string,mixed>>
      */
-    private function rowsInWindow(string $user, string $from, string $to, ?int $fileid = null): array {
+    private function rowsInWindow(string $user, string $from, string $to, ?int $fileid = null, string $columns = self::PHOTO_COLUMNS): array {
         $filter = $fileid !== null ? ' AND m.fileid = ?' : '';
 
         // Images only: Memories indexes videos too, and a bare video (e.g. a GCam
@@ -134,7 +160,7 @@ class DiaryPhotoFetcher {
         // object storage; matching 'home::<uid>' alone left the picker empty on
         // every such install while Memories still listed the photos.
         $homeSql = "
-            SELECT DISTINCT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
+            SELECT DISTINCT {$columns}
             FROM *PREFIX*memories m
             JOIN *PREFIX*filecache f ON m.fileid = f.fileid
             JOIN *PREFIX*storages s ON f.storage = s.numeric_id
@@ -146,7 +172,7 @@ class DiaryPhotoFetcher {
         $homeParams = ['home::' . $user, 'object::user:' . $user, $from, $to];
 
         $mountSql = "
-            SELECT DISTINCT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
+            SELECT DISTINCT {$columns}
             FROM *PREFIX*memories m
             JOIN *PREFIX*filecache f ON m.fileid = f.fileid
             JOIN *PREFIX*mounts mo ON mo.storage_id = f.storage
