@@ -5,13 +5,13 @@ use OCP\IDBConnection;
 
 /**
  * Fetches a user's photos for a calendar day (or date range) from the Memories
- * index, for the travel-diary photo pickers. Mirrors ImageFetcher's home-storage
- * query but uses calendar-day string bounds on datetaken (the picker thinks in
+ * index, for the travel-diary photo pickers. Mirrors ImageFetcher's storage
+ * scoping but uses calendar-day string bounds on datetaken (the picker thinks in
  * days, not timestamps) and orders chronologically.
- *
- * v1: home storage only. Shared / group-folder sources are a later increment.
  */
 class DiaryPhotoFetcher {
+
+    private const SHARED_PROVIDER = 'OCA\\Files_Sharing\\MountProvider';
 
     public function __construct(
         private IDBConnection $db,
@@ -30,38 +30,13 @@ class DiaryPhotoFetcher {
      * @return array<int,array{fileid:int,path:string,datetaken:string,lat:?string,lon:?string,w:?int,h:?int}>
      */
     public function fetchForRange(string $user, string $fromDate, string $toDate): array {
-        $from = $this->normalizeDate($fromDate);
-        $to = $this->normalizeDate($toDate);
-        if ($from === null || $to === null) {
+        $window = $this->window($fromDate, $toDate);
+        if ($window === null) {
             return [];
         }
-        if ($from > $to) {
-            [$from, $to] = [$to, $from];
-        }
-
-        $storageId = 'home::' . $user;
-        // Images only: Memories indexes videos too, and a bare video (e.g. a GCam
-        // *.TS.mp4 / *.LS.mp4 motion clip sitting next to its still) has no image
-        // preview, so seeding one produces an unloadable dark tile in the entry.
-        $sql = "
-            SELECT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
-            FROM oc_memories m
-            JOIN oc_filecache f ON m.fileid = f.fileid
-            JOIN oc_storages s ON f.storage = s.numeric_id
-            JOIN oc_mimetypes mt ON f.mimetype = mt.id
-            WHERE s.id = ? AND f.path LIKE 'files/%' AND m.datetaken IS NOT NULL
-              AND mt.mimetype LIKE 'image/%'
-              AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
-              AND m.datetaken >= ? AND m.datetaken <= ?
-            ORDER BY m.datetaken ASC, m.fileid ASC
-        ";
-        $params = [$storageId, $from . ' 00:00:00', $to . ' 23:59:59'];
-        $stmt = $this->db->prepare($sql);
-        $result = $stmt->execute($params);
-        $rows = $result ? $result->fetchAll() : [];
 
         $out = [];
-        foreach ($rows as $row) {
+        foreach ($this->rowsInWindow($user, $window[0], $window[1]) as $row) {
             $out[] = [
                 'fileid' => (int)$row['fileid'],
                 'path' => (string)$row['path'],
@@ -95,33 +70,17 @@ class DiaryPhotoFetcher {
     }
 
     /**
-     * True if the fileid is an indexed image in $ownerUid's home storage whose
+     * True if the fileid is an indexed image in $ownerUid's library whose
      * capture date falls inside the inclusive day window. This is the exposure
-     * bound of a library consent, so it is enforced on every foreign read.
+     * bound of a library consent, so it is enforced on every foreign read, and
+     * it has to accept exactly what the picker offered.
      */
     public function isImageInWindow(int $fileid, string $ownerUid, string $fromDate, string $toDate): bool {
-        $from = $this->normalizeDate($fromDate);
-        $to = $this->normalizeDate($toDate);
-        if ($fileid <= 0 || $from === null || $to === null) {
+        $window = $this->window($fromDate, $toDate);
+        if ($fileid <= 0 || $window === null) {
             return false;
         }
-        if ($from > $to) {
-            [$from, $to] = [$to, $from];
-        }
-        $sql = "
-            SELECT 1
-            FROM oc_memories m
-            JOIN oc_filecache f ON m.fileid = f.fileid
-            JOIN oc_storages s ON f.storage = s.numeric_id
-            JOIN oc_mimetypes mt ON f.mimetype = mt.id
-            WHERE m.fileid = ? AND s.id = ? AND f.path LIKE 'files/%'
-              AND mt.mimetype LIKE 'image/%'
-              AND m.datetaken >= ? AND m.datetaken <= ?
-            LIMIT 1
-        ";
-        $stmt = $this->db->prepare($sql);
-        $result = $stmt->execute([$fileid, 'home::' . $ownerUid, $from . ' 00:00:00', $to . ' 23:59:59']);
-        return $result ? $result->fetch() !== false : false;
+        return $this->rowsInWindow($ownerUid, $window[0], $window[1], $fileid) !== [];
     }
 
     /**
@@ -142,7 +101,7 @@ class DiaryPhotoFetcher {
             return [];
         }
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $sql = "SELECT fileid, datetaken FROM oc_memories WHERE fileid IN ({$placeholders}) AND datetaken IS NOT NULL";
+        $sql = "SELECT fileid, datetaken FROM *PREFIX*memories WHERE fileid IN ({$placeholders}) AND datetaken IS NOT NULL";
         $stmt = $this->db->prepare($sql);
         $result = $stmt->execute($ids);
         $rows = $result ? $result->fetchAll() : [];
@@ -152,6 +111,90 @@ class DiaryPhotoFetcher {
             $out[(int)$row['fileid']] = (string)$row['datetaken'];
         }
         return $out;
+    }
+
+    /**
+     * Indexed images of $user in the datetaken window, chronological.
+     *
+     * Two sources, merged by fileid: the user's home storage and every other
+     * storage mounted into their own files tree (external storage, Group
+     * Folders). Share mounts are left out - those are another user's library,
+     * and a member's consent is what opens that door.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function rowsInWindow(string $user, string $from, string $to, ?int $fileid = null): array {
+        $filter = $fileid !== null ? ' AND m.fileid = ?' : '';
+
+        // Images only: Memories indexes videos too, and a bare video (e.g. a GCam
+        // *.TS.mp4 / *.LS.mp4 motion clip sitting next to its still) has no image
+        // preview, so seeding one produces an unloadable dark tile in the entry.
+        //
+        // 'object::user:<uid>' is the home storage id when Nextcloud runs on
+        // object storage; matching 'home::<uid>' alone left the picker empty on
+        // every such install while Memories still listed the photos.
+        $homeSql = "
+            SELECT DISTINCT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
+            FROM *PREFIX*memories m
+            JOIN *PREFIX*filecache f ON m.fileid = f.fileid
+            JOIN *PREFIX*storages s ON f.storage = s.numeric_id
+            JOIN *PREFIX*mimetypes mt ON f.mimetype = mt.id
+            WHERE s.id IN (?, ?) AND f.path LIKE 'files/%' AND m.datetaken IS NOT NULL
+              AND mt.mimetype LIKE 'image/%'
+              AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
+              AND m.datetaken >= ? AND m.datetaken <= ?" . $filter;
+        $homeParams = ['home::' . $user, 'object::user:' . $user, $from, $to];
+
+        $mountSql = "
+            SELECT DISTINCT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
+            FROM *PREFIX*memories m
+            JOIN *PREFIX*filecache f ON m.fileid = f.fileid
+            JOIN *PREFIX*mounts mo ON mo.storage_id = f.storage
+            JOIN *PREFIX*mimetypes mt ON f.mimetype = mt.id
+            WHERE mo.user_id = ? AND mo.mount_point LIKE ? AND m.datetaken IS NOT NULL
+              AND (mo.mount_provider_class IS NULL OR mo.mount_provider_class <> ?)
+              AND mt.mimetype LIKE 'image/%'
+              AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
+              AND m.datetaken >= ? AND m.datetaken <= ?" . $filter;
+        $mountParams = [$user, '/' . $user . '/files/%', self::SHARED_PROVIDER, $from, $to];
+
+        if ($fileid !== null) {
+            $homeParams[] = $fileid;
+            $mountParams[] = $fileid;
+        }
+
+        $byId = [];
+        foreach ([[$homeSql, $homeParams], [$mountSql, $mountParams]] as [$sql, $params]) {
+            $result = $this->db->prepare($sql)->execute($params);
+            foreach (($result ? $result->fetchAll() : []) as $row) {
+                $id = (int)$row['fileid'];
+                if (!isset($byId[$id])) {
+                    $byId[$id] = $row;
+                }
+            }
+        }
+
+        $rows = array_values($byId);
+        usort($rows, static fn(array $a, array $b) => [(string)$a['datetaken'], (int)$a['fileid']] <=> [(string)$b['datetaken'], (int)$b['fileid']]);
+        return $rows;
+    }
+
+    /**
+     * Inclusive day bounds as datetaken strings, or null if either date is not
+     * a valid 'Y-m-d'. Reversed input is swapped rather than rejected.
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function window(string $fromDate, string $toDate): ?array {
+        $from = $this->normalizeDate($fromDate);
+        $to = $this->normalizeDate($toDate);
+        if ($from === null || $to === null) {
+            return null;
+        }
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+        return [$from . ' 00:00:00', $to . ' 23:59:59'];
     }
 
     /** Validate/normalize a 'Y-m-d' date string; null if not a valid date. */

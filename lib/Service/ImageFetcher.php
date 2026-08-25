@@ -55,18 +55,21 @@ class ImageFetcher {
         $homeIds = [];
         $groupIds = [];
         $sharedIds = [];
-        $storageId = 'home::' . $user;
+        // 'object::user:<uid>' is the home storage id when Nextcloud runs on
+        // object storage; matching 'home::<uid>' alone found no photos at all
+        // on such installs.
+        $homeStorageIds = ['home::' . $user, 'object::user:' . $user];
 
         // Always include the user's home storage
         $sqlHome = "
             SELECT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
-            FROM oc_memories m
-            JOIN oc_filecache f ON m.fileid = f.fileid
-            JOIN oc_storages s ON f.storage = s.numeric_id
-            WHERE s.id = ? AND f.path LIKE 'files/%' AND m.datetaken IS NOT NULL
+            FROM *PREFIX*memories m
+            JOIN *PREFIX*filecache f ON m.fileid = f.fileid
+            JOIN *PREFIX*storages s ON f.storage = s.numeric_id
+            WHERE s.id IN (?, ?) AND f.path LIKE 'files/%' AND m.datetaken IS NOT NULL
               AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
         ";
-        $paramsHome = [$storageId];
+        $paramsHome = $homeStorageIds;
         if ($fromDt !== null) {
             $sqlHome .= " AND m.datetaken >= ?";
             $paramsHome[] = $fromDt;
@@ -92,18 +95,18 @@ class ImageFetcher {
             $userFilesPrefix = '/' . $user . '/files/%';
             $sqlGroup = "
                 SELECT DISTINCT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
-                FROM oc_memories m
-                JOIN oc_filecache f ON m.fileid = f.fileid
-                JOIN oc_storages s ON f.storage = s.numeric_id
-                JOIN oc_mounts mo ON mo.storage_id = s.numeric_id
+                FROM *PREFIX*memories m
+                JOIN *PREFIX*filecache f ON m.fileid = f.fileid
+                JOIN *PREFIX*storages s ON f.storage = s.numeric_id
+                JOIN *PREFIX*mounts mo ON mo.storage_id = s.numeric_id
                 WHERE mo.user_id = ?
-                  AND s.id <> ?
+                  AND s.id NOT IN (?, ?)
                   AND m.datetaken IS NOT NULL
                   AND mo.mount_point LIKE ?
                   AND (mo.mount_provider_class IS NULL OR mo.mount_provider_class <> ?)
                   AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
             ";
-            $paramsGroup = [$user, $storageId, $userFilesPrefix, $sharedProviderClass];
+            $paramsGroup = array_merge([$user], $homeStorageIds, [$userFilesPrefix, $sharedProviderClass]);
             if ($fromDt !== null) {
                 $sqlGroup .= " AND m.datetaken >= ?";
                 $paramsGroup[] = $fromDt;
@@ -132,8 +135,8 @@ class ImageFetcher {
 
             $sqlSharedMounts = "
                 SELECT mo.storage_id, mo.root_id
-                FROM oc_mounts mo
-                JOIN oc_share sh ON sh.file_source = mo.root_id
+                FROM *PREFIX*mounts mo
+                JOIN *PREFIX*share sh ON sh.file_source = mo.root_id
                 WHERE mo.user_id = ?
                   AND mo.mount_provider_class = ?
                   AND mo.root_id IS NOT NULL
@@ -147,7 +150,7 @@ class ImageFetcher {
             if (!empty($sharedMounts)) {
                 $sqlRootPath = "
                     SELECT f.path
-                    FROM oc_filecache f
+                    FROM *PREFIX*filecache f
                     WHERE f.fileid = ?
                     LIMIT 1
                 ";
@@ -155,8 +158,8 @@ class ImageFetcher {
 
                 $sqlShared = "
                     SELECT DISTINCT m.fileid, m.datetaken, m.lat, m.lon, m.w, m.h, f.path
-                    FROM oc_memories m
-                    JOIN oc_filecache f ON m.fileid = f.fileid
+                    FROM *PREFIX*memories m
+                    JOIN *PREFIX*filecache f ON m.fileid = f.fileid
                     WHERE f.storage = ?
                       AND m.datetaken IS NOT NULL
                       AND (f.fileid = ? OR f.path LIKE ?)
@@ -317,8 +320,8 @@ class ImageFetcher {
                    f.mtime,
                    m.lat, m.lon, m.w, m.h,
                    f.path
-            FROM oc_filecache f
-            LEFT JOIN oc_memories m ON m.fileid = f.fileid
+            FROM *PREFIX*filecache f
+            LEFT JOIN *PREFIX*memories m ON m.fileid = f.fileid
             WHERE f.fileid IN ($placeholders)
         ";
         $params = array_map('intval', $fileIds);

@@ -704,7 +704,11 @@ class JournalService {
         return $this->photoFetcher->isImageInWindow($fileid, $fileOwner, $journal->startDate, $journal->endDate);
     }
 
-    /** The home-storage owner uid of a fileid (home::<uid>), or null. */
+    /**
+     * The home-storage owner uid of a fileid, or null. Both layouts count:
+     * 'home::<uid>' on a filesystem primary storage, 'object::user:<uid>' when
+     * Nextcloud runs on object storage.
+     */
     private function fileHomeOwner(int $fileid): ?string {
         $qb = $this->db->getQueryBuilder();
         $qb->select('s.id')
@@ -713,8 +717,13 @@ class JournalService {
             ->where($qb->expr()->eq('f.fileid', $qb->createNamedParameter($fileid, IQueryBuilder::PARAM_INT)))
             ->setMaxResults(1);
         $row = $qb->executeQuery()->fetch();
-        $sid = $row['id'] ?? '';
-        return str_starts_with($sid, 'home::') ? substr($sid, 6) : null;
+        $sid = (string)($row['id'] ?? '');
+        foreach (['home::', 'object::user:'] as $marker) {
+            if (str_starts_with($sid, $marker)) {
+                return substr($sid, strlen($marker));
+            }
+        }
+        return null;
     }
 
     /** True if the fileid is reachable in the user's own files. */
