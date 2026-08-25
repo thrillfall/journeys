@@ -23,6 +23,7 @@
 							<span v-if="journal.isCompleted" class="completed-badge" :title="t('journeys', 'Completed')">✓</span>
 							{{ journal.title }}
 						</span>
+						<span v-if="journal.description" class="journal-row__desc">{{ journal.description }}</span>
 						<span v-if="statsLine(journal.stats)" class="journal-row__stats">{{ statsLine(journal.stats) }}</span>
 					</span>
 					<span v-if="journal.startDate" class="journal-row__dates">{{ journal.startDate }}<span v-if="journal.endDate"> – {{ journal.endDate }}</span></span>
@@ -48,6 +49,10 @@
 					<NcButton type="error" @click="deleteJournal">{{ t('journeys', 'Delete journal') }}</NcButton>
 				</template>
 			</header>
+
+			<textarea v-model="currentJournal.description" class="journal-description-input" rows="2"
+				:placeholder="t('journeys', 'Add a description for this journal…')"
+				@blur="saveDescription"></textarea>
 
 			<div v-if="currentJournal.isOwner || statsLine(currentJournal.stats)" class="journal-stats">
 				<div class="journal-stats__figures">
@@ -379,6 +384,11 @@ export default {
 				await axios.put(API + '/journals/' + this.currentJournal.id, { title: this.currentJournal.title })
 			} catch (e) { showError(this.t('journeys', 'Could not rename journal')) }
 		},
+		async saveDescription() {
+			try {
+				await axios.put(API + '/journals/' + this.currentJournal.id, { description: this.currentJournal.description })
+			} catch (e) { showError(this.t('journeys', 'Could not save the description')) }
+		},
 		async deleteJournal() {
 			if (!window.confirm(this.t('journeys', 'Delete this journal and all its entries?'))) return
 			await axios.delete(API + '/journals/' + this.currentJournal.id)
@@ -516,6 +526,8 @@ export default {
 	&:hover { background: var(--color-background-hover); }
 	&__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 	&__title { font-weight: 600; }
+	&__desc { color: var(--color-text-maxcontrast); font-size: 0.9em;
+		overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	&__stats { color: var(--color-text-maxcontrast); font-size: 0.85em; }
 	&__dates { color: var(--color-text-maxcontrast); font-size: 0.9em; white-space: nowrap; } }
 .completed-badge { color: var(--color-success, #2d7d46); font-weight: 700;
@@ -532,6 +544,11 @@ export default {
 .journal-title-input { flex: 1; font-size: 1.3em; font-weight: 600; border: none;
 	border-bottom: 2px solid transparent; background: transparent;
 	&:focus { border-bottom-color: var(--color-primary-element); outline: none; } }
+.journal-description-input { width: 100%; box-sizing: border-box; margin: 0 0 12px; padding: 8px 12px;
+	font-size: .95em; line-height: 1.4; resize: vertical; border-radius: 8px;
+	border: 1px solid var(--color-border); background: var(--color-main-background);
+	color: var(--color-main-text);
+	&:focus { border-color: var(--color-primary-element); outline: none; } }
 .members { margin-bottom: 16px; border: 1px solid var(--color-border); border-radius: 8px;
 	background: var(--color-main-background); }
 .members__toggle { width: 100%; text-align: left; background: none; border: none; cursor: pointer;
