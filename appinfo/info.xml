@@ -18,7 +18,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
 - **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels. Renders run as background jobs (the settings page returns instantly) and land in `Documents/Journeys Movies/`. Per-location subtitles fade in/out as the journey moves between places. Requires `ffmpeg` on the server.
-- **📔 Journals (travel diary):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread across that day), write text, curate the photos and add a caption to each. Photos stay in capture-time order, so pictures added by a collaborator merge into the day's timeline where they were actually taken. Publish a Journal to a revocable public link — a mobile-friendly timeline with locations, a visited countries/cities overview and a cover photo. Share a Journal with other users or groups for full co-editing — and each member can optionally let the others pick from their own photo library for the journal's dates. Mark a Journal as completed when you're home; it then shows its travel stats — days, countries, distance travelled and photo count.
+- **📔 Journals (travel diary):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread across that day), write text, curate the photos and add a caption to each. Photos stay in capture-time order, so pictures added by a collaborator merge into the day's timeline where they were actually taken. Publish a Journal to a revocable public link — a mobile-friendly timeline with locations, a visited countries/cities overview and a cover photo. Share a Journal with other users or groups for full co-editing — and each member can optionally let the others pick from their own photo library for the journal's dates. Mark a Journal as completed when you're home; it then shows its travel stats — days, countries, distance travelled and photo count. Give a Journal a description and it appears under the title, in the list and on the shared page.
 - **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters plus a `▶ Watch` shortcut to existing rendered videos — built for instances with many journeys.
 - **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
 - **🧹 Auto-cleanup of empty albums:** Journey albums whose photos you've all deleted are removed automatically on the next clustering run, so empty placeholders don't pile up. Manual albums are never touched.
@@ -39,6 +39,15 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.33.0 (2026-08-25)</h3>
+    <ul>
+      <li><b>Journals — description:</b> A journal can now carry a short description below its title. Write it in the editor; it appears in the journal list and on the shared public page.</li>
+      <li><b>Fixed — no photos when adding a day:</b> The day picker stayed empty for anyone whose pictures do not sit in a plain home folder — installs that use object storage, and photos on external storage or in a Group Folder. Those pictures are found now, and the same fix restores clustering on object-storage installs.</li>
+      <li><b>Fixed (PostgreSQL) — duplicate albums:</b> The album ownership check compared against the database session user instead of the Nextcloud account, so every tracked album looked deleted: the tracking table was emptied on each run and the daily job re-created the whole album set every day. Thanks to @torvalstrom.</li>
+      <li><b>Fixed (PostgreSQL) — attaching photos to a diary entry:</b> Saving a day's photo selection answered a server error, because the capture-date fallback used a MySQL-only function. Thanks to @torvalstrom.</li>
+      <li><b>Fixed (PostgreSQL) — place names:</b> The location lookup called PostGIS functions on a column that Memories stores as a plain polygon, so it failed for every single photo and filled the log (six figures of identical lines a day on one install). It uses the built-in geometric operators now, which also match the index Memories creates. Thanks to @torvalstrom.</li>
+      <li><b>Nextcloud 35:</b> Fixed a fatal error in the <code>journeys:remove-all-albums</code> command that aborted <code>occ app:update --all</code> on Nextcloud 35, and declared support for Nextcloud 35. Thanks to @CarlSchwan.</li>
+    </ul>
   <h3>0.32.0 (2026-08-06)</h3>
     <ul>
       <li><b>Journals — mark a trip as completed:</b> Finish a journal when you get home (and reopen it if you want to keep writing). Completed journals get a ✓ badge in the list, in the editor and on the public page. It is only a marker — a completed journal can still be edited.</li>
@@ -466,14 +475,14 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.32.0</version>
+  <version>0.33.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
   <screenshot>https://raw.githubusercontent.com/thrillfall/journeys/main/appinfo/journeys.png</screenshot>
   <bugs>https://github.com/thrillfall/journeys/issues</bugs>
   <dependencies>
-    <nextcloud min-version="30" max-version="34"/>
+    <nextcloud min-version="30" max-version="35"/>
   </dependencies>
   <bootstrap>OCA\Journeys\AppInfo\Application</bootstrap>
   <commands>

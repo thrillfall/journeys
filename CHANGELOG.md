@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.33.0] - 2026-08-25
+### Added
+- Journals: **description** — a journal can carry a short description under its title, written in the editor and shown in the journal list and on the public page. The column, the API and the public template already had it; there was simply no way to type one (#32).
+### Fixed
+- Journals: the day photo picker found nothing on installs where photos are not in a plain filesystem home storage. Object storage names the home storage `object::user:<uid>`, and photos on external storage or in a Group Folder live in a different storage altogether. `DiaryPhotoFetcher` now merges the home storage under both ids with every non-share mount in the user's own files tree, and `isImageInWindow` uses the same scope so a consent check accepts exactly what the picker offered (#35).
+- Clustering: the same `home::<uid>` assumption made `ImageFetcher` return zero photos on object-storage installs. Its raw SQL now also uses the `*PREFIX*` placeholder instead of a hardcoded `oc_`.
+- PostgreSQL: `user` was unquoted in the raw queries against `*PREFIX*photos_albums`, where it resolves to the database session user rather than the column. Every tracked album looked deleted, the tracking table was wiped at the start of each run, and the daily job re-created the full album set every day without removing the previous copies (#39, thanks @torvalstrom).
+- PostgreSQL: `fetchImagesByFileIds()` built its `datetaken` fallback with the MySQL-only `FROM_UNIXTIME`, so saving a diary entry's photo selection answered HTTP 500. The fallback is applied in PHP now (#40, thanks @torvalstrom).
+- PostgreSQL: `SimplePlaceResolver` called PostGIS functions on `memories_planet_geometry.geometry`, which Memories stores as PostgreSQL's built-in `polygon` type — the lookup threw once per photo per run and silently degraded to the per-file fallback. It uses the built-in geometric operators, which match Memories' GiST `poly_ops` index, and a failing lookup is logged once instead of once per point (#36, thanks @torvalstrom).
+- Nextcloud 35: `RemoveAllAlbumsCommand::execute()`/`configure()` lacked the return types Symfony Console 7 declares — a fatal error that aborted `occ app:update --all` (#37, thanks @CarlSchwan).
+### Changed
+- Compatibility: declare support for Nextcloud 35 (`max-version` bumped from 34 to 35).
+
 ## [0.32.0] - 2026-08-06
 ### Added
 - Journals: **completion flag** — the owner can mark a journal as finished (and reopen it). `completed_at` on the journal row; owner-only, like publishing. Deliberately presentational: a completed journal stays fully editable.
