@@ -12,6 +12,11 @@ return [
             'verb' => 'GET',
         ],
         [
+            'name' => 'personal_settings#setAutoCluster',
+            'url' => '/personal_settings/auto_cluster',
+            'verb' => 'POST',
+        ],
+        [
             'name' => 'personal_settings#getClusteringSettings',
             'url' => '/personal_settings/get_clustering_settings',
             'verb' => 'GET',

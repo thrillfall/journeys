@@ -183,6 +183,11 @@ class PersonalSettingsController extends Controller {
             $this->userConfig->setUserValue($userId, 'journeys', 'includeGroupFolders', $includeGroupFolders ? '1' : '0');
             $this->userConfig->setUserValue($userId, 'journeys', 'includeSharedImages', $includeSharedImages ? '1' : '0');
             $this->userConfig->setUserValue($userId, 'journeys', 'mergeAdjacent', $mergeAdjacent ? '1' : '0');
+            $autoCluster = $this->request->getParam('autoCluster');
+            if ($autoCluster !== null) {
+                $this->userConfig->setUserValue($userId, 'journeys', 'autoCluster',
+                    filter_var($autoCluster, FILTER_VALIDATE_BOOLEAN) ? '1' : '0');
+            }
             $this->userConfig->setUserValue($userId, 'journeys', 'rangeFrom', $rangeFrom !== null ? trim((string)$rangeFrom) : '');
             $this->userConfig->setUserValue($userId, 'journeys', 'rangeTo', $rangeTo !== null ? trim((string)$rangeTo) : '');
             // Optional home-aware thresholds
@@ -238,6 +243,36 @@ class PersonalSettingsController extends Controller {
         } catch (\Throwable $e) {
             return new JSONResponse(['error' => 'Failed to save settings'], 500);
         }
+    }
+
+    /**
+     * Answer the "create journeys automatically?" question. Its own endpoint so
+     * the first-run card can store a yes or no without submitting the whole
+     * settings form.
+     */
+    #[NoAdminRequired]
+    public function setAutoCluster() {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new JSONResponse(['error' => 'No user'], 401);
+        }
+        $enabled = filter_var($this->request->getParam('enabled'), FILTER_VALIDATE_BOOLEAN);
+        $this->userConfig->setUserValue($user->getUID(), 'journeys', 'autoCluster', $enabled ? '1' : '0');
+        return new JSONResponse(['autoCluster' => $enabled, 'autoClusterAnswered' => true]);
+    }
+
+    /**
+     * The effective nightly-clustering state: an explicit answer if there is
+     * one, otherwise on for an account that has already used the app and off
+     * for a fresh one. Mirrors DailyClusteringJob::autoClusterEnabled().
+     */
+    private function autoClusterEnabled(string $userId): bool {
+        $answer = (string)$this->userConfig->getUserValue($userId, 'journeys', 'autoCluster', '');
+        if ($answer !== '') {
+            return $answer === '1';
+        }
+        return $this->albumCreator->hasTrackedAlbums($userId)
+            || $this->userConfig->getUserKeys($userId, 'journeys') !== [];
     }
 
     #[NoAdminRequired]
@@ -306,7 +341,10 @@ class PersonalSettingsController extends Controller {
         $showLocationSubtitles = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'showLocationSubtitles', 1));
         $boostFaces = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'boostFaces', 1));
         $videoOrientation = (string)$this->userConfig->getUserValue($userId, 'journeys', 'videoOrientation', 'portrait');
+        $autoClusterAnswer = (string)$this->userConfig->getUserValue($userId, 'journeys', 'autoCluster', '');
         return new JSONResponse([
+            'autoCluster' => $this->autoClusterEnabled($userId),
+            'autoClusterAnswered' => $autoClusterAnswer !== '',
             'minClusterSize' => $minClusterSize,
             'maxTimeGap' => $maxTimeGap,
             'maxDistanceKm' => $maxDistanceKm,

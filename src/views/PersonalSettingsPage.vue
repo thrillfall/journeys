@@ -2,6 +2,23 @@
 	<div class="journeys_settings">
 		<NcSettingsSection :title="t('journeys', 'Journeys Album Clustering')"
 			:description="t('journeys', 'Configure and start clustering your photos into journeys (vacations/trips).')">
+			<div v-if="!autoClusterAnswered" class="auto-cluster-ask">
+				<h3>{{ t('journeys', 'Create journeys automatically?') }}</h3>
+				<p>
+					{{ t('journeys', 'Journeys can group your photos into trip albums every night. If much of what you upload is not travel photography — documents, receipts, screenshots — you may prefer to run it yourself when you want to.') }}
+				</p>
+				<p class="auto-cluster-ask__hint">
+					{{ t('journeys', 'You can change this later under Clustering settings.') }}
+				</p>
+				<div class="auto-cluster-ask__actions">
+					<NcButton type="primary" @click="answerAutoCluster(true)">
+						{{ t('journeys', 'Yes, every night') }}
+					</NcButton>
+					<NcButton @click="answerAutoCluster(false)">
+						{{ t('journeys', 'No, only when I ask') }}
+					</NcButton>
+				</div>
+			</div>
 			<details class="settings-collapsible" :open="settingsExpanded" @toggle="onSettingsToggle">
 				<summary class="settings-collapsible__summary">
 					<span class="settings-collapsible__title">{{ t('journeys', 'Clustering settings') }}</span>
@@ -58,6 +75,12 @@
 									@update:value="value => (rangeTo = value)" />
 						</div>
 						<div class="toggle-list">
+							<NcCheckboxRadioSwitch
+									:checked="autoCluster"
+									type="switch"
+									@update:checked="answerAutoCluster">
+									{{ t('journeys', 'Create journeys automatically every night') }}
+								</NcCheckboxRadioSwitch>
 							<NcCheckboxRadioSwitch
 									:checked="includeGroupFolders"
 									type="switch"
@@ -446,6 +469,8 @@ export default {
 		return {
 			isProcessing: false,
 			savingInline: false,
+			autoCluster: true,
+			autoClusterAnswered: true,
 			lastRun: null,
 			error: null,
 			clusters: [],
@@ -541,6 +566,8 @@ export default {
 				this.minClusterSize = settingsResp.data.minClusterSize
 				this.maxTimeGap = settingsResp.data.maxTimeGap
 				this.maxDistanceKm = settingsResp.data.maxDistanceKm
+				this.autoCluster = settingsResp.data.autoCluster !== false
+				this.autoClusterAnswered = !!settingsResp.data.autoClusterAnswered
 				this.includeGroupFolders = !!settingsResp.data.includeGroupFolders
 				this.includeSharedImages = !!settingsResp.data.includeSharedImages
 				this.mergeAdjacent = settingsResp.data.mergeAdjacent !== false
@@ -736,6 +763,17 @@ export default {
 				nearDistanceKm: this.nearDistanceKm,
 				awayTimeGap: this.awayTimeGap,
 				awayDistanceKm: this.awayDistanceKm,
+			}
+		},
+		async answerAutoCluster(enabled) {
+			const previous = this.autoCluster
+			this.autoCluster = enabled
+			try {
+				await axios.post(generateUrl('/apps/journeys/personal_settings/auto_cluster'), { enabled })
+				this.autoClusterAnswered = true
+			} catch (e) {
+				this.autoCluster = previous
+				showError(this.t('journeys', 'Failed to save settings.'))
 			}
 		},
 		async onToggleSetting(field, value) {
@@ -965,6 +1003,21 @@ export default {
 .journeys_settings {
   max-width: 960px;
   margin: 2em auto;
+}
+
+.auto-cluster-ask {
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary-element);
+  border-radius: var(--border-radius, 8px);
+  background: var(--color-background-hover, transparent);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.4rem;
+
+  h3 { margin: 0 0 .4rem; }
+  p { margin: 0 0 .6rem; max-width: 62ch; }
+
+  &__hint { color: var(--color-text-maxcontrast); font-size: .9em; }
+  &__actions { display: flex; flex-wrap: wrap; gap: .6rem; }
 }
 
 .settings-collapsible {

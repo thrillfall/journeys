@@ -5,6 +5,7 @@ use OCP\BackgroundJob\TimedJob;
 use OCP\IUserManager;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Psr\Log\LoggerInterface;
+use OCA\Journeys\Service\AlbumCreator;
 use OCA\Journeys\Service\ClusteringManager;
 use OCP\IConfig;
 
@@ -13,8 +14,9 @@ class DailyClusteringJob extends TimedJob {
     private ClusteringManager $clusteringManager;
     private LoggerInterface $logger;
     private IConfig $config;
+    private AlbumCreator $albumCreator;
 
-    public function __construct(ITimeFactory $time, IUserManager $userManager, ClusteringManager $clusteringManager, LoggerInterface $logger, IConfig $config) {
+    public function __construct(ITimeFactory $time, IUserManager $userManager, ClusteringManager $clusteringManager, LoggerInterface $logger, IConfig $config, AlbumCreator $albumCreator) {
         parent::__construct($time);
         // Run once per 24 hours
         $this->setInterval(24 * 60 * 60);
@@ -22,6 +24,24 @@ class DailyClusteringJob extends TimedJob {
         $this->clusteringManager = $clusteringManager;
         $this->logger = $logger;
         $this->config = $config;
+        $this->albumCreator = $albumCreator;
+    }
+
+    /**
+     * Whether to cluster this user's photos tonight.
+     *
+     * An explicit answer decides. Without one, anyone who has already used the
+     * app keeps their nightly run — but a fresh account waits for a yes, so
+     * nobody finds albums of their scanned receipts before they ever opened the
+     * settings page.
+     */
+    private function autoClusterEnabled(string $uid): bool {
+        $answer = (string)$this->config->getUserValue($uid, 'journeys', 'autoCluster', '');
+        if ($answer !== '') {
+            return $answer === '1';
+        }
+        return $this->albumCreator->hasTrackedAlbums($uid)
+            || $this->config->getUserKeys($uid, 'journeys') !== [];
     }
 
     protected function run($argument) {
@@ -45,6 +65,9 @@ class DailyClusteringJob extends TimedJob {
         foreach ($users as $user) {
             try {
                 $uid = method_exists($user, 'getUID') ? $user->getUID() : (string)$user->getUID();
+                if (!$this->autoClusterEnabled($uid)) {
+                    continue;
+                }
                 // Read user-configured settings (fall back to UI defaults if not set)
                 $minClusterSize = (int)$this->config->getUserValue($uid, 'journeys', 'minClusterSize', 3);
                 $maxTimeGap = (int)$this->config->getUserValue($uid, 'journeys', 'maxTimeGap', 86400);
