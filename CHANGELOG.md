@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.34.0] - 2026-08-26
+### Added
+- Journals editor: **a month calendar in the day picker**. Days that hold photos are highlighted and show their photo count, days that already have an entry are marked with a dot, and picking a day fills the date input (#33).
+- New endpoint `GET /diary/journals/{id}/photo-days?from=&to=`, backed by `DiaryPhotoFetcher::countsByDay()`. It reads the same sources as the day picker — the caller's own library plus consenting members' libraries for days inside the journal's date range — so the counts can never advertise a day the picker would refuse to open. Days are grouped in PHP: MySQL's `DATE()`, PostgreSQL's cast and SQLite's `date()` disagree on truncating a datetime column.
+### Fixed
+- Journals: the "completed" badge used `--color-success` as a text colour, but that token is a background tint in both themes (`#D8F3DA` light, `#11321A` dark) — the badge read pale green on white. It uses `--color-success-text` now.
+
 ## [0.33.0] - 2026-08-25
 ### Added
 - Journals: **description** — a journal can carry a short description under its title, written in the editor and shown in the journal list and on the public page. The column, the API and the public template already had it; there was simply no way to type one (#32).
