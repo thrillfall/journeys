@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.35.0] - 2026-08-26
+### Added
+- **Automatic clustering is opt-in.** Opening the Journeys app asks once — "Yes, enable clustering into journeys" or "Not now" — and a switch under Personal settings → Journeys changes it later. Both answers are stored, so the question is asked once either way (#34).
+- New `AutoClusterSetting` service holding the rule in one place, shared by `DailyClusteringJob`, `PersonalSettingsController` and `DiaryController`. New endpoints `POST /diary/clustering-consent` and `POST /personal_settings/auto_cluster`; the diary index now returns `clusteringAnswered`.
+### Changed
+- `DailyClusteringJob` skips accounts that answered no. For an account that has never answered it keeps clustering when there is any prior trace of the app (tracked albums, or any stored `journeys` user setting) and skips a fresh account — an existing install never silently stops, and a new one never produces albums of scanned receipts before anyone was asked.
+- Journals remain independent of clustering: the diary reads the Memories index and its own tables and never touches albums.
+
 ## [0.34.0] - 2026-08-26
 ### Added
 - Journals editor: **a month calendar in the day picker**. Days that hold photos are highlighted and show their photo count, days that already have an entry are marked with a dot, and picking a day fills the date input (#33).

@@ -18,7 +18,7 @@ Automatically cluster your images into journeys (vacations/trips) and create alb
 - **🗂️ Album Creation:** Albums are created automatically for each journey
 - **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
 - **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels. Renders run as background jobs (the settings page returns instantly) and land in `Documents/Journeys Movies/`. Per-location subtitles fade in/out as the journey moves between places. Requires `ffmpeg` on the server.
-- **📔 Journals (travel diary):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread across that day), write text, curate the photos and add a caption to each. Photos stay in capture-time order, so pictures added by a collaborator merge into the day's timeline where they were actually taken. Publish a Journal to a revocable public link — a mobile-friendly timeline with locations, a visited countries/cities overview and a cover photo. Share a Journal with other users or groups for full co-editing — and each member can optionally let the others pick from their own photo library for the journal's dates. Mark a Journal as completed when you're home; it then shows its travel stats — days, countries, distance travelled and photo count. Give a Journal a description and it appears under the title, in the list and on the shared page. When adding a day, a month calendar highlights the days that actually hold photos.
+- **📔 Journals (travel diary):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread across that day), write text, curate the photos and add a caption to each. Photos stay in capture-time order, so pictures added by a collaborator merge into the day's timeline where they were actually taken. Publish a Journal to a revocable public link — a mobile-friendly timeline with locations, a visited countries/cities overview and a cover photo. Share a Journal with other users or groups for full co-editing — and each member can optionally let the others pick from their own photo library for the journal's dates. Mark a Journal as completed when you're home; it then shows its travel stats — days, countries, distance travelled and photo count. Give a Journal a description and it appears under the title, in the list and on the shared page. When adding a day, a month calendar highlights the days that actually hold photos. Automatic nightly clustering is opt-in: the app asks once, and a switch in personal settings turns it on or off at any time.
 - **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters plus a `▶ Watch` shortcut to existing rendered videos — built for instances with many journeys.
 - **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
 - **🧹 Auto-cleanup of empty albums:** Journey albums whose photos you've all deleted are removed automatically on the next clustering run, so empty placeholders don't pile up. Manual albums are never touched.
@@ -39,6 +39,13 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.35.0 (2026-08-26)</h3>
+    <ul>
+      <li><b>Automatic clustering is now your choice:</b> Opening the Journeys app asks once whether your photos should be grouped into journey albums every night. Say yes and it runs as before; say "Not now" and it stays off. The question is asked once either way.</li>
+      <li><b>A switch to turn it off:</b> Nightly clustering can be switched on and off any time under Personal settings → Journeys. Previously the only way to stop it was disabling the app for the whole server, which meant a library full of documents, receipts or screenshots got albums nobody asked for.</li>
+      <li><b>Journals are unaffected:</b> The travel diary keeps working with clustering switched off — the answer only controls the automatic albums.</li>
+      <li><b>Accounts that already use Journeys keep their nightly run</b> until they answer, so nothing stops clustering behind your back. A brand-new account waits for a yes.</li>
+    </ul>
   <h3>0.34.0 (2026-08-26)</h3>
     <ul>
       <li><b>Journals — see which days have photos:</b> The day picker now shows a month calendar. Days that hold pictures are highlighted and carry their photo count, days you have already written about are marked with a dot, and clicking a day fills in the date. No more guessing which dates are worth an entry.</li>
@@ -480,7 +487,7 @@ Album titles are generated from the **resolved place name** and the **date range
   ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.34.0</version>
+  <version>0.35.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
