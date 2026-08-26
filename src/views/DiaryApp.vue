@@ -217,6 +217,26 @@
 		</NcModal>
 
 		<!-- ===================== PHOTO CAPTION MODAL ===================== -->
+		<NcModal v-if="clusteringAsk" @close="answerClustering(false)">
+			<div class="ask-clustering">
+				<h2 class="ask-clustering__title">{{ t('journeys', 'Group your photos into journeys?') }}</h2>
+				<p>
+					{{ t('journeys', 'Journeys can scan your photo library and group each trip into its own album automatically, every night.') }}
+				</p>
+				<p class="ask-clustering__hint">
+					{{ t('journeys', 'Your journals work either way — this only controls the automatic albums. You can turn it off again in the Journeys personal settings.') }}
+				</p>
+				<div class="ask-clustering__actions">
+					<NcButton type="primary" @click="answerClustering(true)">
+						{{ t('journeys', 'Yes, enable clustering into journeys') }}
+					</NcButton>
+					<NcButton type="tertiary" @click="answerClustering(false)">
+						{{ t('journeys', 'Not now') }}
+					</NcButton>
+				</div>
+			</div>
+		</NcModal>
+
 		<NcModal v-if="caption.open" :title="t('journeys', 'Photo caption')" @close="closeCaption">
 			<div class="caption-edit">
 				<img v-if="caption.photo" :src="entryPhotoUrl(caption.photo.fileid)" alt="">
@@ -270,6 +290,7 @@ export default {
 			shareeTimer: null,
 			flash: {},
 			membersOpen: false,
+			clusteringAsk: false,
 		}
 	},
 	async mounted() {
@@ -406,8 +427,20 @@ export default {
 			try {
 				const { data } = await axios.get(API + '/journals')
 				this.journals = data.journals
+				this.clusteringAsk = data.clusteringAnswered === false
 			} catch (e) { showError(this.t('journeys', 'Could not load journals')) }
 			this.loading = false
+		},
+		async answerClustering(enabled) {
+			// Closing the dialog is a no, and a no is stored: the question is asked
+			// once either way, and personal settings is where it changes later.
+			this.clusteringAsk = false
+			try {
+				await axios.post(API + '/clustering-consent', { enabled })
+				if (enabled) showSuccess(this.t('journeys', 'Journeys will be created automatically.'))
+			} catch (e) {
+				showError(this.t('journeys', 'Could not save that setting'))
+			}
 		},
 		async createJournal() {
 			// Create with a default name; the editor opens with an inline-editable title.
@@ -647,6 +680,11 @@ export default {
 .journal-title-input { flex: 1; font-size: 1.3em; font-weight: 600; border: none;
 	border-bottom: 2px solid transparent; background: transparent;
 	&:focus { border-bottom-color: var(--color-primary-element); outline: none; } }
+.ask-clustering { padding: 20px 24px 24px;
+	&__title { margin: 0 0 12px; font-size: 1.25em; }
+	p { margin: 0 0 10px; max-width: 62ch; }
+	&__hint { color: var(--color-text-maxcontrast); font-size: .95em; }
+	&__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; } }
 .journal-description-input { width: 100%; box-sizing: border-box; margin: 0 0 12px; padding: 8px 12px;
 	font-size: .95em; line-height: 1.4; resize: vertical; border-radius: 8px;
 	border: 1px solid var(--color-border); background: var(--color-main-background);

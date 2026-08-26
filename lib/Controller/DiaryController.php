@@ -5,6 +5,7 @@ use OCA\Journeys\Exception\JournalNotFoundException;
 use OCA\Journeys\Model\EntryPhoto;
 use OCA\Journeys\Model\Journal;
 use OCA\Journeys\Model\JournalEntry;
+use OCA\Journeys\Service\AutoClusterSetting;
 use OCA\Journeys\Service\DiaryPhotoFetcher;
 use OCA\Journeys\Service\EntryLocationResolver;
 use OCA\Journeys\Service\JournalService;
@@ -44,6 +45,7 @@ class DiaryController extends Controller {
         private IGroupManager $groupManager,
         private PhotoPreviewResponder $photoResponder,
         private IConfig $config,
+        private AutoClusterSetting $autoCluster,
     ) {
         parent::__construct($appName, $request);
     }
@@ -90,7 +92,10 @@ class DiaryController extends Controller {
             $data['stats'] = JournalStats::compute($rows[$journal->id] ?? [], $counts[$journal->id] ?? 0);
             $out[] = $data;
         }
-        return new JSONResponse(['journals' => $out]);
+        return new JSONResponse([
+            'journals' => $out,
+            'clusteringAnswered' => $this->autoCluster->isAnswered($userId),
+        ]);
     }
 
     #[NoAdminRequired]
@@ -459,6 +464,22 @@ class DiaryController extends Controller {
             'photos' => array_map([$this, 'serializePhoto'], $stored),
             'location' => $location,
         ]);
+    }
+
+    /**
+     * Answer the "group my photos into journeys?" question the app asks once.
+     * A no is stored just like a yes, so the question is asked once and never
+     * again either way — the switch in personal settings is where it changes.
+     */
+    #[NoAdminRequired]
+    public function setClusteringConsent(): JSONResponse {
+        $userId = $this->uid();
+        if ($userId === null) {
+            return $this->noUser();
+        }
+        $enabled = filter_var($this->request->getParam('enabled'), FILTER_VALIDATE_BOOLEAN);
+        $this->autoCluster->setEnabled($userId, $enabled);
+        return new JSONResponse(['clusteringEnabled' => $enabled, 'clusteringAnswered' => true]);
     }
 
     // -- photo pickers --------------------------------------------------------

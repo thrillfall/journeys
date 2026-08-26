@@ -23,6 +23,10 @@
       <argument type="service" id="Psr\Log\LoggerInterface"/>
     </service>
     <service id="OCA\Journeys\Service\AlbumCreator"/>
+    <service id="OCA\Journeys\Service\AutoClusterSetting">
+      <argument type="service" id="OCP\IConfig"/>
+      <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
+    </service>
     <service id="OCA\Journeys\Service\JournalService">
       <argument type="service" id="OCP\IDBConnection"/>
       <argument type="service" id="OCP\IUserManager"/>
@@ -118,6 +122,7 @@
       <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
       <argument type="service" id="OCA\Journeys\Service\VideoRenderJobScheduler"/>
       <argument type="service" id="OCA\Journeys\Service\RenderedVideoLister"/>
+      <argument type="service" id="OCA\Journeys\Service\AutoClusterSetting"/>
     </service>
     <service id="OCA\Journeys\Controller\PageController">
       <argument>%app_id%</argument>
@@ -136,6 +141,7 @@
       <argument type="service" id="OCP\IGroupManager"/>
       <argument type="service" id="OCA\Journeys\Service\PhotoPreviewResponder"/>
       <argument type="service" id="OCP\IConfig"/>
+      <argument type="service" id="OCA\Journeys\Service\AutoClusterSetting"/>
     </service>
     <service id="OCA\Journeys\Controller\PublicDiaryController">
       <argument>%app_id%</argument>

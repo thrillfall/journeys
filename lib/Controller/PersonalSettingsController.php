@@ -10,6 +10,7 @@ use OCP\IUserSession;
 use OCP\IConfig;
 
 use OCA\Journeys\Service\AlbumCreator;
+use OCA\Journeys\Service\AutoClusterSetting;
 use OCA\Journeys\Service\RenderedVideoLister;
 use OCA\Journeys\Service\VideoRenderJobScheduler;
 
@@ -27,6 +28,7 @@ class PersonalSettingsController extends Controller {
         AlbumCreator $albumCreator,
         VideoRenderJobScheduler $videoRenderJobScheduler,
         RenderedVideoLister $renderedVideoLister,
+        private AutoClusterSetting $autoCluster,
     ) {
         parent::__construct($appName, $request);
         $this->userSession = $userSession;
@@ -185,8 +187,7 @@ class PersonalSettingsController extends Controller {
             $this->userConfig->setUserValue($userId, 'journeys', 'mergeAdjacent', $mergeAdjacent ? '1' : '0');
             $autoCluster = $this->request->getParam('autoCluster');
             if ($autoCluster !== null) {
-                $this->userConfig->setUserValue($userId, 'journeys', 'autoCluster',
-                    filter_var($autoCluster, FILTER_VALIDATE_BOOLEAN) ? '1' : '0');
+                $this->autoCluster->setEnabled($userId, filter_var($autoCluster, FILTER_VALIDATE_BOOLEAN));
             }
             $this->userConfig->setUserValue($userId, 'journeys', 'rangeFrom', $rangeFrom !== null ? trim((string)$rangeFrom) : '');
             $this->userConfig->setUserValue($userId, 'journeys', 'rangeTo', $rangeTo !== null ? trim((string)$rangeTo) : '');
@@ -257,22 +258,8 @@ class PersonalSettingsController extends Controller {
             return new JSONResponse(['error' => 'No user'], 401);
         }
         $enabled = filter_var($this->request->getParam('enabled'), FILTER_VALIDATE_BOOLEAN);
-        $this->userConfig->setUserValue($user->getUID(), 'journeys', 'autoCluster', $enabled ? '1' : '0');
+        $this->autoCluster->setEnabled($user->getUID(), $enabled);
         return new JSONResponse(['autoCluster' => $enabled, 'autoClusterAnswered' => true]);
-    }
-
-    /**
-     * The effective nightly-clustering state: an explicit answer if there is
-     * one, otherwise on for an account that has already used the app and off
-     * for a fresh one. Mirrors DailyClusteringJob::autoClusterEnabled().
-     */
-    private function autoClusterEnabled(string $userId): bool {
-        $answer = (string)$this->userConfig->getUserValue($userId, 'journeys', 'autoCluster', '');
-        if ($answer !== '') {
-            return $answer === '1';
-        }
-        return $this->albumCreator->hasTrackedAlbums($userId)
-            || $this->userConfig->getUserKeys($userId, 'journeys') !== [];
     }
 
     #[NoAdminRequired]
@@ -341,10 +328,9 @@ class PersonalSettingsController extends Controller {
         $showLocationSubtitles = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'showLocationSubtitles', 1));
         $boostFaces = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'boostFaces', 1));
         $videoOrientation = (string)$this->userConfig->getUserValue($userId, 'journeys', 'videoOrientation', 'portrait');
-        $autoClusterAnswer = (string)$this->userConfig->getUserValue($userId, 'journeys', 'autoCluster', '');
         return new JSONResponse([
-            'autoCluster' => $this->autoClusterEnabled($userId),
-            'autoClusterAnswered' => $autoClusterAnswer !== '',
+            'autoCluster' => $this->autoCluster->isEnabled($userId),
+            'autoClusterAnswered' => $this->autoCluster->isAnswered($userId),
             'minClusterSize' => $minClusterSize,
             'maxTimeGap' => $maxTimeGap,
             'maxDistanceKm' => $maxDistanceKm,

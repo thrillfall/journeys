@@ -57,6 +57,7 @@ return [
 
         // --- Travel diary (Increment 1) ---
         ['name' => 'diary#index', 'url' => '/diary/journals', 'verb' => 'GET'],
+        ['name' => 'diary#setClusteringConsent', 'url' => '/diary/clustering-consent', 'verb' => 'POST'],
         ['name' => 'diary#create', 'url' => '/diary/journals', 'verb' => 'POST'],
         ['name' => 'diary#show', 'url' => '/diary/journals/{id}', 'verb' => 'GET'],
         ['name' => 'diary#update', 'url' => '/diary/journals/{id}', 'verb' => 'PUT'],
