@@ -131,6 +131,12 @@ Journeys must never use a photo Memories would not show. `oc_memories` is wider
 than the Memories timeline (the indexer walks the whole home tree; the timeline is
 narrowed at query time), so this needs checking against the DB, not just the app.
 
+**4a is the check that matters** — it reproduces issue #41, where a user's ebook
+folder was clustered because it sat outside their `timelinePath`. 4b is a parity
+check on a much narrower window; run it, but a green 4b means little if 4a is red.
+
+### 4a. Timeline path — the #41 regression
+
 ```sh
 # What the user's timeline path is, and what the index holds outside it
 docker exec -u www-data nextcloud php occ user:setting admin memories
@@ -155,7 +161,17 @@ meaningful — if it is 0, the fixture proves nothing), and the album query retu
 **0**. `Image sources: total=` from block 2 equals the `inside` count plus any
 shared/group totals.
 
-### `.nomedia` exclusion
+### 4b. `.nomedia` — markers added after indexing
+
+Memories excludes marker folders from indexing in the first place
+(`Service/Index.php`, `Listeners/PostWriteListener.php`), so rows for them
+normally never reach `oc_memories` and this path cannot fire. It covers the one
+window where they do: a marker dropped on a folder that was **already indexed**,
+whose rows survive until the next full index sweep. Memories hides those at query
+time; so must we.
+
+> Needs `$PW` / `$B` from block 3, and the cleanup re-runs the destructive
+> `--from-scratch` from block 2 — dev instance only.
 
 ```sh
 docker exec nextcloud sh -c "touch /var/www/html/data/admin/files/Photos/teupitz/.nomedia && chown www-data:www-data /var/www/html/data/admin/files/Photos/teupitz/.nomedia"
@@ -170,9 +186,9 @@ docker exec -u www-data nextcloud php occ journeys:cluster-create-albums admin -
 ```
 
 **PASS:** the grep count is **0** (the folder's 30 photos are gone from clustering
-even though they are still in `oc_memories`), and `day-photos` for a day covered
-only by that folder returns `{"photos":[]}`. **FAIL** if either still lists
-`teupitz` — the exclusion is being ignored.
+while their rows are still in `oc_memories` — confirm that with a `SELECT`, since
+it is the whole point of the check), and `day-photos` for a day covered only by
+that folder returns `{"photos":[]}`. **FAIL** if either still lists `teupitz`.
 
 ---
 

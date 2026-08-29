@@ -213,6 +213,14 @@ final class MemoriesScope {
      * Subtrees under $root that Memories hides: folders holding a .nomedia /
      * .nomemories marker, and dot-folders (which covers Memories' .archive).
      *
+     * The markers are user-placed, an ecosystem convention rather than a
+     * Memories one -- Photos and Recognize honour them too, and nothing writes
+     * them. Memories already skips marked folders at index time, so this only
+     * bites in the window where it cannot: a marker dropped on an
+     * already-indexed folder, whose rows survive until the next index sweep.
+     * Memories hides those at query time (TimelineQueryCTE, FsManager), so
+     * matching it here is parity, not the main event.
+     *
      * @param array{storage:int,fileid:int,path:string,like:string} $root
      * @return array<int,array{storage:int,fileid:int,like:string}>
      */
