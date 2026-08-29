@@ -8,6 +8,7 @@
 # Automatic Photo Album Creation for Nextcloud
 
 Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.
+Only photos inside the timeline path you configured in Memories are used.
 **Requires the Memories and Photos apps!**
 
 > ### 🆕 New: Journals — your travel diary
@@ -39,6 +40,13 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.35.1 (2026-08-29)</h3>
+    <ul>
+      <li><b>Only photos Memories actually shows:</b> Journeys now follows the timeline path you configured in Memories. Photos outside it — a scanned-documents folder, an ebook library, a backup — no longer turn up in journey albums or in the diary's photo picker. Previously the app read the whole Memories index, which covers more of your files than the Memories timeline displays.</li>
+      <li><b>Folders you excluded stay excluded:</b> A <code>.nomedia</code> or <code>.nomemories</code> marker added to a folder after it was already indexed now hides that folder from Journeys too, as it already does in Memories.</li>
+      <li><b>Group Folders and shared photos are unaffected:</b> Both settings keep including exactly what they did before.</li>
+      <li><b>Fixed:</b> A photo with no entry in the Memories index could still be pulled into a rendered video, or used to place a diary entry on the map.</li>
+    </ul>
   <h3>0.35.0 (2026-08-26)</h3>
     <ul>
       <li><b>Automatic clustering is now your choice:</b> Opening the Journeys app asks once whether your photos should be grouped into journey albums every night. Say yes and it runs as before; say "Not now" and it stays off. The question is asked once either way.</li>
@@ -96,10 +104,6 @@ Album titles are generated from the **resolved place name** and the **date range
       <li><b>Journals public page:</b> Increased the base font size for more comfortable reading.</li>
       <li><b>Journals public page:</b> Fixed the per-entry location label, which could render as unreadable low-contrast text (e.g. yellow on a colored background) on some themes. It is now a high-contrast pill that reads clearly on any theme.</li>
     </ul>
-  <h3>0.27.1 (2026-06-26)</h3>
-    <ul>
-      <li><b>Internal:</b> Migrated controller route annotations (<code>@NoAdminRequired</code>, <code>@NoCSRFRequired</code>, <code>@PublicPage</code>) to PHP 8 attributes for forward-compatibility with future Nextcloud majors that drop docblock-annotation support. No behavior change.</li>
-    </ul>
   <h3>Older releases</h3>
     <ul>
       <li>The full change history is kept in CHANGELOG.md: https://github.com/thrillfall/journeys/blob/main/CHANGELOG.md</li>
@@ -107,7 +111,7 @@ Album titles are generated from the **resolved place name** and the **date range
 ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.35.0</version>
+  <version>0.35.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

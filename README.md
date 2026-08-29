@@ -1,6 +1,7 @@
 # Journeys: Automatic Photo Album Creation for Nextcloud
 
 Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.
+Only photos inside the timeline path you configured in Memories are used — folders you keep out of Memories stay out of Journeys.
 
 **Requires the [Memories](https://github.com/pulsejet/memories) and [Photos](https://github.com/nextcloud/photos) apps.**
 

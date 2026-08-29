@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.35.1] - 2026-08-29
+### Fixed
+- **Clustering stays inside the Memories timeline (#41).** `oc_memories` is wider than what Memories shows: the indexer walks the whole home tree by default (`memories.index.mode` = 1) while the timeline is narrowed at *query* time to the user's `timelinePath`, minus `.nomedia` / `.nomemories` subtrees and dot-folders. Reading the table raw clustered photos the user had deliberately kept out of Memories — ebook covers turning up next to holiday pictures, as reported.
+- New `MemoriesScope` service reproduces those query-time rules as a SQL predicate; every read of `oc_memories` goes through it. The home branch of `ImageFetcher` and both `DiaryPhotoFetcher` branches get the full predicate (timeline paths, the mounts inside them, and their exclusions).
+- `ImageFetcher::fetchImagesByFileIds()` left-joined `oc_memories`, so a fileid with no index row at all was usable for video rendering and diary entry locations. Inner join now; it stays un-timeline-scoped on purpose, since an entry mixes photos from several consented libraries.
+- The Group Folder branch joined `oc_mounts` by `storage_id` without scoping to the mount's root subtree, so it could reach sibling folders on the same storage. The allowed-root predicate now bounds it, the way the share branch already bounded itself.
+### Changed
+- `includeGroupFolders` / `includeSharedImages` get the `.nomedia` / dot-folder exclusions only, not the timeline-path restriction. They are opt-ins by name that already scope themselves by mount, and a Group Folder mounted next to rather than inside the timeline path must not silently vanish from a setting that promises to include it.
+- `tests/e2e/RELEASE-E2E.md` gains section 4 covering both checks, and `CLAUDE.md` documents the index-vs-timeline distinction.
+
 ## [0.35.0] - 2026-08-26
 ### Added
 - **Automatic clustering is opt-in.** Opening the Journeys app asks once — "Yes, enable clustering into journeys" or "Not now" — and a switch under Personal settings → Journeys changes it later. Both answers are stored, so the question is asked once either way (#34).
