@@ -17,6 +17,7 @@ class DiaryPhotoFetcher {
 
     public function __construct(
         private IDBConnection $db,
+        private MemoriesScope $memoriesScope,
     ) {}
 
     /**
@@ -187,6 +188,16 @@ class DiaryPhotoFetcher {
         if ($fileid !== null) {
             $homeParams[] = $fileid;
             $mountParams[] = $fileid;
+        }
+
+        // Keep the picker inside the user's Memories timeline: the index covers
+        // more than Memories shows. See MemoriesScope.
+        $scope = $this->memoriesScope->filterFor($user, 'f');
+        if ($scope !== null) {
+            $homeSql .= $scope['sql'];
+            $mountSql .= $scope['sql'];
+            $homeParams = array_merge($homeParams, $scope['params']);
+            $mountParams = array_merge($mountParams, $scope['params']);
         }
 
         $byId = [];

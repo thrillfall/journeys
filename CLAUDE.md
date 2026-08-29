@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Nextcloud app (`journeys`, app id `journeys`, namespace `OCA\Journeys`) that clusters a user's photos by time + location into "journey" albums, and optionally renders each album to an MP4 via `ffmpeg`.
 
 Hard dependencies on other Nextcloud apps:
-- **Memories** — this app does not scan the filesystem. It reads photo rows (id, path, datetaken, lat, lon) from the Memories index table (`oc_memories`), so the set of clusterable photos is whatever Memories has indexed.
+- **Memories** — this app does not scan the filesystem. It reads photo rows (id, path, datetaken, lat, lon) from the Memories index table (`oc_memories`), so the set of clusterable photos is bounded by what Memories has indexed.
+  **`oc_memories` is wider than what Memories shows**, and the difference is user-visible: the indexer walks the whole home tree by default (`memories.index.mode` = 1) while the timeline is narrowed at *query* time to the user's `timelinePath`, minus `.nomedia` / `.nomemories` subtrees and dot-folders. Reading the table raw clusters photos the user deliberately kept out of Memories (a `/Documents` scan folder, an excluded backup). `Service\MemoriesScope` reproduces those query-time rules as a SQL predicate — every read of `oc_memories` must go through it. See its class docblock for which of the two predicates applies where.
 - **Photos** — albums are created through `OCA\Photos\Album\AlbumMapper`. Only `fileid` is used to add photos (mount-agnostic), not paths.
 
 Supported Nextcloud: `30–33`. PHP `>=8.0`.
@@ -42,8 +43,16 @@ php occ journeys:list-clusters <user>
 php occ journeys:remove-all-albums <user>           # only removes albums tracked by this app
 php occ journeys:render-cluster-video <user> <albumId>
 php occ journeys:render-cluster-video-landscape <user> <albumId>
-php occ journeys:show-latest-cluster-end <user>
+php occ journeys:latest-end <user>
 ```
+
+### Release verification
+
+Before releasing a **major feature change** (or any change touching the Nextcloud
+runtime API surface), run the end-to-end smoke check in
+[`tests/e2e/RELEASE-E2E.md`](tests/e2e/RELEASE-E2E.md) against the live dev
+instance — it covers clustering, album creation, and journals, with concrete
+PASS criteria for each.
 
 ## Architecture
 
@@ -58,6 +67,7 @@ Services are registered in `appinfo/services.xml` (Symfony DI container XML). **
 `ClusteringManager::clusterForUser()` is the orchestrator for both OCC and the daily cron. Flow:
 
 1. `ImageFetcher::fetchImagesForUser()` queries `oc_memories` joined against `oc_filecache` / `oc_mounts` to return `Image[]`. Three sources are blended based on flags: home storage (always), Group Folders / external mounts (`includeGroupFolders`), incoming user shares scoped to their mount root (`includeSharedImages`). Per-source counts are exposed via `getLastFetchStats()` / `getLastFileSources()`.
+   Each branch is filtered by `MemoriesScope` so nothing outside the user's Memories timeline can be clustered. The home branch gets the full predicate (timeline paths + exclusions); the two opt-in branches get exclusions only, because they already scope themselves by mount and a Group Folder mounted *next to* the timeline path must not silently vanish from a setting that promises to include it.
 2. `HomeService` / `HomeLocationDetector` determine the user's home coordinate (manual override via user config, or auto-detected).
 3. Timeline is segmented into near-home vs away-from-home blocks (home-aware mode is default). Each segment is clustered independently by `Clusterer::clusterImages()` using per-segment time + distance thresholds. Distance checks anchor to the **last geolocated image** in the current cluster (`prevGeo`), so a run of no-GPS photos cannot bridge a large spatial jump.
 4. **`ClusterMerger::mergeAdjacent()` post-processes the cluster list**, stitching adjacent clusters that are in the same country (resolved via `ClusterLocationResolver::resolveClusterCountry()`, OSM `admin_level=2`) and within 7 days of each other. This fixes over-splitting of multi-city road trips and long vacations with photo-less rest days — cases where threshold tuning alone can't help (the user tested `awayDistanceKm=200` in production and multi-city still split). Only away-from-home clusters are merged when home is known; near-home clusters never merge. Disable with `--no-merge` CLI flag or the `mergeAdjacent` user setting.

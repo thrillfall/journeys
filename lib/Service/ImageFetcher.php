@@ -8,6 +8,7 @@ class ImageFetcher {
     public function __construct(
         private FacePresenceProvider $facePresenceProvider,
         private IDBConnection $db,
+        private MemoriesScope $memoriesScope,
     ) {}
 
     /** @var array{total:int,home:int,group:int,shared:int} */
@@ -70,6 +71,13 @@ class ImageFetcher {
               AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
         ";
         $paramsHome = $homeStorageIds;
+        // oc_memories covers more than Memories shows: keep the user's own
+        // library inside their timeline paths. See MemoriesScope.
+        $homeScope = $this->memoriesScope->filterFor($user, 'f');
+        if ($homeScope !== null) {
+            $sqlHome .= $homeScope['sql'];
+            $paramsHome = array_merge($paramsHome, $homeScope['params']);
+        }
         if ($fromDt !== null) {
             $sqlHome .= " AND m.datetaken >= ?";
             $paramsHome[] = $fromDt;
@@ -107,6 +115,14 @@ class ImageFetcher {
                   AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
             ";
             $paramsGroup = array_merge([$user], $homeStorageIds, [$userFilesPrefix, $sharedProviderClass]);
+            // Opted into by name, and already scoped by mount: only the
+            // .nomedia / dot-folder exclusions apply here, not the timeline
+            // path. See MemoriesScope.
+            $groupScope = $this->memoriesScope->exclusionFilterFor($user, 'f');
+            if ($groupScope !== null) {
+                $sqlGroup .= $groupScope['sql'];
+                $paramsGroup = array_merge($paramsGroup, $groupScope['params']);
+            }
             if ($fromDt !== null) {
                 $sqlGroup .= " AND m.datetaken >= ?";
                 $paramsGroup[] = $fromDt;
@@ -166,6 +182,11 @@ class ImageFetcher {
                       AND f.path NOT LIKE 'files/Documents/Journeys Movies/%'
                 ";
                 $paramsSharedBase = [];
+                $sharedScope = $this->memoriesScope->exclusionFilterFor($user, 'f');
+                if ($sharedScope !== null) {
+                    $sqlShared .= $sharedScope['sql'];
+                    $paramsSharedBase = array_merge($paramsSharedBase, $sharedScope['params']);
+                }
                 if ($fromDt !== null) {
                     $sqlShared .= " AND m.datetaken >= ?";
                     $paramsSharedBase[] = $fromDt;
@@ -310,10 +331,17 @@ class ImageFetcher {
 
         // Build placeholders for IN clause
         $placeholders = implode(',', array_fill(0, count($fileIds), '?'));
+        // Inner join, not left: a fileid without a Memories row is not a photo
+        // this app may use, however it ended up in an album or an entry.
+        //
         // No FROM_UNIXTIME here: it is MySQL-only (PostgreSQL raises
         // "function from_unixtime(bigint) does not exist" and the diary's
         // photo-selection save 500s). Select the raw mtime and do the
         // datetaken fallback in PHP, which is portable across all backends.
+        //
+        // Deliberately not timeline-scoped: an entry mixes photos from several
+        // consented libraries, and the ids reaching here already passed the
+        // membership / ownership checks that DiaryPhotoFetcher scopes.
         $sql = "
             SELECT f.fileid,
                    m.datetaken,
@@ -321,7 +349,7 @@ class ImageFetcher {
                    m.lat, m.lon, m.w, m.h,
                    f.path
             FROM *PREFIX*filecache f
-            LEFT JOIN *PREFIX*memories m ON m.fileid = f.fileid
+            JOIN *PREFIX*memories m ON m.fileid = f.fileid
             WHERE f.fileid IN ($placeholders)
         ";
         $params = array_map('intval', $fileIds);
