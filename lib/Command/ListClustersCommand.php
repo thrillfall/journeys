@@ -13,6 +13,7 @@ class ListClustersCommand extends Command {
 
     protected function configure(): void {
         $this
+            ->setName('journeys:list-clusters')
             ->setDescription('List tracked clusters (Photos album id and name) for a user')
             ->addArgument('user', InputArgument::REQUIRED, 'User ID');
     }
