@@ -30,6 +30,7 @@ class RemoveAllAlbumsCommand extends Command
     protected function configure(): void
     {
         $this
+            ->setName('journeys:remove-all-albums')
             ->setDescription('Removes all Journeys-created cluster albums for a specific user.')
             ->addArgument('user', InputArgument::REQUIRED, 'The user ID for which to remove all Journeys cluster albums');
     }
