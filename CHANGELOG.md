@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.35.2] - 2026-10-15
+### Fixed
+- CLI: `journeys:list-clusters` and `journeys:remove-all-albums` set their name only via the static `$defaultName`, which newer Symfony Console (Nextcloud 35) no longer reads, so `occ` aborted with "cannot have an empty name". Both now call `setName()` in `configure()` (#44, thanks @rauchc).
+
 ## [0.35.1] - 2026-08-29
 ### Fixed
 - **Clustering stays inside the Memories timeline (#41).** `oc_memories` is wider than what Memories shows: the indexer walks the whole home tree by default (`memories.index.mode` = 1) while the timeline is narrowed at *query* time to the user's `timelinePath`, minus `.nomedia` / `.nomemories` subtrees and dot-folders. Reading the table raw clustered photos the user had deliberately kept out of Memories — ebook covers turning up next to holiday pictures, as reported.

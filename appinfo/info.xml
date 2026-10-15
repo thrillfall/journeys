@@ -40,6 +40,10 @@ Album titles are generated from the **resolved place name** and the **date range
 
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.35.2 (2026-10-15)</h3>
+    <ul>
+      <li><b>Fixed:</b> On Nextcloud 35, <code>occ</code> failed with "The command defined in ListClustersCommand cannot have an empty name". The <code>journeys:list-clusters</code> and <code>journeys:remove-all-albums</code> commands now register correctly. Thanks to @rauchc (#44).</li>
+    </ul>
   <h3>0.35.1 (2026-08-29)</h3>
     <ul>
       <li><b>Only photos Memories actually shows:</b> Journeys now follows the timeline path you configured in Memories. Photos outside it — a scanned-documents folder, an ebook library, a backup — no longer turn up in journey albums or in the diary's photo picker. Previously the app read the whole Memories index, which covers more of your files than the Memories timeline displays.</li>
@@ -98,12 +102,6 @@ Album titles are generated from the **resolved place name** and the **date range
       <li><b>Internal:</b> Replaced the deprecated <code>\OC::$server->query()</code> with <code>get()</code> in the list-clusters command.</li>
       <li><b>Packaging:</b> Declared the Photos app as a required dependency.</li>
     </ul>
-  <h3>0.28.0 (2026-06-28)</h3>
-    <ul>
-      <li><b>Journals editor:</b> Added per-photo captions — click any attached photo to write a short caption. Captions appear on the public page beneath the photo and in the full-size lightbox, and are preserved when you reorder photos or re-pick a day's selection.</li>
-      <li><b>Journals public page:</b> Increased the base font size for more comfortable reading.</li>
-      <li><b>Journals public page:</b> Fixed the per-entry location label, which could render as unreadable low-contrast text (e.g. yellow on a colored background) on some themes. It is now a high-contrast pill that reads clearly on any theme.</li>
-    </ul>
   <h3>Older releases</h3>
     <ul>
       <li>The full change history is kept in CHANGELOG.md: https://github.com/thrillfall/journeys/blob/main/CHANGELOG.md</li>
@@ -111,7 +109,7 @@ Album titles are generated from the **resolved place name** and the **date range
 ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.35.1</version>
+  <version>0.35.2</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
