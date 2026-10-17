@@ -5,107 +5,22 @@
   <name>Journeys</name>
   <summary>cluster images by time and location</summary>
     <description><![CDATA[
-# Automatic Photo Album Creation for Nextcloud
+Automatically clusters your photos by time and location into journeys (trips, vacations) and creates a Photos album for each. Only photos inside your Memories timeline path are used.
 
-Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.
-Only photos inside the timeline path you configured in Memories are used.
-**Requires the Memories and Photos apps!**
+**Requires the Memories and Photos apps.**
 
-> ### 🆕 New: Journals — your travel diary
-> Keep a hand-written travel diary right inside Nextcloud. Create a Journal, add day entries (auto-filled with photos from that day), write your story, and curate the pictures. **Publish to a revocable public link** — a mobile-friendly timeline with locations, a route map, a visited countries & cities overview and a cover photo — or **share with other users and groups for full co-editing.** Find it in the new **Journeys** sidebar app.
-
-## ✨ Features
-- **🗺️ Location & Time Clustering:** Group images by when and where they were taken
-- **🗂️ Album Creation:** Albums are created automatically for each journey
-- **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds
-- **🎥 Video Rendering:** Turn journey albums into MP4 highlight reels. Renders run as background jobs (the settings page returns instantly) and land in `Documents/Journeys Movies/`. Per-location subtitles fade in/out as the journey moves between places. Requires `ffmpeg` on the server.
-- **📔 Journals (travel diary):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread across that day), write text, curate the photos and add a caption to each. Photos stay in capture-time order, so pictures added by a collaborator merge into the day's timeline where they were actually taken. Publish a Journal to a revocable public link — a mobile-friendly timeline with locations, a visited countries/cities overview and a cover photo. Share a Journal with other users or groups for full co-editing — and each member can optionally let the others pick from their own photo library for the journal's dates. Mark a Journal as completed when you're home; it then shows its travel stats — days, countries, distance travelled and photo count. Give a Journal a description and it appears under the title, in the list and on the shared page. When adding a day, a month calendar highlights the days that actually hold photos. Automatic nightly clustering is opt-in: the app asks once, and a switch in personal settings turns it on or off at any time.
-- **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters plus a `▶ Watch` shortcut to existing rendered videos — built for instances with many journeys.
-- **🧵 Smart Merging:** Adjacent clusters in the same country (within one week) are automatically stitched together, so multi-city road trips and long vacations with rest days stay as one journey
-- **🧹 Auto-cleanup of empty albums:** Journey albums whose photos you've all deleted are removed automatically on the next clustering run, so empty placeholders don't pile up. Manual albums are never touched.
-- **✏️ User-editable journey names:** Set a custom name (e.g. *Christmas 2024*, *Family reunion*, *Sabbatical*) on top of the auto-derived location/date title. Custom names become the card heading, the Photos album title, and the video title overlay — and they survive `--from-scratch` reclustering by matching old names to new clusters via file-ID overlap.
-
-## 🚀 OCC Command Usage
+- **Journey albums:** created daily in the background (opt-in), with place-and-date names like `Iceland — Aug 12–19, 2024`. Home-aware: local days and trips are clustered with separate thresholds; adjacent trips in the same country are merged.
+- **Journals:** a travel diary with day entries auto-filled from your photos. Share with users for co-editing or publish to a revocable public link with route map and travel stats.
+- **Videos:** render a journey into an MP4 highlight reel (requires `ffmpeg`), saved to `Documents/Journeys Movies/`.
 
     php occ journeys:cluster-create-albums <user>
-
-## 🏠 Using your home location (default)
-Journeys segments the timeline into **near home** and **away from home** and applies sensible defaults for each to capture local days vs. trips.
-
-## ⏰ Runs automatically
-A background job runs **daily** to cluster newly added photos, and you’ll receive a **notification** whenever new albums are created.
-
-## 🏷️ How album names are created
-Album titles are generated from the **resolved place name** and the **date range** of the cluster, e.g. `Iceland — Aug 12–19, 2024`.
-
 ]]></description>
   <changelog><![CDATA[
   <h3>0.35.2 (2026-10-15)</h3>
     <ul>
-      <li><b>Fixed:</b> On Nextcloud 35, <code>occ</code> failed with "The command defined in ListClustersCommand cannot have an empty name". The <code>journeys:list-clusters</code> and <code>journeys:remove-all-albums</code> commands now register correctly. Thanks to @rauchc (#44).</li>
+      <li><b>Fixed:</b> <code>occ</code> commands register again on Nextcloud 35. Thanks to @rauchc (#44).</li>
     </ul>
-  <h3>0.35.1 (2026-08-29)</h3>
-    <ul>
-      <li><b>Only photos Memories actually shows:</b> Journeys now follows the timeline path you configured in Memories. Photos outside it — a scanned-documents folder, an ebook library, a backup — no longer turn up in journey albums or in the diary's photo picker. Previously the app read the whole Memories index, which covers more of your files than the Memories timeline displays.</li>
-      <li><b>Folders you excluded stay excluded:</b> A <code>.nomedia</code> or <code>.nomemories</code> marker added to a folder after it was already indexed now hides that folder from Journeys too, as it already does in Memories.</li>
-      <li><b>Group Folders and shared photos are unaffected:</b> Both settings keep including exactly what they did before.</li>
-      <li><b>Fixed:</b> A photo with no entry in the Memories index could still be pulled into a rendered video, or used to place a diary entry on the map.</li>
-    </ul>
-  <h3>0.35.0 (2026-08-26)</h3>
-    <ul>
-      <li><b>Automatic clustering is now your choice:</b> Opening the Journeys app asks once whether your photos should be grouped into journey albums every night. Say yes and it runs as before; say "Not now" and it stays off. The question is asked once either way.</li>
-      <li><b>A switch to turn it off:</b> Nightly clustering can be switched on and off any time under Personal settings → Journeys. Previously the only way to stop it was disabling the app for the whole server, which meant a library full of documents, receipts or screenshots got albums nobody asked for.</li>
-      <li><b>Journals are unaffected:</b> The travel diary keeps working with clustering switched off — the answer only controls the automatic albums.</li>
-      <li><b>Accounts that already use Journeys keep their nightly run</b> until they answer, so nothing stops clustering behind your back. A brand-new account waits for a yes.</li>
-    </ul>
-  <h3>0.34.0 (2026-08-26)</h3>
-    <ul>
-      <li><b>Journals — see which days have photos:</b> The day picker now shows a month calendar. Days that hold pictures are highlighted and carry their photo count, days you have already written about are marked with a dot, and clicking a day fills in the date. No more guessing which dates are worth an entry.</li>
-      <li><b>Fixed:</b> The "completed" badge rendered as pale green on white and was almost unreadable on light themes.</li>
-    </ul>
-  <h3>0.33.0 (2026-08-25)</h3>
-    <ul>
-      <li><b>Journals — description:</b> A journal can now carry a short description below its title. Write it in the editor; it appears in the journal list and on the shared public page.</li>
-      <li><b>Fixed — no photos when adding a day:</b> The day picker stayed empty for anyone whose pictures do not sit in a plain home folder — installs that use object storage, and photos on external storage or in a Group Folder. Those pictures are found now, and the same fix restores clustering on object-storage installs.</li>
-      <li><b>Fixed (PostgreSQL) — duplicate albums:</b> The album ownership check compared against the database session user instead of the Nextcloud account, so every tracked album looked deleted: the tracking table was emptied on each run and the daily job re-created the whole album set every day. Thanks to @torvalstrom.</li>
-      <li><b>Fixed (PostgreSQL) — attaching photos to a diary entry:</b> Saving a day's photo selection answered a server error, because the capture-date fallback used a MySQL-only function. Thanks to @torvalstrom.</li>
-      <li><b>Fixed (PostgreSQL) — place names:</b> The location lookup called PostGIS functions on a column that Memories stores as a plain polygon, so it failed for every single photo and filled the log (six figures of identical lines a day on one install). It uses the built-in geometric operators now, which also match the index Memories creates. Thanks to @torvalstrom.</li>
-      <li><b>Nextcloud 35:</b> Fixed a fatal error in the <code>journeys:remove-all-albums</code> command that aborted <code>occ app:update --all</code> on Nextcloud 35, and declared support for Nextcloud 35. Thanks to @CarlSchwan.</li>
-    </ul>
-  <h3>0.32.0 (2026-08-06)</h3>
-    <ul>
-      <li><b>Journals — mark a trip as completed:</b> Finish a journal when you get home (and reopen it if you want to keep writing). Completed journals get a ✓ badge in the list, in the editor and on the public page. It is only a marker — a completed journal can still be edited.</li>
-      <li><b>Journals — travel stats:</b> Every journal now shows how long it lasted, how many countries it covered, how far you travelled and how many photos it holds, in the journal list, the editor and on the shared page. The distance follows your geotagged days in order; journals without location data simply show no distance.</li>
-    </ul>
-  <h3>0.31.0 (2026-08-06)</h3>
-    <ul>
-      <li><b>Journals — shared photo libraries:</b> Any member of a shared journal can switch on <i>"Let the others pick from my photos"</i>. The other members' day picker then also shows that member's pictures, labelled with who they belong to, and they can be added to the journal like your own.</li>
-      <li><b>Scoped and revocable:</b> Sharing your library only exposes photos taken within the journal's date range, only to that journal's members, and only until you switch it off again. Pictures already added to the journal stay.</li>
-      <li><b>Journals editor:</b> The collaborators box is now visible to every member (that is where the switch lives). Adding and removing collaborators remains owner-only.</li>
-    </ul>
-  <h3>0.30.0 (2026-08-06)</h3>
-    <ul>
-      <li><b>Journals:</b> Photos in a day entry are now kept in <b>capture-time order</b>, so pictures added by collaborators merge into the day's timeline where they were actually taken instead of being appended at the end. Existing entries are re-ordered by the update.</li>
-      <li><b>Journals editor:</b> Removed the manual left/right photo arrows — ordering is chronological and automatic.</li>
-      <li><b>Fixed:</b> Adding a day no longer attaches video files. Memories also indexes videos, so a day's auto-fill could pick up e.g. a Google Camera motion clip (<code>*.TS.mp4</code>, <code>*.LS.mp4</code>) that has no preview and showed up as a black tile. Videos already attached stay until you remove them.</li>
-    </ul>
-  <h3>0.29.0 (2026-08-05)</h3>
-    <ul>
-      <li><b>Journals public page:</b> The timeline now starts with the <b>newest day first</b>, matching the editor. The oldest/newest toggle still flips it.</li>
-      <li><b>Journals list:</b> A journal that has no day entries yet no longer sinks to the bottom of the list — journals are ordered by their travel dates, falling back to when they were created, so a freshly created journal appears at the top.</li>
-      <li><b>Journals editor:</b> Several entries on the same date now read newest-added first, consistent with the public page.</li>
-      <li><b>Fixed:</b> On the public journal page the "Shared from a Journeys travel diary" line was pinned to the bottom of the window and covered the travel map. It now sits at the end of the page.</li>
-    </ul>
-  <h3>0.28.1 (2026-07-09)</h3>
-    <ul>
-      <li><b>Fixed:</b> Nextcloud 34 clustering crashed with <code>Call to undefined method OC\Server::getDatabaseConnection()</code>. Database access now uses a dependency-injected <code>IDBConnection</code> instead of the server-container getter that Nextcloud 34 removed.</li>
-      <li><b>Internal:</b> Replaced the deprecated <code>\OC::$server->query()</code> with <code>get()</code> in the list-clusters command.</li>
-      <li><b>Packaging:</b> Declared the Photos app as a required dependency.</li>
-    </ul>
-  <h3>Older releases</h3>
-    <ul>
-      <li>The full change history is kept in CHANGELOG.md: https://github.com/thrillfall/journeys/blob/main/CHANGELOG.md</li>
-    </ul>
+  <p>Full history: https://github.com/thrillfall/journeys/blob/main/CHANGELOG.md</p>
 ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
@@ -116,6 +31,7 @@ Album titles are generated from the **resolved place name** and the **date range
   <screenshot>https://raw.githubusercontent.com/thrillfall/journeys/main/appinfo/journeys.png</screenshot>
   <bugs>https://github.com/thrillfall/journeys/issues</bugs>
   <dependencies>
+    <php min-version="8.2"/>
     <nextcloud min-version="30" max-version="35"/>
   </dependencies>
   <bootstrap>OCA\Journeys\AppInfo\Application</bootstrap>

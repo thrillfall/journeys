@@ -1,204 +1,50 @@
 # Journeys: Automatic Photo Album Creation for Nextcloud
 
-Automatically cluster your images into journeys (vacations/trips) and create albums for each journey.
-Only photos inside the timeline path you configured in Memories are used — folders you keep out of Memories stay out of Journeys.
-
-**Requires the [Memories](https://github.com/pulsejet/memories) and [Photos](https://github.com/nextcloud/photos) apps.**
+Automatically clusters your photos by time and location into journeys (trips, vacations) and creates a Photos album for each. Only photos inside your Memories timeline path are used — folders you keep out of Memories stay out of Journeys.
 
 ## ✨ Features
-- **🗺️ Location & Time Clustering:** Group images by when and where they were taken
-- **🗂️ Album Creation:** Albums are created automatically for each journey
-- **⚙️ Customizable:** Control minimum cluster size, time gap, and distance thresholds in a modern card-based settings UI with inline auto-saving toggles
-- **🎥 Video Rendering:** Render any Journey album—or a manually created Photos album—to an MP4 from the personal settings page or via OCC. Settings-page renders are queued as background jobs so the page returns instantly and the tab can be closed; the resulting file shows up in `Documents/Journeys Movies/`. Portrait videos use Ken Burns transitions and may include occasional 3‑wide landscape stacks with a short center pause. Per-location subtitles fade in/out as the journey moves between places (toggle in personal settings, default on). Background music is sourced at 128kbps and gently fades out at the end of the video.
-- **📔 Journals (travel diary, >= 0.25.0):** Keep a hand-written travel diary in the new **Journeys** sidebar app: create a Journal, add a day entry (auto-filled with up to 20 photos spread evenly across that day), write text, curate the photos, and caption each one. Photos are kept in capture-time order, so pictures added by a collaborator merge into the day's timeline where they were actually taken. Publish a Journal to a revocable public link — a mobile-friendly timeline with per-day locations, a travel map (an OpenStreetMap basemap with the route between geolocated days, rendered and cached server-side), a visited countries/cities overview, a cover photo, a newest-day-first timeline with an oldest/newest sort toggle, and a prev/next photo lightbox. Share a Journal with other instance users or groups for full co-editing; each contributor adds photos from their own library, and can switch on *"Let the others pick from my photos"* so the rest of the members can curate from their pictures too — scoped to the journal's date range and revocable at any time. Mark a Journal as **completed** when the trip is over; the list, editor and public page then show its travel stats (days, countries, distance travelled, photo count). A Journal can also carry a short **description**, shown under its title in the list and on the public page. The day picker shows a **month calendar** that highlights the days holding photos (with their count) and marks the days you have already written about. Automatic nightly clustering is **opt-in** — the app asks once, and a switch in personal settings turns it on or off at any time; journals work either way.
-- **📚 Mobile-friendly journey browser:** Compact card list with year, month and location filters, plus a `▶ Watch` shortcut on cards whose video already exists, and a separate "Rendered videos" section listing every file in `Documents/Journeys Movies/`. Built for instances where journeys (and renders) accumulate over time.
- - **⚡ Auto-generation (cron-only, >= 0.8.0):** New away-from-home albums found by the daily cron job can automatically trigger video rendering. Enable this in personal settings and choose the orientation (portrait/landscape). Rendering runs as a separate Nextcloud background job so clustering is not blocked.
- - **🧹 Auto-cleanup of empty albums (>= 0.23.6):** Journey albums whose photos you've all deleted from the Photos app are removed automatically on the next clustering run (daily cron, OCC, or settings UI). Manual albums are never touched.
- - **✏️ User-editable journey names (>= 0.24.0):** Set a custom name (e.g. *Christmas 2024*, *Family reunion*, *Sabbatical*) for any journey from the personal settings page. The custom name shows as the card heading, renames the Photos album, and is used as the video title overlay; the auto-derived location/date name stays visible as a smaller secondary line. Custom names survive `--from-scratch` reclustering — they re-attach automatically to whichever new cluster has the highest file-ID overlap (Jaccard ≥ 0.5), so retroactive photo additions and algorithm/place-resolver improvements don't lose your hand-picked names.
+
+- **Journey albums:** created daily in the background (opt-in), named after place and dates, e.g. `Iceland — Aug 12–19, 2024`. Names can be overridden in personal settings and survive reclustering. A notification tells you when new albums appear.
+- **Home-aware clustering:** local days and trips are clustered with separate thresholds; adjacent trips in the same country within a week are merged, so road trips and long vacations stay one journey.
+- **Journals:** a travel diary with day entries auto-filled from your photos. Share with users or groups for co-editing, or publish to a revocable public link with route map and travel stats.
+- **Videos:** render any journey or Photos album into an MP4 highlight reel, manually or automatically for new trips. Saved to `Documents/Journeys Movies/`.
 
 ## Requirements
-- The Memories app must be installed and enabled.
-- The Photos app must be installed and enabled — journeys creates albums through it (`OCA\Photos\Album\AlbumMapper`). If Photos is disabled, journeys' OCC commands cannot be constructed and unrelated `occ` calls that enumerate commands (e.g. `occ db:add-missing-indices`) will fail with `Could not resolve OCA\Photos\Album\AlbumMapper`.
-- The Places setup in the Memories app must be completed (see Memories app documentation for details).
-- The Nextcloud server must have `ffmpeg` available in `PATH` for video rendering.
 
-## 📌 Note on which images are clustered
+- [Memories](https://github.com/pulsejet/memories) with Places set up. Journeys reads the Memories index, so only indexed photos can be clustered.
+- [Photos](https://github.com/nextcloud/photos) — albums are created through it. If Photos is disabled, `occ` fails with `Could not resolve OCA\Photos\Album\AlbumMapper`.
+- `ffmpeg` 7.1+ in `PATH` for video rendering.
 
-Journeys uses the Memories index (`oc_memories`) to determine which images are available for clustering.
-
-This means the set of images Journeys can cluster depends on the **Memories admin settings**.
-
-If you don’t want unexpected images from outside your configured Memories timeline folders to be included in Journeys clustering, configure:
-
-- **Settings → Administration → Memories → Media Indexing → Index per-user timeline folders**
-
-## 🚀 OCC Command Usage
+## 🚀 OCC commands
 
 ```sh
-php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [--from-scratch] [--include-group-folders] [--include-shared-images] [--debug-splits] [--from <date>] [--to <date>] [--last-years <N>]
+php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [options]
+php occ journeys:render-cluster-video <user> <albumId>
+php occ journeys:render-cluster-video-landscape <user> <albumId>
+php occ journeys:list-clusters <user>
+php occ journeys:remove-all-albums <user>    # only albums created by Journeys
 ```
 
-**Arguments:**
-- `user` — The user to cluster images for (**required**)
-- `maxTimeGap` — Max allowed time gap in hours (optional; if omitted, uses your Personal Settings value)
-- `maxDistanceKm` — Maximum allowed distance in kilometers between consecutive images in a cluster (optional; if omitted, uses your Personal Settings value)
-- `--min-cluster-size` — Minimum images per cluster (optional; if omitted, uses your Personal Settings value)
-  - `--include-group-folders` — Include photos from Group Folders and other mounts in clustering (optional, default: off)
-  - `--include-shared-images` — Include images available via user shares (optional, default: off). Inclusion is scoped to the shared mount root subtree (prevents pulling unrelated files from other users' storages).
-  - `--from` — Only cluster images taken on/after this date/time (ISO-8601 or `YYYY-MM-DD`)
-  - `--to` — Only cluster images taken on/before this date/time (ISO-8601 or `YYYY-MM-DD`)
-  - `--last-years` — Only cluster images from the last `N` years (alternative to `--from/--to`)
-  - `--debug-splits` — Print why clustering starts a new cluster (time/distance exceeded amounts and home-aware boundaries).
+Clustering runs incrementally: only photos after the last created journey are considered. Omitted arguments fall back to the user's personal settings; the effective values are printed at the start of the run.
 
-Note: Time thresholds are specified in hours and support decimals (e.g., 0.5 = 30 minutes).
+Common options for `cluster-create-albums`:
 
-**Note:** When arguments/options are omitted, the command falls back to the user's saved values from Personal Settings. The command prints the effective settings at the start of the run.
+| Option | Effect |
+|---|---|
+| `--from-scratch` | Delete Journeys albums and recluster everything |
+| `--from`, `--to` / `--last-years N` | Limit to a time window (useful for large libraries) |
+| `--include-group-folders`, `--include-shared-images` | Also cluster Group Folders / incoming shares |
+| `--min-cluster-size N` | Minimum photos per journey |
+| `--home-lat`, `--home-lon`, `--home-radius` | Set home instead of auto-detecting it |
+| `--near-time-gap`, `--near-distance-km`, `--away-time-gap`, `--away-distance-km` | Thresholds near / away from home (hours, km) |
+| `--no-merge`, `--no-home-aware` | Disable merging / home-aware mode |
+| `--recent-cutoff-days N` | Skip journeys ending in the last N days (default 2) |
+| `--debug-splits` | Explain why each journey was split |
 
-**How time gap influences clustering:**  
-The `maxTimeGap` defines the largest allowed time (in hours) between two consecutive images for them to be grouped into the same journey. If the gap between two images exceeds this value, a new journey (album) is started. Smaller values create more, shorter journeys; larger values group more images together.
-
-**Example:**
-```sh
-php occ journeys:cluster-create-albums admin 24 100 --min-cluster-size=5
-```
-
-### Large libraries: safe, scoped backfills
-
-If your photo timeline goes back many years, you can limit clustering to a specific time window.
-
-Create journeys only for the last 2 years:
+## ⬆️ Upgrading
 
 ```sh
-php occ journeys:cluster-create-albums admin --last-years=2
+php occ app:update journeys
 ```
 
-Create journeys only for a specific time period:
-
-```sh
-php occ journeys:cluster-create-albums admin --from=2018-01-01 --to=2019-12-31
-```
-
-Notes:
-
-- If you omit `--from/--to/--last-years`, the command keeps the current behavior (it will use incremental clustering by default).
-- With incremental clustering, the effective start is the later of:
-  - the latest previously created journey end
-  - `--from` (if provided)
-
-When arguments/options are omitted, the command falls back to the user's saved values from Personal Settings. The command prints the effective settings at the start of the run.
-
-## 🎥 Video rendering (>= 0.7.2)
-
-- Render any Journey album to an MP4 via personal settings: open **Settings → Journeys**, find the album in the list, and click **Render Video**.
-- Render any manual Photos album by entering its album ID (or selecting it from the "Manual Photos albums" table) in the same settings page.
-- Or use the OCC command:
-
-  ```sh
-  php occ journeys:render-cluster-video <user> <albumId>
-  ```
-
-- The rendered file is saved to `Documents/Journeys Movies/` in the user’s storage (or to a custom path when `--output` is provided).
-- Each render stitches in background music selected from the bundled list (128kbps sources) and applies a short fade‑out at the end of the video.
-
-### Automatic rendering (cron-only, >= 0.8.0)
-
-- When enabled in personal settings, the daily cron job will enqueue a render for each newly created away-from-home album.
-- Orientation honors the user preference (portrait/landscape).
-- Rendering is performed by a separate Nextcloud background job.
-
-### Landscape stacks in portrait videos (>= 0.7.4)
-
-- When enough landscape photos are available, the renderer inserts an occasional 3‑row landscape stack into portrait videos.
-- Each row slides in, pauses at the center for ~2 seconds, then slides out. Slides are a bit faster for a dynamic feel.
-- Stacks require at least 3 landscape images in the selected set. By default, a stack is inserted after ~4 portrait clips (heuristic).
-- Tip: use `--duration-seconds >= 2.8` to allow a full ~2s center pause plus visible in/out slides; shorter durations still work but the pause will be shorter.
-
-### Current limitations
-
-- Portrait mode is the default.
-- Portrait and landscape rendering chunk automatically when any source image exceeds 13 megapixels; otherwise they run as a single pass.
-
-### Roadmap
-
-- Background music selection.
-- Scene transitions and pacing controls.
-
-
-## 🧵 Merging adjacent journeys (default)
-
-After the raw clusterer runs, a post-processing pass stitches adjacent clusters that look like the same journey — specifically, clusters in the same country (via OSM admin_level=2) within 7 days of each other. This fixes two common over-splits:
-
-- **Multi-city road trips** (e.g. Paris → Lyon → Nice) where the distance threshold trips on each inter-city leg.
-- **Long vacations with rest days** where time gaps of 2–3 days without photos trip the time threshold.
-
-Only away-from-home clusters are merged; near-home clusters never merge across gaps, because returning to the home radius is treated as ending a journey. Disable with:
-
-- CLI: `--no-merge` flag on `journeys:cluster-create-albums`
-- UI: untick "Merge adjacent journeys in the same country" in Personal Settings
-
-## 🏠 Home-aware clustering (default)
-
-Home-aware mode adapts clustering based on whether photos are taken near your home or away:
-
-- Near home: uses the global time threshold and a capped distance (defaults: 24h, up to 25km)
-- Away from home: uses separate, typically looser thresholds (defaults: 36h, 50km)
-- The timeline is segmented into contiguous near/away blocks, and each block is clustered independently. This supports long, multi-week away trips without per-edge switching.
-
-
-```sh
-php occ journeys:cluster-create-albums <user> [--home-lat <lat> --home-lon <lon> --home-radius <km>] \
-  [--near-time-gap <hours>] [--near-distance-km <km>] \
-  [--away-time-gap <hours>] [--away-distance-km <km>]
-```
-
-Flags:
-
-- `--home-lat`, `--home-lon` Provide home coordinates (optional; otherwise auto-detected)
-- `--home-radius` Home radius in km (default: 50)
-- `--near-time-gap` Near-home max time gap in hours (optional; if omitted, uses your Personal Settings value)
-- `--near-distance-km` Near-home max distance in km (optional; if omitted, uses your Personal Settings value)
-- `--away-time-gap` Away-from-home max time gap in hours (optional; if omitted, uses your Personal Settings value)
-- `--away-distance-km` Away-from-home max distance in km (optional; if omitted, uses your Personal Settings value)
-
-Note: Time thresholds use hours and accept decimals (e.g., 1.5 = 1 hour 30 minutes).
-
-Notes:
-
-- If near-home thresholds are left at their defaults, the time gap aligns to the global `maxTimeGap`, and the distance aligns to the global `maxDistanceKm` but is capped at 25km for finer local clustering.
-- For long away trips with multi-day gaps in the same place, consider increasing `--away-time-gap` (e.g., 72–168 hours).
-- In home-aware mode, there is no post-processing merge; clusters are used as produced per segment for predictability.
-
-### Incremental clustering (default)
-
-- By default, clustering runs incrementally: it only considers images taken after the latest previously created cluster. This keeps runtime low and avoids recreating existing albums.
-- Use `--from-scratch` to purge previously created cluster albums and recluster all images from a clean slate.
-- To avoid creating incomplete trips, clusters whose last image is within the past 48 hours are skipped (configurable via `--recent-cutoff-days`); they will be picked up in a future run once the trip is likely complete.
-
-## 🔔 Notifications (>= 0.5.4)
-
-- After each run that creates one or more albums, the app sends a single aggregated notification to the user with a short summary of the created albums.
-- The notification contains an "Open Photos" action that links to the Photos app so you can review the albums quickly.
-- Notifications may appear with a short delay due to client polling.
-
-
-## 🧭 Clustering robustness (>= 4.0.3)
-
-- The clusterer now prevents time-only tails (images without coordinates) from bridging over large spatial jumps.
-- Distance checks are anchored to the last-known geolocated photo within the current cluster, so a run of no-location images won’t “stitch” a far-away next geolocated point into the same cluster.
-- This improves results for long trips where some photos are missing GPS data, especially in home-aware “away” segments.
-
-
-
-## ⬆️ Upgrade notes
-
-- Update the app to apply DB migrations:
-  ```sh
-  php occ app:update journeys
-  # if prompted that an upgrade is required, run:
-  php occ upgrade
-  ```
-- After updating, re-run the cluster command. To reset old albums once, you can run:
-  ```sh
-  php occ journeys:remove-all-albums <user>
-  ```
-
+Full history: [CHANGELOG.md](CHANGELOG.md)
