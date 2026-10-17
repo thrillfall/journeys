@@ -131,6 +131,8 @@ class PersonalSettingsController extends Controller {
         // New: boostFaces toggle (prefer images with faces in video selection)
         $boostFaces = filter_var($this->request->getParam('boostFaces') ?? true, FILTER_VALIDATE_BOOLEAN);
         $this->userConfig->setUserValue($userId, 'journeys', 'boostFaces', $boostFaces ? '1' : '0');
+        $includeVideoClips = filter_var($this->request->getParam('includeVideoClips') ?? true, FILTER_VALIDATE_BOOLEAN);
+        $this->userConfig->setUserValue($userId, 'journeys', 'includeVideoClips', $includeVideoClips ? '1' : '0');
         $this->userConfig->setUserValue($userId, 'journeys', 'videoOrientation', $videoOrientation);
         if ($homeLat !== null && $homeLon !== null) {
             $this->userConfig->setUserValue($userId, 'journeys', 'homeLat', (string)(float)$homeLat);
@@ -219,6 +221,8 @@ class PersonalSettingsController extends Controller {
             // New: boostFaces toggle (prefer images with faces in video selection)
             $boostFaces = filter_var($this->request->getParam('boostFaces') ?? true, FILTER_VALIDATE_BOOLEAN);
             $this->userConfig->setUserValue($userId, 'journeys', 'boostFaces', $boostFaces ? '1' : '0');
+            $includeVideoClips = filter_var($this->request->getParam('includeVideoClips') ?? true, FILTER_VALIDATE_BOOLEAN);
+            $this->userConfig->setUserValue($userId, 'journeys', 'includeVideoClips', $includeVideoClips ? '1' : '0');
             $this->userConfig->setUserValue($userId, 'journeys', 'videoOrientation', $videoOrientation);
             if ($homeLat !== null && $homeLon !== null) {
                 $this->userConfig->setUserValue($userId, 'journeys', 'homeLat', (string)(float)$homeLat);
@@ -327,6 +331,7 @@ class PersonalSettingsController extends Controller {
         $showVideoTitle = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'showVideoTitle', 1));
         $showLocationSubtitles = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'showLocationSubtitles', 1));
         $boostFaces = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'boostFaces', 1));
+        $includeVideoClips = (bool)((int)$this->userConfig->getUserValue($userId, 'journeys', 'includeVideoClips', 1));
         $videoOrientation = (string)$this->userConfig->getUserValue($userId, 'journeys', 'videoOrientation', 'portrait');
         return new JSONResponse([
             'autoCluster' => $this->autoCluster->isEnabled($userId),
@@ -349,6 +354,7 @@ class PersonalSettingsController extends Controller {
             'showVideoTitle' => $showVideoTitle,
             'showLocationSubtitles' => $showLocationSubtitles,
             'boostFaces' => $boostFaces,
+            'includeVideoClips' => $includeVideoClips,
             'videoOrientation' => in_array($videoOrientation, ['portrait', 'landscape'], true) ? $videoOrientation : 'portrait',
             'nearTimeGap' => $nearTimeGap,
             'nearDistanceKm' => $nearDistanceKm,

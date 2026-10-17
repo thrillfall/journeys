@@ -9,6 +9,7 @@ use OCP\Files\IRootFolder;
 class ClusterVideoFilePreparer {
     public function __construct(
         private IRootFolder $rootFolder,
+        private VideoClipExtractor $clipExtractor,
     ) {}
 
     /**
@@ -38,6 +39,14 @@ class ClusterVideoFilePreparer {
             [$node, $relativePath] = $resolved;
 
             $mime = strtolower($node->getMimeType() ?? '');
+            if ($img->isVideo && str_starts_with($mime, 'video/')) {
+                if ($this->prepareClip($node, $workingDir, $index + 1, $files)) {
+                    $preparedImages[] = $img;
+                    $index++;
+                    $copied++;
+                }
+                continue;
+            }
             if (str_starts_with($mime, 'image/') === false) {
                 continue;
             }
@@ -77,6 +86,38 @@ class ClusterVideoFilePreparer {
             'images' => $preparedImages,
             'copied' => $copied,
         ];
+    }
+
+    /**
+     * @param string[] $files appended to on success
+     */
+    private function prepareClip(File $node, string $workingDir, int $position, array &$files): bool {
+        $extension = strtolower(pathinfo($node->getName(), PATHINFO_EXTENSION)) ?: 'mp4';
+        $sourcePath = sprintf('%s/source_%05d.%s', $workingDir, $position, $extension);
+        $clipPath = sprintf('%s/%05d.mp4', $workingDir, $position);
+
+        $sourceStream = $node->fopen('r');
+        $destinationStream = fopen($sourcePath, 'w');
+        if ($sourceStream === false || $destinationStream === false) {
+            if (is_resource($sourceStream)) {
+                fclose($sourceStream);
+            }
+            if (is_resource($destinationStream)) {
+                fclose($destinationStream);
+            }
+            @unlink($sourcePath);
+            return false;
+        }
+        stream_copy_to_stream($sourceStream, $destinationStream);
+        fclose($sourceStream);
+        fclose($destinationStream);
+
+        $ok = $this->clipExtractor->extract($sourcePath, $clipPath);
+        @unlink($sourcePath);
+        if ($ok) {
+            $files[] = $clipPath;
+        }
+        return $ok;
     }
 
     public function cleanup(string $workingDir): void {

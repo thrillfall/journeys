@@ -156,6 +156,12 @@
 									{{ t('journeys', 'Include motion from GCam photos (Live)') }}
 								</NcCheckboxRadioSwitch>
 							<NcCheckboxRadioSwitch
+									:checked="includeVideoClips"
+									type="switch"
+									@update:checked="value => onToggleSetting('includeVideoClips', value)">
+									{{ t('journeys', 'Include short clips (with sound) from videos') }}
+								</NcCheckboxRadioSwitch>
+							<NcCheckboxRadioSwitch
 									:checked="showVideoTitle"
 									type="switch"
 									@update:checked="value => onToggleSetting('showVideoTitle', value)">
@@ -492,6 +498,7 @@ export default {
 			showVideoTitle: true,
 			showLocationSubtitles: true,
 			boostFaces: true,
+			includeVideoClips: true,
 			videoOrientation: 'portrait',
 			albums: [],
 			manualAlbumId: null,
@@ -563,6 +570,7 @@ export default {
 				this.showVideoTitle = settingsResp.data.showVideoTitle !== undefined ? !!settingsResp.data.showVideoTitle : true
 				this.showLocationSubtitles = settingsResp.data.showLocationSubtitles !== undefined ? !!settingsResp.data.showLocationSubtitles : true
 				this.boostFaces = settingsResp.data.boostFaces !== undefined ? !!settingsResp.data.boostFaces : true
+				this.includeVideoClips = settingsResp.data.includeVideoClips !== undefined ? !!settingsResp.data.includeVideoClips : true
 				this.videoOrientation = settingsResp.data.videoOrientation || 'portrait'
 				if (typeof settingsResp.data.nearTimeGap !== 'undefined') this.nearTimeGap = settingsResp.data.nearTimeGap
 				if (typeof settingsResp.data.nearDistanceKm !== 'undefined') this.nearDistanceKm = settingsResp.data.nearDistanceKm
@@ -739,6 +747,7 @@ export default {
 				showVideoTitle: this.showVideoTitle,
 				showLocationSubtitles: this.showLocationSubtitles,
 				boostFaces: this.boostFaces,
+				includeVideoClips: this.includeVideoClips,
 				videoOrientation: this.videoOrientation,
 				nearTimeGap: this.nearTimeGap,
 				nearDistanceKm: this.nearDistanceKm,

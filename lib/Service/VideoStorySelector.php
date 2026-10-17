@@ -15,9 +15,53 @@ class VideoStorySelector {
      * @param int $maxImages Optional cap to avoid overly long videos
      * @param bool $boostFaces Whether to boost images containing people
      * @param string|null $preferredOrientation Either 'portrait', 'landscape', or null for no preference
+     * @param bool $includeVideoClips Whether videos may be picked as short clips (otherwise they are dropped)
      * @return Image[]
      */
-    public function selectImages(string $userId, array $clusterImages, int $minGapSeconds = 5, int $maxImages = 80, bool $boostFaces = true, ?string $preferredOrientation = null): array {
+    public function selectImages(string $userId, array $clusterImages, int $minGapSeconds = 5, int $maxImages = 80, bool $boostFaces = true, ?string $preferredOrientation = null, bool $includeVideoClips = true): array {
+        $photos = [];
+        $videos = [];
+        foreach ($clusterImages as $img) {
+            if (!$img instanceof Image) {
+                continue;
+            }
+            if ($img->isVideo) {
+                if ($includeVideoClips && ($img->videoDuration ?? 0) >= self::MIN_CLIP_SOURCE_SECONDS) {
+                    $videos[] = $img;
+                }
+            } else {
+                $photos[] = $img;
+            }
+        }
+
+        usort($videos, fn($a, $b) => strtotime($a->datetaken) <=> strtotime($b->datetaken));
+        $clipCount = min(count($videos), self::clipBudget($maxImages));
+        if (empty($photos)) {
+            $clipCount = min(count($videos), $maxImages);
+        }
+        $clips = $this->evenlySample($videos, $clipCount);
+
+        $stills = $this->selectStills($photos, $minGapSeconds, max(1, $maxImages - count($clips)), $boostFaces, $preferredOrientation);
+
+        return $this->sortByDatetaken(array_merge($stills, $clips));
+    }
+
+    /**
+     * Roughly one clip per eight stills, so a video-heavy trip still reads as
+     * a photo story with moments of motion rather than a clip reel.
+     */
+    public static function clipBudget(int $maxImages): int {
+        return min(self::MAX_CLIPS, max(1, (int)round($maxImages * 0.12)));
+    }
+
+    private const MIN_CLIP_SOURCE_SECONDS = 2;
+    private const MAX_CLIPS = 15;
+
+    /**
+     * @param Image[] $clusterImages
+     * @return Image[]
+     */
+    private function selectStills(array $clusterImages, int $minGapSeconds, int $maxImages, bool $boostFaces, ?string $preferredOrientation): array {
         if (empty($clusterImages)) return [];
 
         // Keep both portrait and landscape images. Portrait-first mixing is handled by the renderer,

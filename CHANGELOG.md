@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.36.0] - 2026-10-17
+### Added
+- Video rendering: **clips from the trip's videos (#9).** Personal setting `includeVideoClips`, on by default — clips add about 30 % render time on a long trip but not peak memory (measured: 4.3 GB peak ffmpeg RSS with clips vs 4.9 GB without on a 92-item trip, since a clip replaces a high-resolution still). `VideoStorySelector` gives videos of at least 2 s about 12 % of the slots (max 15), `VideoClipExtractor` cuts a ~4 s excerpt from the middle and normalizes it (h264, CFR 30 fps, AAC, long edge ≤ 1920), and both renderers play it as a `clip` segment at native speed. A clip that does not match the canvas orientation is fitted over a blurred fill of itself.
+- Video rendering: clip sound is mixed in by `VideoRenderPrimitives::muxSoundtrack()` at the clip's position on the timeline. Clips are levelled towards −20 dB (max +20 dB), and the music ducks by 16.5 dB with a 1 s ramp in dB around each clip. Measured A/V offset is under one frame on Pixel MP4, iPhone HDR MOV and variable-frame-rate sources, including across render chunks.
+- `tests/e2e/av_sync_check.py` and section 5 of `tests/e2e/RELEASE-E2E.md` to verify clip sync before a release.
+### Changed
+- Video rendering: 3-photo landscape stacks hold one second longer; the extra time goes to the centre pause.
+- Video rendering: segment durations are snapped to whole frames so chunked renders keep clip sound and picture aligned.
+- `appinfo/info.xml` now declares `<php min-version="8.2"/>` (Composer already required it).
+### Fixed
+- Video rendering: the segment after a GCam motion photo was cut to ~0.8 s. The time-stretch ran as `setpts` after `fps`, so `tpad` never padded the trailer, its stream ended where the outgoing xfade began, and ffmpeg 7 skipped the start of the next segment. The stretch now happens on the input (`-itsscale`).
+- Video rendering: a finished video was read into a PHP string before saving, which exhausted `memory_limit` for outputs around 300 MB and left a 0-byte file in `Journeys Movies`. It is streamed now.
+- `occ journeys:render-cluster-video` description no longer claims "images only".
+
 ## [0.35.2] - 2026-10-15
 ### Fixed
 - CLI: `journeys:list-clusters` and `journeys:remove-all-albums` set their name only via the static `$defaultName`, which newer Symfony Console (Nextcloud 35) no longer reads, so `occ` aborted with "cannot have an empty name". Both now call `setName()` in `configure()` (#44, thanks @rauchc).

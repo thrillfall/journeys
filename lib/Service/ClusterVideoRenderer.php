@@ -8,6 +8,9 @@ use Psr\Log\LoggerInterface;
 class ClusterVideoRenderer {
     use VideoRenderPrimitives;
 
+    // Three landscapes share a stack, so it holds longer than a single still.
+    private const STACK_EXTRA_SECONDS = 1.0;
+
     public function __construct(
         private IRootFolder $rootFolder,
         private ClusterVideoMusicProvider $musicProvider,
@@ -75,8 +78,10 @@ class ClusterVideoRenderer {
             throw new \RuntimeException('No renderable images available (need at least one portrait or 3 landscapes)');
         }
 
-        $durationPerImage = max(0.5, $durationPerImage);
-        $transitionDuration = min(0.8, max(0.2, $durationPerImage * 0.3));
+        $durationPerImage = $this->snapToFrames(max(0.5, $durationPerImage), $fps);
+        $transitionDuration = $this->snapToFrames(min(0.8, max(0.2, $durationPerImage * 0.3)), $fps);
+        $segments = $this->resolveClipDurations($segments, $fps);
+        $segments = $this->extendStacks($segments, $durationPerImage, $fps);
         // Determine output size based on the first portrait if available, else fall back to requested width and 16:9 height.
         [$targetWidth, $targetHeight] = $this->determineOutputDimensionsFromSegments($width, $segments);
 
@@ -140,12 +145,9 @@ class ClusterVideoRenderer {
         $width = $this->makeEven($width);
         $height = $this->makeEven($height);
 
-        $segmentCount = count($segments);
         $holdDuration = $durationPerImage; // per-segment visible duration before xfade
         $clipDuration = $holdDuration + $transitionDuration; // input lifespan so xfade has material to blend
-        $totalDurationSeconds = $segmentCount === 1
-            ? $clipDuration
-            : max(0.1, $holdDuration * $segmentCount + $transitionDuration);
+        $totalDurationSeconds = max(0.1, array_sum($this->segmentHolds($segments, $holdDuration)) + $transitionDuration);
 
         $logLevel = $verbose ? 'info' : 'error';
         $cmd = $this->ffmpegBaseCmd($logLevel);
@@ -165,10 +167,14 @@ class ClusterVideoRenderer {
                 $cmd[] = '-i';
                 $cmd[] = $file;
                 $flatInputs[] = [$file];
+            } elseif ($seg['type'] === 'clip') {
+                $file = $seg['inputs'][0];
+                array_push($cmd, ...$this->clipInputArgs($file, (float)$seg['duration']));
+                $flatInputs[] = [$file];
             } elseif ($seg['type'] === 'video') {
                 $file = $seg['inputs'][0];
-                $cmd[] = '-i';
-                $cmd[] = $file;
+                $timing = $this->motionTiming($file, $holdDuration, $clipDuration, $fps);
+                array_push($cmd, ...$this->motionInputArgs($file, $timing['stretch']));
                 $flatInputs[] = [$file];
             } elseif ($seg['type'] === 'stack') {
                 $files = $seg['inputs'];
@@ -176,7 +182,7 @@ class ClusterVideoRenderer {
                     $cmd[] = '-loop';
                     $cmd[] = '1';
                     $cmd[] = '-t';
-                    $cmd[] = $this->formatFloat($clipDuration);
+                    $cmd[] = $this->formatFloat((float)($seg['duration'] ?? $holdDuration) + $transitionDuration);
                     $cmd[] = '-i';
                     $cmd[] = $f;
                 }
@@ -387,22 +393,15 @@ class ClusterVideoRenderer {
             );
         }
 
-        $videoOnlyPath = $current['path'];
-        $totalDuration = $current['duration'];
-
-        if ($audioTrack !== null) {
-            $videoOnlyPath = $this->muxAudio(
-                $videoOnlyPath,
-                $audioTrack,
-                $totalDuration,
-                $transitionDuration,
-                $outputHandler,
-                $verbose,
-                $finalOutputPath,
-            );
-        } else {
-            rename($videoOnlyPath, $finalOutputPath);
-        }
+        $this->muxSoundtrack(
+            $current['path'],
+            $audioTrack,
+            $this->collectClipAudio($segments, $this->segmentHolds($segments, $durationPerImage)),
+            $current['duration'],
+            $outputHandler,
+            $verbose,
+            $finalOutputPath,
+        );
     }
 
     /**
@@ -458,63 +457,6 @@ class ClusterVideoRenderer {
 
         $newDuration = max(0.0, $left['duration'] + $right['duration'] - $transitionDuration);
         return ['path' => $outputPath, 'duration' => $newDuration];
-    }
-
-    private function muxAudio(
-        string $videoPath,
-        string $audioTrack,
-        float $totalDurationSeconds,
-        float $transitionDuration,
-        ?callable $outputHandler,
-        bool $verbose,
-        string $finalOutputPath,
-    ): string {
-        $logLevel = $verbose ? 'info' : 'error';
-        $cmd = array_merge($this->ffmpegBaseCmd($logLevel), [
-            '-i', $videoPath,
-            '-stream_loop', '-1', '-i', $audioTrack,
-        ]);
-
-        $fadeDur = min(5.0, max(0.5, $totalDurationSeconds * 0.08));
-        $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
-        $filterGraph = sprintf('[1:a]atrim=0:%1$s,asetpts=PTS-STARTPTS,afade=t=out:st=%2$s:d=%3$s[afout]',
-            $this->formatFloat($totalDurationSeconds),
-            $this->formatFloat($fadeStart),
-            $this->formatFloat($fadeDur),
-        );
-
-        $cmd = array_merge($cmd, [
-            '-filter_complex', $filterGraph,
-            '-map', '0:v:0',
-            '-map', '[afout]',
-            '-c:v', 'copy',
-            '-c:a', 'aac',
-            '-b:a', '192k',
-            '-shortest',
-            '-movflags', '+faststart',
-            $finalOutputPath,
-        ]);
-
-        $process = new Process($cmd);
-        $process->setTimeout(null);
-        $process->setIdleTimeout(null);
-        $process->run(function (string $type, string $buffer) use ($outputHandler, $verbose): void {
-            if ($outputHandler === null) {
-                return;
-            }
-            if ($type === Process::ERR) {
-                if ($verbose || !$this->shouldSuppressWarning($buffer)) {
-                    $outputHandler($type, $buffer);
-                }
-            }
-        });
-
-        if (!$process->isSuccessful()) {
-            throw new \RuntimeException('ffmpeg failed while muxing audio: ' . $process->getErrorOutput());
-        }
-
-        @unlink($videoPath);
-        return $finalOutputPath;
     }
 
     /**
@@ -581,6 +523,7 @@ class ClusterVideoRenderer {
             $segmentSubtitles[] = $base !== '' ? ($subtitlesByBasename[$base] ?? null) : null;
         }
 
+        $holds = $this->segmentHolds($segments, $holdDuration);
         $inputIndex = 0;
         $segmentOutputLabels = [];
         $rowH = $this->makeEven((int) floor($height / 3));
@@ -628,40 +571,35 @@ class ClusterVideoRenderer {
                 $segmentOutputLabels[] = $baseLabelOut;
                 $inputIndex += 1;
             } elseif ($seg['type'] === 'video') {
-                // Prepare video: scale/crop to canvas, normalize fps, time-stretch, then freeze-frame pad the rest
-                $vidPath = $segments[$si]['inputs'][0] ?? '';
-                $dur = $this->probeVideoDuration(is_string($vidPath) ? $vidPath : '');
-                $dur = max(0.1, min($dur, 30.0));
-                $ptsFactor = 1.0;
-                $stretchedDur = $dur;
-                if ($dur > 0.0) {
-                    // Time-stretch to fill holdDuration
-                    // setpts factor >1 slows down; <1 speeds up
-                    $ptsFactor = $holdDuration / $dur;
-                    $ptsFactor = max(0.5, min(2.0, $ptsFactor));
-                    $stretchedDur = $dur * $ptsFactor;
-                }
-                // Calculate how many frames we need to pad (transition duration worth of frames)
-                $padFrames = max(0, (int)ceil(($clipDuration - $stretchedDur) * $fps));
-
-                $filterParts[] = sprintf(
-                    '[%1$d:v]scale=%2$d:%3$d:force_original_aspect_ratio=increase,' .
-                    'crop=%2$d:%3$d,fps=%4$d,setsar=1,' .
-                    'trim=duration=%7$s,setpts=PTS-STARTPTS,' .
-                    'setpts=%5$s*PTS,setpts=PTS-STARTPTS,' .
-                    'tpad=stop_mode=clone:stop_duration=%8$d,' .
-                    'settb=AVTB,fps=%4$d[vseg%9$d]',
+                $vidPath = (string)($seg['inputs'][0] ?? '');
+                $timing = $this->motionTiming($vidPath, $holdDuration, $clipDuration, $fps);
+                $filterParts[] = $this->buildMotionFilter($inputIndex, sprintf('vseg%d', $si), $width, $height, $fps, $timing['padFrames']);
+                $segmentOutputLabels[] = sprintf('vseg%d', $si);
+                $inputIndex += 1;
+            } elseif ($seg['type'] === 'clip') {
+                $clipLabel = sprintf('cseg%d', $si);
+                $filterParts[] = $this->buildClipFilter(
                     $inputIndex,
+                    $clipLabel,
                     $width,
                     $height,
                     $fps,
-                    $this->formatFloat($ptsFactor),
-                    $this->formatFloat($clipDuration),
-                    $this->formatFloat($dur),
-                    $padFrames,
-                    $si,
+                    (string)$seg['inputs'][0],
+                    $transitionDuration,
                 );
-                $segmentOutputLabels[] = sprintf('vseg%d', $si);
+                if ($si === 0 && $albumName !== null && $albumName !== '') {
+                    $formatted = $this->titleFormatter->formatForVideo($albumName, $width, 0.8);
+                    $filterParts[] = $this->titleFormatter->buildDrawtextFilter(
+                        $clipLabel,
+                        $clipLabel . 't',
+                        $formatted['text'],
+                        $formatted['fontSize'],
+                        4.0,
+                        2 // shadow offset for portrait
+                    );
+                    $clipLabel .= 't';
+                }
+                $segmentOutputLabels[] = $clipLabel;
                 $inputIndex += 1;
             } elseif ($seg['type'] === 'stack') {
                 // Three inputs compose one sliding stack segment
@@ -672,6 +610,7 @@ class ClusterVideoRenderer {
                 $o1 = sprintf('o%da', $si);
                 $o2 = sprintf('o%db', $si);
                 $out = sprintf('stack%d', $si);
+                $stackHold = $holds[$si];
 
                 // Base color background for this segment
                 $filterParts[] = sprintf(
@@ -679,7 +618,7 @@ class ClusterVideoRenderer {
                     $width,
                     $height,
                     $fps,
-                    $this->formatFloat($clipDuration),
+                    $this->formatFloat($stackHold + $transitionDuration),
                     $base,
                 );
 
@@ -713,13 +652,13 @@ class ClusterVideoRenderer {
                 );
 
                 // Slide expressions with center pause:
-                // Split holdDuration into in, hold(center), out. Aim for 2.25s hold at center, clamp if too short.
-                $centerHold = min(2.25, max(0.0, $holdDuration - 0.8)); // leave at least ~0.4s for in and out each
+                // Split the stack's hold into in, hold(center), out; the slides stay ~0.4s each and any extra time goes to the centre pause.
+                $centerHold = max(0.0, $stackHold - 0.8);
                 $minSlide = 0.4;
-                $slideTime = max($minSlide * 2, $holdDuration - $centerHold);
+                $slideTime = max($minSlide * 2, $stackHold - $centerHold);
                 if ($slideTime < ($minSlide * 2)) {
                     $slideTime = $minSlide * 2;
-                    $centerHold = max(0.0, $holdDuration - $slideTime);
+                    $centerHold = max(0.0, $stackHold - $slideTime);
                 }
                 $tin = max($minSlide, $slideTime / 2.0);
                 $tout = max($minSlide, $slideTime / 2.0);
@@ -753,7 +692,7 @@ class ClusterVideoRenderer {
                 $filterParts,
                 $mergedLabel,
                 $segmentSubtitles,
-                $holdDuration,
+                $holds,
                 $width,
                 2, // shadow offset for portrait
             );
@@ -762,11 +701,12 @@ class ClusterVideoRenderer {
         }
 
         // Stitch with xfade
-        $totalDuration = $holdDuration * count($segmentOutputLabels) + $transitionDuration;
+        $totalDuration = array_sum($holds) + $transitionDuration;
         $prev = $segmentOutputLabels[0];
+        $offset = 0.0;
         for ($i = 1; $i < count($segmentOutputLabels); $i++) {
             $out = ($i === count($segmentOutputLabels) - 1) ? 'mix_last' : sprintf('mix%d', $i);
-            $offset = $holdDuration * $i;
+            $offset += $holds[$i - 1];
             $filterParts[] = sprintf(
                 '[%1$s][%2$s]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
                 $prev,
@@ -785,7 +725,7 @@ class ClusterVideoRenderer {
             $filterParts,
             $finalLabel,
             $segmentSubtitles,
-            $holdDuration,
+            $holds,
             $width,
             2, // shadow offset for portrait
         );
@@ -837,6 +777,39 @@ class ClusterVideoRenderer {
     }
 
     /**
+     * Attach each clip's frame-aligned length; drop clips ffprobe cannot read.
+     * @param array<int,array{type:string,inputs:array<int,string>}> $segments
+     * @return array<int,array{type:string,inputs:array<int,string>,duration?:float}>
+     */
+    private function resolveClipDurations(array $segments, int $fps): array {
+        $out = [];
+        foreach ($segments as $seg) {
+            if (($seg['type'] ?? '') === 'clip') {
+                $duration = $this->clipHoldDuration((string)$seg['inputs'][0], $fps);
+                if ($duration <= 0.0) {
+                    continue;
+                }
+                $seg['duration'] = $duration;
+            }
+            $out[] = $seg;
+        }
+        return $out;
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $segments
+     * @return array<int,array<string,mixed>>
+     */
+    private function extendStacks(array $segments, float $holdDuration, int $fps): array {
+        foreach ($segments as $i => $seg) {
+            if (($seg['type'] ?? '') === 'stack') {
+                $segments[$i]['duration'] = $this->snapToFrames($holdDuration + self::STACK_EXTRA_SECONDS, $fps);
+            }
+        }
+        return $segments;
+    }
+
+    /**
      * Ensure the final segment is a still image when available, to guarantee clean fade-out.
      * If the last segment is motion/video and there is any image earlier, move the last image to the end.
      * @param array<int,array{type:string,inputs:array<int,string>}> $segments
@@ -847,7 +820,7 @@ class ClusterVideoRenderer {
             return $segments;
         }
         $last = $segments[array_key_last($segments)];
-        if (($last['type'] ?? '') !== 'kenburns') {
+        if (in_array($last['type'] ?? '', ['kenburns', 'stack'], true)) {
             return $segments;
         }
         for ($i = count($segments) - 2; $i >= 0; $i--) {
@@ -936,6 +909,7 @@ class ClusterVideoRenderer {
      * Build a mixed sequence of segments: portrait Ken Burns clips and occasional 3-wide landscape stacks.
      * Heuristic: after every 4 portrait segments, insert one stack segment if at least 3 landscapes remain.
      * Order preservation: portraits remain in chronological order; landscapes are consumed in-order when stacked.
+     * Video clips play full-frame in the portrait stream at their chronological position, whatever their orientation.
      * @param array<int,string> $files
      * @return array<int,array{type:string,inputs:array<int,string>}> Segments to render in order
      */
@@ -943,6 +917,10 @@ class ClusterVideoRenderer {
         $portraits = [];
         $landscapes = [];
         foreach ($files as $f) {
+            if ($this->isClipFile($f)) {
+                $portraits[] = $f;
+                continue;
+            }
             [$w, $h] = $this->orientedImageSize($f);
             if ($w > 0 && $h > 0) {
                 if ($h > $w) { $portraits[] = $f; } else { $landscapes[] = $f; }
@@ -956,7 +934,10 @@ class ClusterVideoRenderer {
 
         while ($pIdx < count($portraits) || ($lIdx + 2) < count($landscapes)) {
             if ($pIdx < count($portraits)) {
-                $segments[] = ['type' => 'kenburns', 'inputs' => [$portraits[$pIdx]]];
+                $segments[] = [
+                    'type' => $this->isClipFile($portraits[$pIdx]) ? 'clip' : 'kenburns',
+                    'inputs' => [$portraits[$pIdx]],
+                ];
                 $pIdx++;
                 $portraitsBeforeStack++;
             } else {

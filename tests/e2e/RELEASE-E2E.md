@@ -192,6 +192,48 @@ that folder returns `{"photos":[]}`. **FAIL** if either still lists `teupitz`.
 
 ---
 
+## 5. Video rendering with clips from user videos
+
+Clips are on by default (`includeVideoClips`). Run against an album that
+holds videos (`SELECT album_id, SUM(m.isvideo) …` over `oc_photos_albums_files`);
+the Berlin album from block 2 (`Berlin — Lichtenberg April 2024 (Apr 17–Apr 20)`) has 8 usable
+clips and renders in about a minute. Album ids change on every `--from-scratch`,
+so look the id up first.
+
+```sh
+AID=$(docker exec -u www-data nextcloud php occ journeys:list-clusters admin | grep -m1 'Lichtenberg April 2024 (Apr 17' | grep -oP '^\|\s*\K[0-9]+')
+docker exec -u www-data nextcloud php occ user:setting admin journeys includeVideoClips 0
+docker exec -u www-data nextcloud php occ journeys:render-cluster-video admin $AID -o /tmp/e2e_off.mp4
+docker exec -u www-data nextcloud php occ user:setting admin journeys includeVideoClips 1
+docker exec -u www-data nextcloud php occ journeys:render-cluster-video admin $AID -o /tmp/e2e_clips.mp4
+docker exec -u www-data nextcloud php occ journeys:render-cluster-video-landscape admin $AID -o /tmp/e2e_clips_l.mp4
+docker cp nextcloud:/tmp/e2e_clips.mp4 . && docker cp nextcloud:/tmp/e2e_clips_l.mp4 .
+# copy the album's source videos out (paths from oc_filecache), then:
+python3 -I tests/e2e/av_sync_check.py e2e_clips.mp4 1080 1920 <source videos…>
+python3 -I tests/e2e/av_sync_check.py e2e_clips_l.mp4 1920 1080 <landscape source videos…>
+```
+
+**PASS:**
+- `e2e_off` contains no clips: the `Video created: … (N images …)` count matches
+  the stills-only selection, and the film plays through to the end (look at a
+  1-fps contact sheet — a frozen or blank tail means the xfade chain collapsed).
+- `e2e_clips` is longer than `e2e_off`, and every clip the checker identifies
+  reports **|A-V| < 33 ms** (one frame). Rows reported as "sound not
+  identified" are quiet phone recordings, and "picture not identified" rows
+  are videos shorter than 2 s, which the selector never uses (the Berlin album
+  has two) — neither is a failure.
+- The segment right after a motion photo (`.MP.jpg` / `.MV.jpg`) is shown for
+  its full hold — this caught the tpad-after-setpts bug, where it was cut to
+  ~0.8 s.
+- Render one album long enough to need several chunks (any trip over ~40
+  items, e.g. `Lasithi Regional Unit October 2025`) through the **app route**
+  (`POST /personal_settings/render_cluster_video`, then `occ
+  background-job:execute --force-execute <id>`): the file lands in
+  `Documents/Journeys Movies/` with a non-zero size (large outputs used to
+  exhaust PHP's memory_limit on save and leave a 0-byte file).
+
+---
+
 ## Growing this checklist
 
 One `##` scenario section per feature domain. When you ship a **major feature**,

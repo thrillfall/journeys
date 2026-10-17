@@ -16,6 +16,16 @@ use Symfony\Component\Process\Process;
  *   - private \OCP\Files\IRootFolder $rootFolder  (for persistToUserFiles)
  */
 trait VideoRenderPrimitives {
+    private const DUCKED_MUSIC_DB = -16.5;
+    // Seconds the music takes to dip under a clip and to come back, centred on
+    // the cut; a hard switch between full and ducked music sounds like a glitch.
+    private const DUCK_RAMP_SECONDS = 1.0;
+    private const CLIP_AUDIO_FADE_SECONDS = 0.3;
+    // Phone clips are often recorded far quieter than the music bed; level them
+    // towards this mean, but never boost by more than CLIP_MAX_GAIN_DB so a
+    // clip of near-silence does not turn into amplified hiss.
+    private const CLIP_TARGET_MEAN_DB = -20.0;
+    private const CLIP_MAX_GAIN_DB = 20.0;
 
     private function makeEven(int $value): int {
         return ($value % 2 === 0) ? $value : $value + 1;
@@ -258,12 +268,25 @@ trait VideoRenderPrimitives {
         $baseName = preg_replace('/\.mp4$/i', '', $fileName);
         $fileName = $baseName . ' ' . date('Ymd-His') . '.mp4';
 
-        $destFile = $movies->newFile($fileName);
-        $data = @file_get_contents($tmpOut);
-        if ($data === false) {
+        // Stream, never read into a string: a long journey renders to several
+        // hundred MB and blew PHP's memory_limit, leaving a 0-byte file behind.
+        $source = @fopen($tmpOut, 'rb');
+        if ($source === false) {
             throw new \RuntimeException('Failed to read temporary video output');
         }
-        $destFile->putContent($data);
+        $destFile = $movies->newFile($fileName);
+        try {
+            $destFile->putContent($source);
+        } catch (\Throwable $e) {
+            try {
+                $destFile->delete();
+            } catch (\Throwable) {}
+            throw $e;
+        } finally {
+            if (is_resource($source)) {
+                fclose($source);
+            }
+        }
         return '/Documents/Journeys Movies/' . $fileName;
     }
 
@@ -274,12 +297,13 @@ trait VideoRenderPrimitives {
      *
      * @param array<int,string>  $parts            ffmpeg filter parts (mutated)
      * @param array<int,?string> $segmentSubtitles per-segment subtitle text in render order
+     * @param array<int,float>   $segmentHolds     per-segment visible seconds in render order
      */
     private function appendGroupSubtitles(
         array &$parts,
         string $inputLabel,
         array $segmentSubtitles,
-        float $holdDuration,
+        array $segmentHolds,
         int $width,
         int $shadowOffset = 2
     ): string {
@@ -306,8 +330,8 @@ trait VideoRenderPrimitives {
         }
         $current = $inputLabel;
         foreach ($groups as $gi => $g) {
-            $startTime = (float)$g['startIdx'] * $holdDuration;
-            $available = (float)$g['length'] * $holdDuration;
+            $startTime = array_sum(array_slice($segmentHolds, 0, $g['startIdx']));
+            $available = array_sum(array_slice($segmentHolds, $g['startIdx'], $g['length']));
             $targetDuration = min(5.0, $available * 0.9);
             // Need room for fade in + fade out. Skip vanishingly short groups.
             if ($targetDuration < 1.2) {
@@ -327,5 +351,328 @@ trait VideoRenderPrimitives {
             $current = $outLabel;
         }
         return $current;
+    }
+
+    private function isClipFile(string $path): bool {
+        $lower = strtolower($path);
+        return str_ends_with($lower, '.mp4') || str_ends_with($lower, '.mov');
+    }
+
+    /**
+     * Snap a duration to whole frames. Chunks are rendered separately and
+     * stitched with xfade at offsets computed from these durations; any
+     * sub-frame remainder is lost per chunk and would accumulate into a
+     * visible drift between clip audio (placed on the global timeline) and
+     * clip picture.
+     */
+    private function snapToFrames(float $seconds, int $fps): float {
+        return max(1, (int)round($seconds * $fps)) / $fps;
+    }
+
+    /**
+     * Visible seconds per segment: clips carry their own length, everything
+     * else holds for the configured per-image duration.
+     *
+     * @param array<int,array<string,mixed>> $segments
+     * @return array<int,float>
+     */
+    private function segmentHolds(array $segments, float $holdDuration): array {
+        return array_map(
+            static fn(array $seg): float => (float)($seg['duration'] ?? $holdDuration),
+            $segments,
+        );
+    }
+
+    /**
+     * Visible clip length, frame-aligned so it lands on the same grid as the
+     * rest of the timeline.
+     */
+    private function clipHoldDuration(string $path, int $fps): float {
+        $duration = $this->probeVideoDuration($path);
+        if ($duration <= 0.0) {
+            return 0.0;
+        }
+        return $this->snapToFrames(min($duration, VideoClipExtractor::CLIP_SECONDS), $fps);
+    }
+
+    /**
+     * @return array{0:int,1:int}
+     */
+    private function probeVideoSize(string $path): array {
+        try {
+            $proc = new Process(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0:s=x', $path]);
+            $proc->setTimeout(10);
+            $proc->run();
+            if ($proc->isSuccessful() && preg_match('/^(\d+)x(\d+)/', trim($proc->getOutput()), $m)) {
+                return [(int)$m[1], (int)$m[2]];
+            }
+        } catch (\Throwable) {}
+        return [0, 0];
+    }
+
+    /**
+     * Motion-photo trailers are time-stretched (0.5x-2x) towards the hold and
+     * then frozen on their last frame until the segment's xfade has finished.
+     *
+     * @return array{stretch:float,padFrames:int}
+     */
+    private function motionTiming(string $path, float $holdDuration, float $segmentSeconds, int $fps): array {
+        $duration = $this->probeVideoDuration($path);
+        if ($duration <= 0.0) {
+            return ['stretch' => 1.0, 'padFrames' => (int)ceil($segmentSeconds * $fps)];
+        }
+        $stretch = max(0.5, min(2.0, $holdDuration / $duration));
+        return [
+            'stretch' => $stretch,
+            'padFrames' => max(0, (int)ceil(($segmentSeconds - $duration * $stretch) * $fps)),
+        ];
+    }
+
+    /**
+     * The stretch happens on the input (`-itsscale`), not with setpts in the
+     * graph: tpad pads from the stream's end timestamp, which setpts (and
+     * trim) after the fps filter leave behind on the unstretched timeline, so
+     * the freeze frames came out in the past and were dropped. The segment then
+     * ended where its outgoing xfade starts and ffmpeg 7 skipped the first
+     * seconds of whatever followed.
+     *
+     * @return array<int,string>
+     */
+    private function motionInputArgs(string $path, float $stretch): array {
+        return ['-itsscale', $this->formatFloat($stretch), '-i', $path];
+    }
+
+    private function buildMotionFilter(int $inputIndex, string $outLabel, int $width, int $height, int $fps, int $padFrames): string {
+        return sprintf(
+            '[%1$d:v]setpts=PTS-STARTPTS,scale=%2$d:%3$d:force_original_aspect_ratio=increase,crop=%2$d:%3$d,fps=%4$d,setsar=1,' .
+            'tpad=stop_mode=clone:stop=%5$d,settb=AVTB,fps=%4$d[%6$s]',
+            $inputIndex,
+            $width,
+            $height,
+            $fps,
+            $padFrames,
+            $outLabel,
+        );
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function clipInputArgs(string $path, float $clipSeconds): array {
+        return ['-t', $this->formatFloat($clipSeconds), '-i', $path];
+    }
+
+    /**
+     * Mean level of the clip's sound in dB, or null when it has none.
+     */
+    private function measureMeanVolume(string $path, float $seconds): ?float {
+        try {
+            $proc = new Process(['ffmpeg', '-hide_banner', '-nostats', '-t', $this->formatFloat($seconds), '-i', $path, '-map', '0:a:0', '-af', 'volumedetect', '-f', 'null', '-']);
+            $proc->setTimeout(30);
+            $proc->run();
+            if ($proc->isSuccessful() && preg_match('/mean_volume:\s*(-?[\d.]+|-inf) dB/', $proc->getErrorOutput(), $m) && $m[1] !== '-inf') {
+                return (float)$m[1];
+            }
+        } catch (\Throwable) {}
+        return null;
+    }
+
+    /**
+     * Filter chain for a user video clip: plays at native speed (so its own
+     * sound stays in sync), then holds the last frame for $padSeconds to feed
+     * the outgoing xfade. A clip whose aspect ratio differs from the canvas is
+     * fitted over a blurred fill of itself instead of being cropped to a sliver.
+     *
+     * The input must already be limited with `-t` (see clipInputArgs): a
+     * `trim` inside the graph ends the stream in a way tpad never pads, so the
+     * clip would stop exactly where its outgoing xfade starts, and ffmpeg 7
+     * then collapses the rest of the xfade chain onto the last segment.
+     */
+    private function buildClipFilter(int $inputIndex, string $outLabel, int $width, int $height, int $fps, string $path, float $padSeconds): string {
+        $head = sprintf(
+            '[%1$d:v]setpts=PTS-STARTPTS,fps=%2$d,setsar=1',
+            $inputIndex,
+            $fps,
+        );
+        $tail = sprintf(
+            'tpad=stop_mode=clone:stop_duration=%1$s,settb=AVTB,fps=%2$d[%3$s]',
+            $this->formatFloat($padSeconds),
+            $fps,
+            $outLabel,
+        );
+
+        [$w, $h] = $this->probeVideoSize($path);
+        $canvasRatio = $width / max(1, $height);
+        $clipRatio = ($w > 0 && $h > 0) ? $w / $h : $canvasRatio;
+        if (abs($clipRatio - $canvasRatio) / $canvasRatio < 0.15) {
+            return sprintf(
+                '%1$s,scale=%2$d:%3$d:force_original_aspect_ratio=increase,crop=%2$d:%3$d,%4$s',
+                $head, $width, $height, $tail,
+            );
+        }
+
+        $smallW = $this->makeEven(max(16, intdiv($width, 8)));
+        $smallH = $this->makeEven(max(16, intdiv($height, 8)));
+        return sprintf(
+            '%1$s,split=2[%2$s_a][%2$s_b];' .
+            '[%2$s_a]scale=%5$d:%6$d:force_original_aspect_ratio=increase,crop=%5$d:%6$d,gblur=sigma=6,scale=%3$d:%4$d,eq=brightness=-0.08[%2$s_bg];' .
+            '[%2$s_b]scale=%3$d:%4$d:force_original_aspect_ratio=decrease,setsar=1[%2$s_fg];' .
+            '[%2$s_bg][%2$s_fg]overlay=(W-w)/2:(H-h)/2,setsar=1,%7$s',
+            $head, $outLabel, $width, $height, $smallW, $smallH, $tail,
+        );
+    }
+
+    /**
+     * Put the soundtrack under the finished picture: background music (ducked
+     * while a clip plays) plus each clip's own sound at the clip's position on
+     * the timeline. Clip start times come from the same frame-aligned holds
+     * that placed the clips in the picture, which is what keeps them in sync.
+     *
+     * @param array<int,array{path:string,start:float,duration:float,gainDb:float}> $clipAudio
+     */
+    private function muxSoundtrack(
+        string $videoPath,
+        ?string $musicTrack,
+        array $clipAudio,
+        float $totalDuration,
+        ?callable $outputHandler,
+        bool $verbose,
+        string $finalOutputPath,
+    ): string {
+        $logLevel = $verbose ? 'info' : 'error';
+        $cmd = $this->ffmpegBaseCmd($logLevel);
+        $cmd[] = '-i';
+        $cmd[] = $videoPath;
+
+        $parts = [];
+        $mixLabels = [];
+        $nextInput = 1;
+        $total = $this->formatFloat($totalDuration);
+
+        if ($musicTrack !== null && is_file($musicTrack)) {
+            array_push($cmd, '-stream_loop', '-1', '-i', $musicTrack);
+            $duck = empty($clipAudio) ? '' : sprintf(',volume=\'%s\':eval=frame', $this->buildDuckExpression($clipAudio));
+            $parts[] = sprintf('[%d:a]atrim=0:%s,asetpts=PTS-STARTPTS%s[music]', $nextInput, $total, $duck);
+            $mixLabels[] = '[music]';
+            $nextInput++;
+        }
+
+        foreach ($clipAudio as $i => $clip) {
+            array_push($cmd, '-i', $clip['path']);
+            $duration = $clip['duration'];
+            $edge = min(self::CLIP_AUDIO_FADE_SECONDS, $duration / 4);
+            $delayMs = (int)round($clip['start'] * 1000);
+            $parts[] = sprintf(
+                '[%1$d:a]atrim=0:%2$s,asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,' .
+                'volume=%7$sdB,afade=t=in:d=%3$s,afade=t=out:st=%4$s:d=%3$s,adelay=%5$d:all=1[clip%6$d]',
+                $nextInput,
+                $this->formatFloat($duration),
+                $this->formatFloat($edge),
+                $this->formatFloat(max(0.0, $duration - $edge)),
+                $delayMs,
+                $i,
+                $this->formatFloat($clip['gainDb']),
+            );
+            $mixLabels[] = sprintf('[clip%d]', $i);
+            $nextInput++;
+        }
+
+        if (empty($mixLabels)) {
+            rename($videoPath, $finalOutputPath);
+            return $finalOutputPath;
+        }
+
+        $fadeDur = min(5.0, max(0.5, $totalDuration * 0.08));
+        $fadeStart = max(0.0, $totalDuration - $fadeDur);
+        $parts[] = sprintf(
+            '%1$samix=inputs=%2$d:normalize=0:duration=longest,aformat=sample_rates=48000:channel_layouts=stereo,' .
+            'apad,atrim=0:%3$s,afade=t=out:st=%4$s:d=%5$s,alimiter=limit=0.95[aout]',
+            implode('', $mixLabels),
+            count($mixLabels),
+            $total,
+            $this->formatFloat($fadeStart),
+            $this->formatFloat($fadeDur),
+        );
+
+        $cmd = array_merge($cmd, [
+            '-filter_complex', implode(';', $parts),
+            '-map', '0:v:0',
+            '-map', '[aout]',
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-b:a', '192k',
+            '-movflags', '+faststart',
+            $finalOutputPath,
+        ]);
+
+        $outDir = dirname($finalOutputPath);
+        if (!is_dir($outDir)) {
+            @mkdir($outDir, 0777, true);
+        }
+
+        $process = new Process($cmd);
+        $process->setTimeout(null);
+        $process->setIdleTimeout(null);
+        $process->run(function (string $type, string $buffer) use ($outputHandler, $verbose): void {
+            if ($type === Process::ERR && $outputHandler !== null && $verbose) {
+                $outputHandler($type, $buffer);
+            }
+        });
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException('ffmpeg failed while muxing audio: ' . $process->getErrorOutput());
+        }
+
+        @unlink($videoPath);
+        return $finalOutputPath;
+    }
+
+    /**
+     * Music gain over time: 0 dB between clips, DUCKED_MUSIC_DB under a clip,
+     * with a ramp that is linear in dB (so the dip sounds even) across
+     * DUCK_RAMP_SECONDS around each clip edge. Back-to-back clips stay ducked.
+     *
+     * @param array<int,array{start:float,duration:float}> $clipAudio
+     */
+    private function buildDuckExpression(array $clipAudio): string {
+        $half = self::DUCK_RAMP_SECONDS / 2;
+        $ramp = $this->formatFloat(self::DUCK_RAMP_SECONDS);
+        $depth = '0';
+        foreach ($clipAudio as $clip) {
+            $in = $this->formatFloat($clip['start'] - $half);
+            $out = $this->formatFloat($clip['start'] + $clip['duration'] + $half);
+            $window = sprintf('min(clip((t-%1$s)/%3$s,0,1),clip((%2$s-t)/%3$s,0,1))', $in, $out, $ramp);
+            $depth = sprintf('max(%s,%s)', $depth, $window);
+        }
+        return sprintf('pow(10,%s*%s/20)', $this->formatFloat(self::DUCKED_MUSIC_DB), $depth);
+    }
+
+    /**
+     * Clip sound to place on the global timeline, given the final segment
+     * order. Segments with no sound (stills, motion photos, silent clips) only
+     * advance the clock.
+     *
+     * @param array<int,array<string,mixed>> $segments
+     * @param array<int,float> $holds
+     * @return array<int,array{path:string,start:float,duration:float,gainDb:float}>
+     */
+    private function collectClipAudio(array $segments, array $holds): array {
+        $out = [];
+        $clock = 0.0;
+        foreach ($segments as $i => $seg) {
+            if (($seg['type'] ?? '') === 'clip') {
+                $path = (string)($seg['inputs'][0] ?? $seg['file'] ?? '');
+                $meanDb = $path !== '' ? $this->measureMeanVolume($path, $holds[$i]) : null;
+                if ($meanDb !== null) {
+                    $out[] = [
+                        'path' => $path,
+                        'start' => $clock,
+                        'duration' => $holds[$i],
+                        'gainDb' => min(self::CLIP_MAX_GAIN_DB, self::CLIP_TARGET_MEAN_DB - $meanDb),
+                    ];
+                }
+            }
+            $clock += $holds[$i];
+        }
+        return $out;
     }
 }

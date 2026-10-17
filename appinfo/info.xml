@@ -11,11 +11,19 @@ Automatically clusters your photos by time and location into journeys (trips, va
 
 - **Journey albums:** created daily in the background (opt-in), with place-and-date names like `Iceland — Aug 12–19, 2024`. Home-aware: local days and trips are clustered with separate thresholds; adjacent trips in the same country are merged.
 - **Journals:** a travel diary with day entries auto-filled from your photos. Share with users for co-editing or publish to a revocable public link with route map and travel stats.
-- **Videos:** render a journey into an MP4 highlight reel (requires `ffmpeg`), saved to `Documents/Journeys Movies/`.
+- **Videos:** render a journey into an MP4 highlight reel (requires `ffmpeg`), saved to `Documents/Journeys Movies/`. Optionally weaves in short clips, with their own sound, from the trip's videos.
 
     php occ journeys:cluster-create-albums <user>
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.36.0 (2026-10-17)</h3>
+    <ul>
+      <li><b>Video rendering:</b> the trip's videos now appear as ~4 s excerpts that play with their own sound while the music dips smoothly underneath (#9). On by default; rendering takes about a third longer, and the personal setting "Include short clips (with sound) from videos" turns it off.</li>
+      <li><b>Video rendering:</b> 3-photo landscape stacks stay on screen a second longer.</li>
+      <li><b>Fixed:</b> the photo after a motion photo was cut to under a second.</li>
+      <li><b>Fixed:</b> long videos could fail when saving and leave an empty file in <code>Journeys Movies</code>.</li>
+      <li><b>Changed:</b> requires PHP 8.2.</li>
+    </ul>
   <h3>0.35.2 (2026-10-15)</h3>
     <ul>
       <li><b>Fixed:</b> <code>occ</code> commands register again on Nextcloud 35. Thanks to @rauchc (#44).</li>
@@ -24,7 +32,7 @@ Automatically clusters your photos by time and location into journeys (trips, va
 ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.35.2</version>
+  <version>0.36.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

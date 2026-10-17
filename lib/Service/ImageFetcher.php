@@ -347,6 +347,7 @@ class ImageFetcher {
                    m.datetaken,
                    f.mtime,
                    m.lat, m.lon, m.w, m.h,
+                   m.isvideo, m.video_duration,
                    f.path
             FROM *PREFIX*filecache f
             JOIN *PREFIX*memories m ON m.fileid = f.fileid
@@ -380,6 +381,8 @@ class ImageFetcher {
                     isset($row['w']) ? (int)$row['w'] : null,
                     isset($row['h']) ? (int)$row['h'] : null,
                     $hasFaces[$fid] ?? null,
+                    isVideo: (bool)(int)($row['isvideo'] ?? 0),
+                    videoDuration: isset($row['video_duration']) ? (int)$row['video_duration'] : null,
                 );
             }
         }

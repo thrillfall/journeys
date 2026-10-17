@@ -71,8 +71,10 @@
       <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
       <argument type="service" id="OCP\IConfig"/>
     </service>
+    <service id="OCA\Journeys\Service\VideoClipExtractor"/>
     <service id="OCA\Journeys\Service\ClusterVideoFilePreparer">
       <argument type="service" id="OCP\Files\IRootFolder"/>
+      <argument type="service" id="OCA\Journeys\Service\VideoClipExtractor"/>
     </service>
     <service id="OCA\Journeys\Service\ClusterVideoMusicProvider"/>
     <service id="OCA\Journeys\Service\ClusterVideoRenderer">

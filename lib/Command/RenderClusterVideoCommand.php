@@ -32,7 +32,7 @@ class RenderClusterVideoCommand extends Command {
 
     protected function configure(): void {
         $this
-            ->setDescription('Render a video (mp4) for a specific cluster using ffmpeg. Images only for now. If --output is omitted, the file is saved to the user\'s Documents/Journeys Movies folder.')
+            ->setDescription('Render a video (mp4) for a specific cluster using ffmpeg from the album photos plus short clips of its videos. If --output is omitted, the file is saved to the user\'s Documents/Journeys Movies folder.')
             ->addArgument('user', InputArgument::REQUIRED, 'User ID')
             ->addArgument('album-id', InputArgument::REQUIRED, 'Photos album id for the cluster (as listed by journeys:list-clusters)')
             ->addOption('min-gap-seconds', null, InputOption::VALUE_REQUIRED, 'Minimum seconds between selected images (burst dedupe)', 5)

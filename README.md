@@ -7,13 +7,14 @@ Automatically clusters your photos by time and location into journeys (trips, va
 - **Journey albums:** created daily in the background (opt-in), named after place and dates, e.g. `Iceland — Aug 12–19, 2024`. Names can be overridden in personal settings and survive reclustering. A notification tells you when new albums appear.
 - **Home-aware clustering:** local days and trips are clustered with separate thresholds; adjacent trips in the same country within a week are merged, so road trips and long vacations stay one journey.
 - **Journals:** a travel diary with day entries auto-filled from your photos. Share with users or groups for co-editing, or publish to a revocable public link with route map and travel stats.
-- **Videos:** render any journey or Photos album into an MP4 highlight reel, manually or automatically for new trips. Saved to `Documents/Journeys Movies/`.
+- **Videos:** render any journey or Photos album into an MP4 highlight reel, manually or automatically for new trips. Saved to `Documents/Journeys Movies/`. Optionally weaves in short clips, with their own sound, from the trip's videos (on by default; turn it off in personal settings if rendering, which takes about a third longer, is too slow).
 
 ## Requirements
 
 - [Memories](https://github.com/pulsejet/memories) with Places set up. Journeys reads the Memories index, so only indexed photos can be clustered.
 - [Photos](https://github.com/nextcloud/photos) — albums are created through it. If Photos is disabled, `occ` fails with `Could not resolve OCA\Photos\Album\AlbumMapper`.
 - `ffmpeg` 7.1+ in `PATH` for video rendering.
+- PHP 8.2+.
 
 ## 🚀 OCC commands
 

@@ -13,6 +13,8 @@ class Image {
         public ?bool $hasFaces = null,
         public ?string $cameraMake = null,
         public ?string $cameraModel = null,
+        public bool $isVideo = false,
+        public ?int $videoDuration = null,
     ) {}
 
     public static function isLikelyScreenshot(?int $w, ?int $h, ?string $cameraMake, ?string $cameraModel, string $path): bool {

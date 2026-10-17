@@ -45,7 +45,7 @@ class ClusterVideoImageProvider {
         $clusterImages = $clusters[$clusterIndex];
         $boostFaces = (bool)((int)$this->config->getUserValue($user, 'journeys', 'boostFaces', 1));
         $preferredOrientation = $this->resolvePreferredOrientation($user);
-        $selected = $this->selector->selectImages($user, $clusterImages, $minGapSeconds, $maxImages, $boostFaces, $preferredOrientation);
+        $selected = $this->selector->selectImages($user, $clusterImages, $minGapSeconds, $maxImages, $boostFaces, $preferredOrientation, $this->includeVideoClips($user));
 
         $clusterStart = $this->createDateTimeImmutable($clusterImages[0]->datetaken ?? null);
         $clusterEnd = $this->createDateTimeImmutable($clusterImages[count($clusterImages) - 1]->datetaken ?? null);
@@ -129,7 +129,7 @@ class ClusterVideoImageProvider {
         // at 2.5 s per image). $maxImages is the absolute upper bound — an
         // explicit --max-images on the CLI can still pin it lower.
         $effectiveMax = self::scaleMaxImagesByDaySpan($maxImages, $clusterStart, $clusterEnd);
-        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $effectiveMax, $boostFaces, $preferredOrientation);
+        $selected = $this->selector->selectImages($user, $wanted, $minGapSeconds, $effectiveMax, $boostFaces, $preferredOrientation, $this->includeVideoClips($user));
 
         // Lookup metadata from tracked clusters by album id
         $tracked = $this->albumCreator->getTrackedClusters($user);
@@ -176,6 +176,10 @@ class ClusterVideoImageProvider {
             $selectedCount,
             $facesSelected,
         );
+    }
+
+    private function includeVideoClips(string $user): bool {
+        return (bool)((int)$this->config->getUserValue($user, 'journeys', 'includeVideoClips', 1));
     }
 
     private function resolvePreferredOrientation(string $user): string {

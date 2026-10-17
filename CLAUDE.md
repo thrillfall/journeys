@@ -11,7 +11,7 @@ Hard dependencies on other Nextcloud apps:
   **`oc_memories` is wider than what Memories shows**, and the difference is user-visible: the indexer walks the whole home tree by default (`memories.index.mode` = 1) while the timeline is narrowed at *query* time to the user's `timelinePath`, minus `.nomedia` / `.nomemories` subtrees and dot-folders. Reading the table raw clusters photos the user deliberately kept out of Memories (a `/Documents` scan folder, an excluded backup). `Service\MemoriesScope` reproduces those query-time rules as a SQL predicate — every read of `oc_memories` must go through it. See its class docblock for which of the two predicates applies where.
 - **Photos** — albums are created through `OCA\Photos\Album\AlbumMapper`. Only `fileid` is used to add photos (mount-agnostic), not paths.
 
-Supported Nextcloud: `30–33`. PHP `>=8.0`.
+Supported Nextcloud: `30–33`. PHP `>=8.2`.
 
 ## Commands
 
@@ -82,7 +82,8 @@ User-visible behavior settings (time gap, distance, min cluster size, near/away 
 
 `ClusterVideoJobRunner` is the entry point used by both the OCC command, the controller action, and `RenderClusterVideoJob`. It composes:
 - `ClusterVideoImageProvider` — selects images for the video (coverage-first two-pass spread across the journey, face-boost via `FacePresenceProvider` using Recognize data when available, screenshot filtering, optional `--no-face-boost`).
-- `ClusterVideoFilePreparer` — resolves `fileid`s to local paths, handling mounted / shared storages.
+- `ClusterVideoFilePreparer` — resolves `fileid`s to local paths, handling mounted / shared storages. User videos (Memories `isvideo`) are cut by `VideoClipExtractor` to a ~4 s excerpt from the middle, normalized (h264, CFR, AAC) and rendered as `clip` segments that play at native speed with their own sound; `VideoStorySelector` gives them ~12 % of the slots. User setting `includeVideoClips`, **default on**. Clips cost render time (~30 % on a long trip, for extraction and re-encode), not peak memory: peak ffmpeg RSS is set by the high-resolution stills, and a clip replaces one.
+- Clip sound is placed on the global timeline in `VideoRenderPrimitives::muxSoundtrack()` (music ducked with a 1 s dB ramp, clip levelled towards −20 dB). Sync depends on every segment's on-screen length being exact: durations are frame-snapped, and **never put `trim` or `setpts` after `fps` and before `tpad`** in a segment chain — tpad then silently stops padding, the segment ends where its xfade starts, and ffmpeg 7 skips the start of the next segment. Limit inputs with `-t` / `-itsscale` instead.
 - `ClusterVideoRenderer` (portrait) / `ClusterVideoRendererLandscape` — shell out to `ffmpeg` in `PATH`. Ken Burns on stills, optional GCam motion-photo handling, optional 3-wide landscape stacks inside portrait output, title overlay, background music from `data/` (128kbps) with fade-out. Both renderers **chunk** automatically when any source image exceeds 13 MP; otherwise they run single-pass. Requires FFmpeg 7.1+.
 - Output defaults to `Documents/Journeys Movies/` in the user's storage.
 
