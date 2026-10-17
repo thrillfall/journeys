@@ -174,7 +174,10 @@ final class MemoriesScope {
         if ($storage === null || $storage <= 0 || $fileid === null || $fileid <= 0 || $internalPath === null) {
             return;
         }
-        $path = rtrim($internalPath, '/');
+        // The numeric storage of a share or jailed mount is the source
+        // storage, but its internal path is relative to the mount ('' for a
+        // share root). Only the filecache path matches f.path in that storage.
+        $path = rtrim($this->filecachePath($fileid) ?? $internalPath, '/');
         $roots[$storage . ':' . $fileid] = [
             'storage' => $storage,
             'fileid' => $fileid,
@@ -269,6 +272,16 @@ final class MemoriesScope {
             }
         }
         return $out;
+    }
+
+    private function filecachePath(int $fileid): ?string {
+        try {
+            $result = $this->db->prepare('SELECT path FROM *PREFIX*filecache WHERE fileid = ?')->execute([$fileid]);
+            $row = $result ? $result->fetch() : false;
+        } catch (\Throwable $e) {
+            return null;
+        }
+        return is_array($row) && isset($row['path']) ? (string)$row['path'] : null;
     }
 
     /** LIKE pattern matching everything below $path, with wildcards in $path escaped. */

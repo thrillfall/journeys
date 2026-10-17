@@ -149,18 +149,24 @@ class ImageFetcher {
             // fetched filecache entries to the mount's root subtree (root_id), otherwise we may
             // accidentally pull unrelated files from that storage.
 
+            // Not matched on share_with: for group and Team (Circles) shares it
+            // holds the group / circle id, never the user id, so those shares
+            // were silently dropped. The Files_Sharing mount row for this user
+            // is already proof the share reaches them.
             $sqlSharedMounts = "
                 SELECT mo.storage_id, mo.root_id
                 FROM *PREFIX*mounts mo
-                JOIN *PREFIX*share sh ON sh.file_source = mo.root_id
                 WHERE mo.user_id = ?
                   AND mo.mount_provider_class = ?
                   AND mo.root_id IS NOT NULL
-                  AND sh.share_with = ?
-                  AND sh.uid_owner <> ?
+                  AND EXISTS (
+                    SELECT 1 FROM *PREFIX*share sh
+                    WHERE sh.file_source = mo.root_id
+                      AND sh.uid_owner <> ?
+                  )
             ";
             $stmtSharedMounts = $db->prepare($sqlSharedMounts);
-            $resSharedMounts = $stmtSharedMounts->execute([$user, $sharedProviderClass, $user, $user]);
+            $resSharedMounts = $stmtSharedMounts->execute([$user, $sharedProviderClass, $user]);
             $sharedMounts = $resSharedMounts ? $resSharedMounts->fetchAll() : [];
 
             if (!empty($sharedMounts)) {

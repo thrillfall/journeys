@@ -399,7 +399,7 @@ class DiaryController extends Controller {
 
         // Auto-seed a lean, time-spread subset (≤20) of that day's photos; the
         // user curates the rest via the photo picker. Then resolve location.
-        $dayPhotos = $this->photoFetcher->fetchForDay($userId, $date);
+        $dayPhotos = $this->photoFetcher->fetchForDay($userId, $date, true);
         $seed = PhotoSpread::pick($dayPhotos, 20);
         $fileIds = array_map(static fn(array $p) => $p['fileid'], $seed);
         if ($fileIds) {
@@ -495,7 +495,7 @@ class DiaryController extends Controller {
         if ($date === '') {
             return new JSONResponse(['error' => 'date is required'], 400);
         }
-        return new JSONResponse(['photos' => $this->photoFetcher->fetchForDay($userId, $date)]);
+        return new JSONResponse(['photos' => $this->photoFetcher->fetchForDay($userId, $date, true)]);
     }
 
     /**
@@ -527,7 +527,7 @@ class DiaryController extends Controller {
         }
 
         $photos = [];
-        foreach ($this->photoFetcher->fetchForDayForUsers($owners, $date) as $photo) {
+        foreach ($this->photoFetcher->fetchForDayForUsers($owners, $date, $userId) as $photo) {
             $owner = $photo['ownerUid'];
             $photos[] = [
                 'fileid' => $photo['fileid'],
@@ -564,7 +564,7 @@ class DiaryController extends Controller {
             return new JSONResponse(['error' => 'from and to are required'], 400);
         }
 
-        $days = $this->photoFetcher->countsByDay($userId, $from, $to);
+        $days = $this->photoFetcher->countsByDay($userId, $from, $to, true);
 
         if ($journal->startDate && $journal->endDate) {
             $sharedFrom = max($from, $journal->startDate);
@@ -597,7 +597,7 @@ class DiaryController extends Controller {
         if ($from === '' || $to === '') {
             return new JSONResponse(['error' => 'from and to are required'], 400);
         }
-        return new JSONResponse(['photos' => $this->photoFetcher->fetchForRange($userId, $from, $to)]);
+        return new JSONResponse(['photos' => $this->photoFetcher->fetchForRange($userId, $from, $to, true)]);
     }
 
     // -- helpers --------------------------------------------------------------

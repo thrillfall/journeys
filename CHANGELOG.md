@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.36.1] - 2026-10-17
+### Fixed
+- Journals: the day photo picker and the entry auto-fill were empty for photos that reach the user through a share (user, group or Team / Circles share), even though Memories shows them (#43). The user's own picker now offers shared-in photos, bounded to each share's subtree and the Memories timeline. A trip member's library consent still exposes only that member's own photos, not what was shared with them.
+- Clustering: `--include-shared-images` / "include shared images" dropped group and Team (Circles) shares. Shares were matched on `share_with = <uid>`, which only holds for direct user shares; the Files_Sharing mount row is now what counts.
+- `MemoriesScope`: a share or jailed mount inside the timeline path was scoped with its mount-relative internal path against the source storage, so only the mount's root folder matched and none of its contents.
+
 ## [0.36.0] - 2026-10-17
 ### Added
 - Video rendering: **clips from the trip's videos (#9).** Personal setting `includeVideoClips`, on by default — clips add about 30 % render time on a long trip but not peak memory (measured: 4.3 GB peak ffmpeg RSS with clips vs 4.9 GB without on a 92-item trip, since a clip replaces a high-resolution still). `VideoStorySelector` gives videos of at least 2 s about 12 % of the slots (max 15), `VideoClipExtractor` cuts a ~4 s excerpt from the middle and normalizes it (h264, CFR 30 fps, AAC, long edge ≤ 1920), and both renderers play it as a `clip` segment at native speed. A clip that does not match the canvas orientation is fitted over a blurred fill of itself.

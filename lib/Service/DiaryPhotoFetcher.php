@@ -21,10 +21,12 @@ class DiaryPhotoFetcher {
     ) {}
 
     /**
+     * @param bool $withShares also offer what others shared with $user. Only for
+     *        the user's own picker: see rowsInWindow().
      * @return array<int,array{fileid:int,path:string,datetaken:string,lat:?string,lon:?string,w:?int,h:?int}>
      */
-    public function fetchForDay(string $user, string $date): array {
-        return $this->fetchForRange($user, $date, $date);
+    public function fetchForDay(string $user, string $date, bool $withShares = false): array {
+        return $this->fetchForRange($user, $date, $date, $withShares);
     }
 
     /**
@@ -32,14 +34,14 @@ class DiaryPhotoFetcher {
      * @param string $toDate   inclusive 'Y-m-d'
      * @return array<int,array{fileid:int,path:string,datetaken:string,lat:?string,lon:?string,w:?int,h:?int}>
      */
-    public function fetchForRange(string $user, string $fromDate, string $toDate): array {
+    public function fetchForRange(string $user, string $fromDate, string $toDate, bool $withShares = false): array {
         $window = $this->window($fromDate, $toDate);
         if ($window === null) {
             return [];
         }
 
         $out = [];
-        foreach ($this->rowsInWindow($user, $window[0], $window[1]) as $row) {
+        foreach ($this->rowsInWindow($user, $window[0], $window[1], null, self::PHOTO_COLUMNS, $withShares) as $row) {
             $out[] = [
                 'fileid' => (int)$row['fileid'],
                 'path' => (string)$row['path'],
@@ -57,17 +59,26 @@ class DiaryPhotoFetcher {
      * A day's photos across several users' libraries, each row tagged with its
      * owner. Used by the picker once members have consented to share.
      *
+     * Shares reach only $viewer's own library, and a photo shared with the
+     * viewer by a consenting member is listed once, as the viewer's.
+     *
      * @param string[] $users
      * @return array<int,array{fileid:int,ownerUid:string,path:string,datetaken:string,lat:?string,lon:?string,w:?int,h:?int}>
      */
-    public function fetchForDayForUsers(array $users, string $date): array {
-        $out = [];
-        foreach (array_values(array_unique($users)) as $user) {
-            foreach ($this->fetchForDay($user, $date) as $photo) {
+    public function fetchForDayForUsers(array $users, string $date, ?string $viewer = null): array {
+        $users = array_values(array_unique($users));
+        usort($users, static fn(string $a, string $b) => ($b === $viewer) <=> ($a === $viewer));
+        $byId = [];
+        foreach ($users as $user) {
+            foreach ($this->fetchForDay($user, $date, $user === $viewer) as $photo) {
+                if (isset($byId[$photo['fileid']])) {
+                    continue;
+                }
                 $photo['ownerUid'] = $user;
-                $out[] = $photo;
+                $byId[$photo['fileid']] = $photo;
             }
         }
+        $out = array_values($byId);
         usort($out, static fn(array $a, array $b) => [$a['datetaken'], $a['fileid']] <=> [$b['datetaken'], $b['fileid']]);
         return $out;
     }
@@ -97,13 +108,13 @@ class DiaryPhotoFetcher {
      *
      * @return array<string,int> 'Y-m-d' => count
      */
-    public function countsByDay(string $user, string $fromDate, string $toDate): array {
+    public function countsByDay(string $user, string $fromDate, string $toDate, bool $withShares = false): array {
         $window = $this->window($fromDate, $toDate);
         if ($window === null) {
             return [];
         }
         $counts = [];
-        foreach ($this->rowsInWindow($user, $window[0], $window[1], null, self::DAY_COLUMNS) as $row) {
+        foreach ($this->rowsInWindow($user, $window[0], $window[1], null, self::DAY_COLUMNS, $withShares) as $row) {
             $day = substr((string)$row['datetaken'], 0, 10);
             $counts[$day] = ($counts[$day] ?? 0) + 1;
         }
@@ -145,12 +156,14 @@ class DiaryPhotoFetcher {
      *
      * Two sources, merged by fileid: the user's home storage and every other
      * storage mounted into their own files tree (external storage, Group
-     * Folders). Share mounts are left out - those are another user's library,
-     * and a member's consent is what opens that door.
+     * Folders). With $withShares, also the subtrees shared with the user
+     * (user, group and Team shares). Those stay out of everything read on behalf
+     * of another member: they are someone else's library, and a member's consent
+     * opens only their own.
      *
      * @return array<int,array<string,mixed>>
      */
-    private function rowsInWindow(string $user, string $from, string $to, ?int $fileid = null, string $columns = self::PHOTO_COLUMNS): array {
+    private function rowsInWindow(string $user, string $from, string $to, ?int $fileid = null, string $columns = self::PHOTO_COLUMNS, bool $withShares = false): array {
         $filter = $fileid !== null ? ' AND m.fileid = ?' : '';
 
         // Images only: Memories indexes videos too, and a bare video (e.g. a GCam
@@ -200,8 +213,13 @@ class DiaryPhotoFetcher {
             $mountParams = array_merge($mountParams, $scope['params']);
         }
 
+        $queries = [[$homeSql, $homeParams], [$mountSql, $mountParams]];
+        if ($withShares) {
+            $queries = array_merge($queries, $this->shareQueries($user, $from, $to, $fileid, $columns, $scope));
+        }
+
         $byId = [];
-        foreach ([[$homeSql, $homeParams], [$mountSql, $mountParams]] as [$sql, $params]) {
+        foreach ($queries as [$sql, $params]) {
             $result = $this->db->prepare($sql)->execute($params);
             foreach (($result ? $result->fetchAll() : []) as $row) {
                 $id = (int)$row['fileid'];
@@ -214,6 +232,59 @@ class DiaryPhotoFetcher {
         $rows = array_values($byId);
         usort($rows, static fn(array $a, array $b) => [(string)$a['datetaken'], (int)$a['fileid']] <=> [(string)$b['datetaken'], (int)$b['fileid']]);
         return $rows;
+    }
+
+    /**
+     * One query per share mounted into the user's files, bounded to the shared
+     * subtree: a share mount points at the owner's whole storage.
+     *
+     * Not matched on share_with, which holds the group / circle id for group
+     * and Team shares; the mount row is what proves the share reaches $user.
+     *
+     * @param array{sql:string,params:array<int,mixed>}|null $scope
+     * @return array<int,array{0:string,1:array<int,mixed>}>
+     */
+    private function shareQueries(string $user, string $from, string $to, ?int $fileid, string $columns, ?array $scope): array {
+        $mounts = $this->db->prepare("
+            SELECT mo.storage_id, f.fileid, f.path
+            FROM *PREFIX*mounts mo
+            JOIN *PREFIX*filecache f ON f.fileid = mo.root_id
+            WHERE mo.user_id = ? AND mo.mount_point LIKE ? AND mo.mount_provider_class = ?
+              AND EXISTS (
+                SELECT 1 FROM *PREFIX*share sh
+                WHERE sh.file_source = mo.root_id AND sh.uid_owner <> ?
+              )
+        ")->execute([$user, '/' . $user . '/files/%', self::SHARED_PROVIDER, $user]);
+
+        $queries = [];
+        foreach (($mounts ? $mounts->fetchAll() : []) as $mount) {
+            $sql = "
+                SELECT DISTINCT {$columns}
+                FROM *PREFIX*memories m
+                JOIN *PREFIX*filecache f ON m.fileid = f.fileid
+                JOIN *PREFIX*mimetypes mt ON f.mimetype = mt.id
+                WHERE f.storage = ? AND (f.fileid = ? OR f.path LIKE ?)
+                  AND m.datetaken IS NOT NULL
+                  AND mt.mimetype LIKE 'image/%'
+                  AND m.datetaken >= ? AND m.datetaken <= ?";
+            $params = [
+                (int)$mount['storage_id'],
+                (int)$mount['fileid'],
+                $this->db->escapeLikeParameter((string)$mount['path']) . '/%',
+                $from,
+                $to,
+            ];
+            if ($fileid !== null) {
+                $sql .= ' AND m.fileid = ?';
+                $params[] = $fileid;
+            }
+            if ($scope !== null) {
+                $sql .= $scope['sql'];
+                $params = array_merge($params, $scope['params']);
+            }
+            $queries[] = [$sql, $params];
+        }
+        return $queries;
     }
 
     /**

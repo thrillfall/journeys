@@ -16,6 +16,11 @@ Automatically clusters your photos by time and location into journeys (trips, va
     php occ journeys:cluster-create-albums <user>
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.36.1 (2026-10-17)</h3>
+    <ul>
+      <li><b>Journals:</b> photos shared with you (by a user, a group or a Team) now show up in the day photo picker and when a new day is filled in automatically (#43).</li>
+      <li><b>Clustering:</b> "Include shared images" now also picks up group and Team shares, not only direct user shares.</li>
+    </ul>
   <h3>0.36.0 (2026-10-17)</h3>
     <ul>
       <li><b>Video rendering:</b> the trip's videos now appear as ~4 s excerpts that play with their own sound while the music dips smoothly underneath (#9). On by default; rendering takes about a third longer, and the personal setting "Include short clips (with sound) from videos" turns it off.</li>
@@ -32,7 +37,7 @@ Automatically clusters your photos by time and location into journeys (trips, va
 ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.36.0</version>
+  <version>0.36.1</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
