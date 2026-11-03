@@ -310,7 +310,9 @@
 								{{ compactDateRange(cluster.dateRange) }}
 							</li>
 							<li v-if="cluster.imageCount">{{ t('journeys', '{n} photos', { n: cluster.imageCount }) }}</li>
-							<li v-if="cluster.location" class="journey-card__location" :title="cluster.location">{{ cluster.location }}</li>
+							<li v-if="cluster.location" class="journey-card__location" :title="cluster.location">
+								<span>{{ cluster.location }}</span>
+							</li>
 						</ul>
 						<div class="journey-card__actions">
 							<NcButton class="render-btn"
@@ -1070,7 +1072,7 @@ export default {
 .settings-panels {
   display: grid;
   gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
 }
 
 .settings-card {
@@ -1081,6 +1083,7 @@ export default {
   padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .settings-card header {
@@ -1107,12 +1110,12 @@ export default {
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
   gap: 0.75rem 1rem;
 }
 
 .home-grid {
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
 }
 
 .toggle-list {
@@ -1227,7 +1230,7 @@ export default {
 .journey-grid {
   display: grid;
   gap: 0.6rem;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
 }
 
 .journey-card {
@@ -1238,6 +1241,7 @@ export default {
   border: 1px solid var(--color-border);
   border-radius: var(--border-radius-large, 10px);
   padding: 0.55rem 0.7rem;
+  min-width: 0;
   box-shadow: var(--box-shadow, 0 1px 3px rgba(0, 0, 0, 0.05));
 }
 
@@ -1398,7 +1402,8 @@ export default {
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.15rem 0.5rem;
+  gap: 0.15rem 1rem;
+  overflow: hidden;
   font-size: 0.82rem;
   color: var(--color-text-lighter);
   line-height: 1.3;
@@ -1410,14 +1415,21 @@ export default {
   min-width: 0;
 }
 
-.journey-card__meta li + li::before {
+/* Every item carries its separator in the gap to its left; the first item of each wrapped line pushes it outside the list, where overflow clips it. */
+.journey-card__meta li::before {
   content: '·';
-  margin-right: 0.5rem;
+  flex: 0 0 1rem;
+  margin-left: -1rem;
+  text-align: center;
   opacity: 0.7;
 }
 
 .journey-card__location {
   max-width: 100%;
+}
+
+.journey-card__location span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1439,6 +1451,11 @@ export default {
   font-size: 0.85rem;
 }
 
+.render-btn :deep(.button-vue__text) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .journey-card__hint {
   margin: 0;
   color: var(--color-text-lighter);
@@ -1454,7 +1471,7 @@ export default {
 
 .manual-album-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
   gap: 0.75rem 1rem;
   margin-bottom: 0.75rem;
 }
@@ -1543,6 +1560,20 @@ export default {
 }
 
 @media (max-width: 640px) {
+  .journeys_settings {
+    margin: 1em auto;
+  }
+
+  .settings-collapsible[open] > .settings-panels,
+  .settings-collapsible[open] > .settings-actions {
+    margin-left: 0.6rem;
+    margin-right: 0.6rem;
+  }
+
+  .settings-card {
+    padding: 0.85rem;
+  }
+
   .settings-actions {
     flex-direction: column;
     align-items: flex-start;
