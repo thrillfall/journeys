@@ -16,6 +16,10 @@ Automatically clusters your photos by time and location into journeys (trips, va
     php occ journeys:cluster-create-albums <user>
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.36.2 (2026-11-04)</h3>
+    <ul>
+      <li><b>Settings:</b> the personal settings page fits on phone screens; the Landscape render button no longer hides off-screen behind sideways scrolling.</li>
+    </ul>
   <h3>0.36.1 (2026-10-17)</h3>
     <ul>
       <li><b>Journals:</b> photos shared with you (by a user, a group or a Team) now show up in the day photo picker and when a new day is filled in automatically (#43).</li>
@@ -37,7 +41,7 @@ Automatically clusters your photos by time and location into journeys (trips, va
 ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.36.1</version>
+  <version>0.36.2</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

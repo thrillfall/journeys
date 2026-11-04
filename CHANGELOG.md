@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.36.2] - 2026-11-04
+### Fixed
+- UI: the personal settings page scrolled sideways on phones, hiding the Landscape render button. Long journey titles widened the grid tracks past the viewport; grid tracks and cards may now shrink below their content, render buttons ellipsize, and a wrapped card meta line no longer starts with a separator dot.
+
 ## [0.36.1] - 2026-10-17
 ### Fixed
 - Journals: the day photo picker and the entry auto-fill were empty for photos that reach the user through a share (user, group or Team / Circles share), even though Memories shows them (#43). The user's own picker now offers shared-in photos, bounded to each share's subtree and the Memories timeline. A trip member's library consent still exposes only that member's own photos, not what was shared with them.
