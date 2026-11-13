@@ -3,40 +3,27 @@ namespace OCA\Journeys\Controller;
 
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
-use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
 use OCP\IConfig;
 
-use OCA\Journeys\Service\AlbumCreator;
 use OCA\Journeys\Service\AutoClusterSetting;
-use OCA\Journeys\Service\RenderedVideoLister;
-use OCA\Journeys\Service\VideoRenderJobScheduler;
 
 class PersonalSettingsController extends Controller {
     private $userSession;
     private $clusteringManager;
     private $userConfig;
-    private AlbumCreator $albumCreator;
-    private VideoRenderJobScheduler $videoRenderJobScheduler;
-    private RenderedVideoLister $renderedVideoLister;
 
     public function __construct($appName, IRequest $request, IUserSession $userSession,
         \OCA\Journeys\Service\ClusteringManager $clusteringManager,
         IConfig $userConfig,
-        AlbumCreator $albumCreator,
-        VideoRenderJobScheduler $videoRenderJobScheduler,
-        RenderedVideoLister $renderedVideoLister,
         private AutoClusterSetting $autoCluster,
     ) {
         parent::__construct($appName, $request);
         $this->userSession = $userSession;
         $this->clusteringManager = $clusteringManager;
         $this->userConfig = $userConfig;
-        $this->albumCreator = $albumCreator;
-        $this->videoRenderJobScheduler = $videoRenderJobScheduler;
-        $this->renderedVideoLister = $renderedVideoLister;
     }
 
     #[NoAdminRequired]
@@ -367,205 +354,5 @@ class PersonalSettingsController extends Controller {
     public function lastRun() {
         // TODO: Return the timestamp of the last clustering run
         return new JSONResponse(['lastRun' => null]);
-    }
-
-    #[NoAdminRequired]
-    #[NoCSRFRequired]
-    public function listClusters(): JSONResponse {
-        $user = $this->userSession->getUser();
-        if (!$user) {
-            return new JSONResponse(['error' => 'No user'], 401);
-        }
-
-        $userId = $user->getUID();
-        $tracked = $this->albumCreator->getTrackedClusters($userId);
-        // Sort latest-first by end_dt (fallback start_dt, then id)
-        usort($tracked, function(array $a, array $b) {
-            $aEnd = isset($a['end_dt']) ? strtotime((string)$a['end_dt']) : 0;
-            $bEnd = isset($b['end_dt']) ? strtotime((string)$b['end_dt']) : 0;
-            if ($aEnd !== $bEnd) {
-                return $bEnd <=> $aEnd;
-            }
-            $aStart = isset($a['start_dt']) ? strtotime((string)$a['start_dt']) : 0;
-            $bStart = isset($b['start_dt']) ? strtotime((string)$b['start_dt']) : 0;
-            if ($aStart !== $bStart) {
-                return $bStart <=> $aStart;
-            }
-            return (int)($b['album_id'] ?? 0) <=> (int)($a['album_id'] ?? 0);
-        });
-
-        // Sorted newest-first by RenderedVideoLister, so the first match per cluster is the latest.
-        $renderedVideos = $this->renderedVideoLister->listForUser($userId);
-
-        $clusters = array_map(function (array $cluster) use ($userId, $renderedVideos) {
-            $imageCount = 0;
-            if (!empty($cluster['album_id'])) {
-                $imageCount = count($this->albumCreator->getAlbumFileIdsForUser($userId, (int)$cluster['album_id']));
-            }
-
-            $needle = $this->buildVideoNameNeedle((string)($cluster['name'] ?? ''));
-            $matchedVideo = null;
-            if ($needle !== '') {
-                foreach ($renderedVideos as $video) {
-                    if (str_contains(strtolower((string)$video['name']), $needle)) {
-                        $matchedVideo = $video;
-                        break;
-                    }
-                }
-            }
-
-            return [
-                'id' => (int)$cluster['album_id'],
-                'name' => $cluster['name'],
-                'customName' => $cluster['custom_name'] ?? null,
-                'imageCount' => $imageCount,
-                'location' => $cluster['location'],
-                'dateRange' => [
-                    'start' => $cluster['start_dt'],
-                    'end' => $cluster['end_dt'],
-                ],
-                'hasVideo' => $matchedVideo !== null,
-                'videoFileId' => $matchedVideo !== null ? (int)$matchedVideo['fileId'] : null,
-                'videoName' => $matchedVideo !== null ? (string)$matchedVideo['name'] : null,
-            ];
-        }, $tracked);
-
-        $trackedIds = array_map(static function (array $cluster): int {
-            return isset($cluster['album_id']) ? (int)$cluster['album_id'] : 0;
-        }, $tracked);
-
-        $allAlbums = $this->albumCreator->getAllAlbumsForUser($userId);
-        $albums = array_map(static function (array $album) use ($trackedIds) {
-            $id = isset($album['album_id']) ? (int)$album['album_id'] : 0;
-            return [
-                'id' => $id,
-                'name' => (string)($album['name'] ?? ''),
-                'isCluster' => in_array($id, $trackedIds, true),
-            ];
-        }, $allAlbums);
-
-        return new JSONResponse([
-            'clusters' => $clusters,
-            'albums' => $albums,
-        ]);
-    }
-
-    #[NoAdminRequired]
-    public function updateClusterName(): JSONResponse {
-        $user = $this->userSession->getUser();
-        if (!$user) {
-            return new JSONResponse(['error' => 'No user'], 401);
-        }
-        $userId = $user->getUID();
-
-        $albumIdParam = $this->request->getParam('albumId');
-        $albumId = (int)$albumIdParam;
-        if ($albumId <= 0) {
-            return new JSONResponse(['error' => 'Invalid albumId'], 400);
-        }
-
-        $trackedIds = $this->albumCreator->getTrackedAlbumIds($userId);
-        if (!in_array($albumId, $trackedIds, true)) {
-            return new JSONResponse(['error' => 'Album not found'], 404);
-        }
-
-        $rawCustom = $this->request->getParam('customName');
-        $customName = null;
-        if (is_string($rawCustom)) {
-            $trimmed = trim($rawCustom);
-            $customName = $trimmed !== '' ? $trimmed : null;
-        }
-
-        $ok = $this->albumCreator->setCustomName($userId, $albumId, $customName);
-        if (!$ok) {
-            return new JSONResponse(['error' => 'Failed to update custom name'], 500);
-        }
-
-        // Keep the underlying Photos album title in sync: use the custom name when set,
-        // restore the auto-derived name on clear (so re-deriving / fallbacks remain accurate).
-        $autoName = null;
-        foreach ($this->albumCreator->getTrackedClusters($userId) as $row) {
-            if ((int)($row['album_id'] ?? 0) === $albumId) {
-                $autoName = (string)($row['name'] ?? '');
-                break;
-            }
-        }
-        if ($customName !== null) {
-            $this->albumCreator->renamePhotosAlbum($userId, $albumId, $customName);
-        } elseif ($autoName !== null && $autoName !== '') {
-            $this->albumCreator->renamePhotosAlbum($userId, $albumId, $autoName);
-        }
-
-        return new JSONResponse([
-            'id' => $albumId,
-            'name' => $autoName,
-            'customName' => $customName,
-        ]);
-    }
-
-    #[NoAdminRequired]
-    #[NoCSRFRequired]
-    public function renderClusterVideo(): JSONResponse {
-        return $this->enqueueRender('portrait');
-    }
-
-    #[NoAdminRequired]
-    #[NoCSRFRequired]
-    public function renderClusterVideoLandscape(): JSONResponse {
-        return $this->enqueueRender('landscape');
-    }
-
-    #[NoAdminRequired]
-    #[NoCSRFRequired]
-    public function listRenderedVideos(): JSONResponse {
-        $user = $this->userSession->getUser();
-        if (!$user) {
-            return new JSONResponse(['error' => 'No user'], 401);
-        }
-        return new JSONResponse([
-            'videos' => $this->renderedVideoLister->listForUser($user->getUID()),
-        ]);
-    }
-
-    private function enqueueRender(string $orientation): JSONResponse {
-        $user = $this->userSession->getUser();
-        if (!$user) {
-            return new JSONResponse(['error' => 'No user'], 401);
-        }
-
-        $albumIdParam = $this->request->getParam('albumId');
-        if ($albumIdParam === null || $albumIdParam === '') {
-            return new JSONResponse(['error' => 'Missing albumId'], 400);
-        }
-
-        $albumId = (int)$albumIdParam;
-        if ($albumId <= 0) {
-            return new JSONResponse(['error' => 'Invalid albumId'], 400);
-        }
-
-        $userId = $user->getUID();
-
-        $fileIds = $this->albumCreator->getAlbumFileIdsForUser($userId, $albumId);
-        if (empty($fileIds)) {
-            return new JSONResponse(['error' => 'Album not found or empty'], 404);
-        }
-
-        $this->videoRenderJobScheduler->enqueue($userId, $albumId, $orientation);
-
-        return new JSONResponse([
-            'success' => true,
-            'queued' => true,
-            'albumId' => $albumId,
-            'orientation' => $orientation,
-        ]);
-    }
-
-    private function buildVideoNameNeedle(string $clusterName): string {
-        // Mirror VideoRenderPrimitives::sanitizeFileName() so the cluster name we
-        // search for matches what was actually written to disk.
-        $name = str_replace(['\\', '/'], '-', $clusterName);
-        $name = preg_replace('/[^A-Za-z0-9\.\-_ ]+/', '', $name) ?? '';
-        $name = preg_replace('/\s+/', ' ', $name) ?? $name;
-        return strtolower(trim($name));
     }
 }

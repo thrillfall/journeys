@@ -2,7 +2,6 @@
 namespace OCA\Journeys\Service;
 
 use OCP\BackgroundJob\IJobList;
-use OCA\Journeys\Model\Image;
 
 class VideoRenderJobScheduler {
     private IJobList $jobList;
@@ -26,43 +25,27 @@ class VideoRenderJobScheduler {
     }
 
     /**
-     * Conditionally enqueue rendering only if the cluster is away from home.
-     * @param Image[] $cluster
-     * @param array{lat:float,lon:float,radiusKm:float} $home
+     * Render jobs still waiting or running for this user. A finished job is
+     * removed from the job list, so whatever is here has no video yet.
+     *
+     * @return array<int, array{albumId:int, orientation:string}>
      */
-    public function enqueueIfAway(string $userId, int $albumId, array $cluster, array $home, string $orientation = 'portrait'): void {
-        if ($this->isAwayCluster($cluster, $home)) {
-            $this->enqueue($userId, $albumId, $orientation);
-        }
-    }
-
-    /**
-     * @param Image[] $cluster
-     */
-    private function isAwayCluster(array $cluster, array $home): bool {
-        if (!isset($home['lat'], $home['lon'], $home['radiusKm'])) {
-            return false;
-        }
-        $lat0 = (float)$home['lat'];
-        $lon0 = (float)$home['lon'];
-        $radius = (float)$home['radiusKm'];
-        foreach ($cluster as $img) {
-            if ($img instanceof Image && $img->lat !== null && $img->lon !== null) {
-                $d = $this->haversine((float)$img->lat, (float)$img->lon, $lat0, $lon0);
-                if ($d > $radius) {
-                    return true;
+    public function pendingForUser(string $userId): array {
+        $out = [];
+        try {
+            foreach ($this->jobList->getJobsIterator(\OCA\Journeys\BackgroundJob\RenderClusterVideoJob::class, null, 0) as $job) {
+                $arg = $job->getArgument();
+                if (!is_array($arg) || ($arg['userId'] ?? null) !== $userId) {
+                    continue;
                 }
+                $out[] = [
+                    'albumId' => (int)($arg['albumId'] ?? 0),
+                    'orientation' => ($arg['orientation'] ?? '') === 'landscape' ? 'landscape' : 'portrait',
+                ];
             }
+        } catch (\Throwable) {
+            return [];
         }
-        return false;
-    }
-
-    private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float {
-        $R = 6371.0; // km
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-        $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon/2) * sin($dLon/2);
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-        return $R * $c;
+        return $out;
     }
 }

@@ -1,7 +1,8 @@
 import { generateFilePath } from '@nextcloud/router'
 
 import Vue from 'vue'
-import DiaryApp from './views/DiaryApp.vue'
+import '@nextcloud/dialogs/styles/toast.scss'
+import App from './views/App.vue'
 
 // eslint-disable-next-line
 __webpack_public_path__ = generateFilePath(appName, '', 'js/')
@@ -12,6 +13,6 @@ Vue.prototype.OC = window.OC
 Vue.prototype.OCA = window.OCA
 
 export default new Vue({
-	el: '#journeys_diary',
-	render: h => h(DiaryApp),
+	el: '#content',
+	render: h => h(App),
 })

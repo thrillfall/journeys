@@ -227,10 +227,12 @@ python3 -I tests/e2e/av_sync_check.py e2e_clips_l.mp4 1920 1080 <landscape sourc
   ~0.8 s.
 - Render one album long enough to need several chunks (any trip over ~40
   items, e.g. `Lasithi Regional Unit October 2025`) through the **app route**
-  (`POST /personal_settings/render_cluster_video`, then `occ
-  background-job:execute --force-execute <id>`): the file lands in
+  (`POST /api/albums/<albumId>/render` with `{"orientation":"portrait"}`, then
+  `occ background-job:execute --force-execute <id>`): the file lands in
   `Documents/Journeys Movies/` with a non-zero size (large outputs used to
-  exhaust PHP's memory_limit on save and leave a 0-byte file).
+  exhaust PHP's memory_limit on save and leave a 0-byte file), and
+  `oc_journeys_videos` gets a row linking the file to the album — `GET
+  /api/journeys` then lists the video under that trip even after a rename.
 
 ---
 

@@ -16,7 +16,7 @@ class HomeService {
      * Try to read user's cached home from config.
      * Returns ['lat'=>float,'lon'=>float,'radiusKm'=>float,'name'?:string]|null
      */
-    private function getHomeFromConfig(string $userId): ?array {
+    public function getHomeFromConfig(string $userId): ?array {
         try {
             $raw = $this->config->getUserValue($userId, 'journeys', 'home');
             if (!is_string($raw) || $raw === '') {

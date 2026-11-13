@@ -25,8 +25,9 @@ class ClusteringManager {
     private VideoRenderJobScheduler $videoScheduler;
     private IConfig $config;
     private CustomNameReassigner $customNameReassigner;
+    private TripClassifier $tripClassifier;
 
-    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, ClusterMerger $clusterMerger, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator, ClusterVideoJobRunner $videoJobRunner, VideoRenderJobScheduler $videoScheduler, IConfig $config, CustomNameReassigner $customNameReassigner) {
+    public function __construct(ImageFetcher $imageFetcher, Clusterer $clusterer, ClusterMerger $clusterMerger, AlbumCreator $albumCreator, ClusterLocationResolver $locationResolver, HomeLocationDetector $homeLocationDetector, HomeService $homeService, NotificationManager $notificationManager, LoggerInterface $logger, IURLGenerator $urlGenerator, ClusterVideoJobRunner $videoJobRunner, VideoRenderJobScheduler $videoScheduler, IConfig $config, CustomNameReassigner $customNameReassigner, TripClassifier $tripClassifier) {
         $this->imageFetcher = $imageFetcher;
         $this->clusterer = $clusterer;
         $this->clusterMerger = $clusterMerger;
@@ -41,6 +42,7 @@ class ClusteringManager {
         $this->videoScheduler = $videoScheduler;
         $this->config = $config;
         $this->customNameReassigner = $customNameReassigner;
+        $this->tripClassifier = $tripClassifier;
     }
 
     /**
@@ -334,7 +336,11 @@ class ClusteringManager {
             } else {
                 $albumName = sprintf('Journey %d %s (%s)', $i+1, $monthYear, $range);
             }
-            $albumId = $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd);
+            $isAway = $this->tripClassifier->isAway(
+                array_map(static fn(Image $img): array => [$img->lat, $img->lon], $cluster),
+                $effectiveHomeAware ? $home : null,
+            );
+            $albumId = $this->albumCreator->createAlbumWithImages($userId, $albumName, $cluster, $location ?? '', $dtStart, $dtEnd, null, $isAway);
 
             if ($clusterProgress !== null) {
                 try {
@@ -349,14 +355,15 @@ class ClusteringManager {
                     // ignore progress callback errors
                 }
             }
-            // Auto-generate video for far-away clusters only when triggered by cron
-            if ($cronContext && $albumId !== null && $effectiveHomeAware && $home !== null) {
+            $isTrip = $isAway === true
+                && $this->tripClassifier->kind($isAway, $cluster[0]->datetaken, $cluster[count($cluster) - 1]->datetaken) === TripClassifier::KIND_TRIP;
+            if ($cronContext && $albumId !== null && $isTrip) {
                 try {
                     $autoGen = (bool)((int)$this->config->getUserValue($userId, 'journeys', 'autoGenerateVideos', 0));
                     if ($autoGen) {
                         $orientation = $this->config->getUserValue($userId, 'journeys', 'videoOrientation', 'portrait');
                         try {
-                            $this->videoScheduler->enqueueIfAway($userId, (int)$albumId, $cluster, $home, $orientation === 'landscape' ? 'landscape' : 'portrait');
+                            $this->videoScheduler->enqueue($userId, (int)$albumId, $orientation === 'landscape' ? 'landscape' : 'portrait');
                         } catch (\Throwable $e) {
                             // Log but do not interrupt album creation flow
                             try {

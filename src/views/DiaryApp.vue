@@ -781,6 +781,8 @@ export default {
 /* Mobile: the header packs back/title/refresh/share/delete into one row — on a
    narrow sidebar that overflows and the buttons become untappable. Give the
    title its own full-width row so the action buttons wrap below at full size. */
+/* Leaves room for the navigation toggle, which NcAppContent pins to the top-left corner. */
+.diary-header { padding-left: 44px; min-height: 44px; }
 @media (max-width: 700px) {
 	.diary-view { padding: 16px 12px 80px; }
 	.diary-header { gap: 8px; }

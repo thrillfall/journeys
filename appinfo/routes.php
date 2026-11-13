@@ -26,34 +26,15 @@ return [
             'url' => '/personal_settings/save_clustering_settings',
             'verb' => 'POST',
         ],
-        [
-            'name' => 'personal_settings#listClusters',
-            'url' => '/personal_settings/clusters',
-            'verb' => 'GET',
-        ],
-        [
-            'name' => 'personal_settings#updateClusterName',
-            'url' => '/personal_settings/update_cluster_name',
-            'verb' => 'POST',
-        ],
-        [
-            'name' => 'personal_settings#renderClusterVideo',
-            'url' => '/personal_settings/render_cluster_video',
-            'verb' => 'POST',
-        ],
-        [
-            'name' => 'personal_settings#renderClusterVideoLandscape',
-            'url' => '/personal_settings/render_cluster_video_landscape',
-            'verb' => 'POST',
-        ],
-        [
-            'name' => 'personal_settings#listRenderedVideos',
-            'url' => '/personal_settings/rendered_videos',
-            'verb' => 'GET',
-        ],
 
         // --- Travel diary: main app page (Increment 2) ---
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
+
+        ['name' => 'journeys#journeys', 'url' => '/api/journeys', 'verb' => 'GET'],
+        ['name' => 'journeys#rename', 'url' => '/api/journeys/{albumId}/name', 'verb' => 'PUT'],
+        ['name' => 'journeys#videos', 'url' => '/api/videos', 'verb' => 'GET'],
+        ['name' => 'journeys#albums', 'url' => '/api/albums', 'verb' => 'GET'],
+        ['name' => 'journeys#render', 'url' => '/api/albums/{albumId}/render', 'verb' => 'POST'],
 
         // --- Travel diary (Increment 1) ---
         ['name' => 'diary#index', 'url' => '/diary/journals', 'verb' => 'GET'],

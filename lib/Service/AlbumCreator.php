@@ -154,7 +154,7 @@ class AlbumCreator {
      * @param string $location
      * @return void
      */
-    public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null, ?string $customName = null): ?int {
+    public function createAlbumWithImages(string $userId, string $albumName, array $images, string $location = '', ?\DateTime $dtStart = null, ?\DateTime $dtEnd = null, ?string $customName = null, ?bool $isAway = null): ?int {
         $albumName = $this->sanitizeAlbumTitle($albumName);
         $effectiveTitle = $albumName;
         if ($customName !== null && trim($customName) !== '') {
@@ -193,7 +193,7 @@ class AlbumCreator {
         // Track this album as clusterer-created for reliable purge and incremental boundary detection.
         // The tracking row stores the auto-derived name (recoverable source of truth) and any custom_name
         // separately, even though the Photos album title may already be the custom one.
-        $this->trackClusterAlbum($userId, (int)$album->getId(), $albumName, $location, $dtStart, $dtEnd, $customName);
+        $this->trackClusterAlbum($userId, (int)$album->getId(), $albumName, $location, $dtStart, $dtEnd, $customName, $isAway);
         // Assign SystemTag to album folder (in addition to postfix logic)
         try {
             $userFolder = $this->rootFolder->getUserFolder($userId);
@@ -283,7 +283,7 @@ class AlbumCreator {
     /**
      * Track a clusterer-created album for a user.
      */
-    private function trackClusterAlbum(string $userId, int $albumId, string $name, string $location, ?\DateTime $dtStart, ?\DateTime $dtEnd, ?string $customName = null): void {
+    private function trackClusterAlbum(string $userId, int $albumId, string $name, string $location, ?\DateTime $dtStart, ?\DateTime $dtEnd, ?string $customName = null, ?bool $isAway = null): void {
         $table = $this->getTrackingTableName();
         // Delete existing row (if any) then insert, to avoid DB-specific upsert syntax
         $del = $this->db->prepare("DELETE FROM {$table} WHERE user_id = ? AND album_id = ?");
@@ -291,7 +291,7 @@ class AlbumCreator {
         if ($delResult === false) {
             throw new \RuntimeException('Failed to delete existing tracking row for cluster album');
         }
-        $ins = $this->db->prepare("INSERT INTO {$table} (user_id, album_id, name, location, start_dt, end_dt, custom_name) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $ins = $this->db->prepare("INSERT INTO {$table} (user_id, album_id, name, location, start_dt, end_dt, custom_name, is_away) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $normalizedCustom = ($customName !== null && trim($customName) !== '') ? trim($customName) : null;
         $insResult = $ins->execute([
             $userId,
@@ -301,6 +301,7 @@ class AlbumCreator {
             $dtStart ? $dtStart->format('Y-m-d H:i:s') : null,
             $dtEnd ? $dtEnd->format('Y-m-d H:i:s') : null,
             $normalizedCustom,
+            $isAway === null ? null : ($isAway ? 1 : 0),
         ]);
         if ($insResult === false) {
             throw new \RuntimeException('Failed to insert tracking row for cluster album');
@@ -328,6 +329,45 @@ class AlbumCreator {
                 ]);
             } catch (\Throwable $ignored) {}
             return false;
+        }
+    }
+
+    public function setIsAway(string $userId, int $albumId, bool $isAway): void {
+        try {
+            $table = $this->getTrackingTableName();
+            $stmt = $this->db->prepare("UPDATE {$table} SET is_away = ? WHERE user_id = ? AND album_id = ?");
+            $stmt->execute([$isAway ? 1 : 0, $userId, $albumId]);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    /**
+     * Coordinates of the album's photos, for classifying journeys tracked
+     * before is_away existed. Reads oc_memories without MemoriesScope on
+     * purpose: these files are already in the user's album, nothing new is
+     * surfaced, and the scope would only drop coordinates we need.
+     *
+     * @return array<int, array{0:?float,1:?float}>
+     */
+    public function getAlbumCoordinates(int $albumId): array {
+        try {
+            $qb = $this->db->getQueryBuilder();
+            $qb->select('m.lat', 'm.lon')
+                ->from('photos_albums_files', 'af')
+                ->innerJoin('af', 'memories', 'm', $qb->expr()->eq('m.fileid', 'af.file_id'))
+                ->where($qb->expr()->eq('af.album_id', $qb->createNamedParameter($albumId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
+            $res = $qb->executeQuery();
+            $out = [];
+            while ($row = $res->fetch()) {
+                $out[] = [
+                    $row['lat'] !== null ? (float)$row['lat'] : null,
+                    $row['lon'] !== null ? (float)$row['lon'] : null,
+                ];
+            }
+            $res->closeCursor();
+            return $out;
+        } catch (\Throwable $e) {
+            return [];
         }
     }
 
@@ -561,7 +601,7 @@ class AlbumCreator {
     public function getTrackedClusters(string $userId): array {
         try {
             $table = $this->getTrackingTableName();
-            $stmt = $this->db->prepare("SELECT album_id, name, location, start_dt, end_dt, custom_name FROM {$table} WHERE user_id = ? ORDER BY start_dt ASC, album_id ASC");
+            $stmt = $this->db->prepare("SELECT album_id, name, location, start_dt, end_dt, custom_name, is_away FROM {$table} WHERE user_id = ? ORDER BY start_dt ASC, album_id ASC");
             $result = $stmt->execute([$userId]);
             $rows = $result ? $result->fetchAll() : [];
             if (!is_array($rows)) {
@@ -580,6 +620,7 @@ class AlbumCreator {
                     'start_dt' => isset($row['start_dt']) ? (string)$row['start_dt'] : null,
                     'end_dt' => isset($row['end_dt']) ? (string)$row['end_dt'] : null,
                     'custom_name' => $custom,
+                    'is_away' => isset($row['is_away']) && $row['is_away'] !== null ? ((int)$row['is_away'] === 1) : null,
                 ];
             }, $rows);
         } catch (\Throwable $e) {

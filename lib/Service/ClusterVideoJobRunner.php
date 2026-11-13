@@ -14,6 +14,7 @@ class ClusterVideoJobRunner {
         private ClusterVideoRendererLandscape $videoRendererLandscape,
         private IConfig $config,
         private VideoSubtitleResolver $subtitleResolver,
+        private RenderedVideoRegistry $videoRegistry,
     ) {}
 
     /**
@@ -97,13 +98,7 @@ class ClusterVideoJobRunner {
             throw new \RuntimeException('Video rendering did not return a path.');
         }
 
-        return [
-            'path' => (string)$result['path'],
-            'storedInUserFiles' => (bool)($result['storedInUserFiles'] ?? false),
-            'imageCount' => $copied,
-            'clusterName' => $selection->clusterName,
-            'clusterIndex' => $selection->clusterIndex,
-        ];
+        return $this->finish($user, $albumId, $result, $copied, $selection, 'portrait');
     }
 
     /**
@@ -175,9 +170,20 @@ class ClusterVideoJobRunner {
             throw new \RuntimeException('Video rendering did not return a path.');
         }
 
+        return $this->finish($user, $albumId, $result, $copied, $selection, 'landscape');
+    }
+
+    /**
+     * @return array{path:string,storedInUserFiles:bool,imageCount:int,clusterName:string,clusterIndex:int}
+     */
+    private function finish(string $user, int $albumId, array $result, int $copied, ClusterVideoSelection $selection, string $orientation): array {
+        $storedInUserFiles = (bool)($result['storedInUserFiles'] ?? false);
+        if ($storedInUserFiles) {
+            $this->videoRegistry->record($user, $albumId, (string)$result['path'], $orientation);
+        }
         return [
             'path' => (string)$result['path'],
-            'storedInUserFiles' => (bool)($result['storedInUserFiles'] ?? false),
+            'storedInUserFiles' => $storedInUserFiles,
             'imageCount' => $copied,
             'clusterName' => $selection->clusterName,
             'clusterIndex' => $selection->clusterIndex,

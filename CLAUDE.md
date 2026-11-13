@@ -15,7 +15,7 @@ Supported Nextcloud: `30–33`. PHP `>=8.2`.
 
 ## Commands
 
-Frontend build (webpack, single Vue 2 bundle → `js/journeys-personalSettings.js`):
+Frontend build (webpack, two Vue 2 bundles → `js/journeys-diary.js` for the app page, `js/journeys-personalSettings.js` for the settings page):
 ```sh
 npm ci                    # first time
 npx webpack --mode production     # production bundle (same as `npm run build`)
@@ -72,9 +72,9 @@ Services are registered in `appinfo/services.xml` (Symfony DI container XML). **
 3. Timeline is segmented into near-home vs away-from-home blocks (home-aware mode is default). Each segment is clustered independently by `Clusterer::clusterImages()` using per-segment time + distance thresholds. Distance checks anchor to the **last geolocated image** in the current cluster (`prevGeo`), so a run of no-GPS photos cannot bridge a large spatial jump.
 4. **`ClusterMerger::mergeAdjacent()` post-processes the cluster list**, stitching adjacent clusters that are in the same country (resolved via `ClusterLocationResolver::resolveClusterCountry()`, OSM `admin_level=2`) and within 7 days of each other. This fixes over-splitting of multi-city road trips and long vacations with photo-less rest days — cases where threshold tuning alone can't help (the user tested `awayDistanceKm=200` in production and multi-city still split). Only away-from-home clusters are merged when home is known; near-home clusters never merge. Disable with `--no-merge` CLI flag or the `mergeAdjacent` user setting.
 5. `ClusterLocationResolver` + `SimplePlaceResolver` resolve a place name for each cluster (uses Memories' Places tables; falls back automatically when PostGIS functions are unavailable).
-6. `AlbumCreator` creates a Photos album per cluster, tags it with the `journeys-album` SystemTag, and records `(user_id, album_id, start_dt, end_dt, name, location)` in the tracking table `oc_journeys_cluster_albums`. Incremental runs use `end_dt` to skip already-processed images. `purgeClusterAlbums()` only deletes albums listed in this tracking table — manual albums are preserved.
+6. `AlbumCreator` creates a Photos album per cluster, tags it with the `journeys-album` SystemTag, and records `(user_id, album_id, start_dt, end_dt, name, location)` in the tracking table `oc_journeys_cluster_albums`, plus `is_away` (left the home radius; NULL for rows from before 0.37, classified lazily by `TripService` on first listing). Incremental runs use `end_dt` to skip already-processed images. `purgeClusterAlbums()` only deletes albums listed in this tracking table — manual albums are preserved.
 7. Aggregated notification is sent via `Notifier` with an "Open Photos" action.
-8. If auto-render is enabled, `VideoRenderJobScheduler` enqueues one `RenderClusterVideoJob` per newly created away-from-home album (runs as a separate Nextcloud background job, does not block clustering).
+8. If auto-render is enabled, `VideoRenderJobScheduler` enqueues one `RenderClusterVideoJob` per newly created **trip** — away from home and spanning at least one night, as decided by `TripClassifier` (runs as a separate Nextcloud background job, does not block clustering). The same rule splits the app's Trips view into trips and excursions (`kind`: `trip` / `excursion` / `nearby`).
 
 User-visible behavior settings (time gap, distance, min cluster size, near/away thresholds, includeGroupFolders, includeSharedImages, mergeAdjacent, rangeFrom/rangeTo, auto-render prefs) live in `IConfig` user values under app `journeys`. CLI flags override; when omitted, the effective value is the stored user value; when that is empty, the code default applies. The daily job (`BackgroundJob\DailyClusteringJob`) reads these same user values so UI changes take effect on the next cron run.
 
@@ -85,11 +85,18 @@ User-visible behavior settings (time gap, distance, min cluster size, near/away 
 - `ClusterVideoFilePreparer` — resolves `fileid`s to local paths, handling mounted / shared storages. User videos (Memories `isvideo`) are cut by `VideoClipExtractor` to a ~4 s excerpt from the middle, normalized (h264, CFR, AAC) and rendered as `clip` segments that play at native speed with their own sound; `VideoStorySelector` gives them ~12 % of the slots. User setting `includeVideoClips`, **default on**. Clips cost render time (~30 % on a long trip, for extraction and re-encode), not peak memory: peak ffmpeg RSS is set by the high-resolution stills, and a clip replaces one.
 - Clip sound is placed on the global timeline in `VideoRenderPrimitives::muxSoundtrack()` (music ducked with a 1 s dB ramp, clip levelled towards −20 dB). Sync depends on every segment's on-screen length being exact: durations are frame-snapped, and **never put `trim` or `setpts` after `fps` and before `tpad`** in a segment chain — tpad then silently stops padding, the segment ends where its xfade starts, and ffmpeg 7 skips the start of the next segment. Limit inputs with `-t` / `-itsscale` instead.
 - `ClusterVideoRenderer` (portrait) / `ClusterVideoRendererLandscape` — shell out to `ffmpeg` in `PATH`. Ken Burns on stills, optional GCam motion-photo handling, optional 3-wide landscape stacks inside portrait output, title overlay, background music from `data/` (128kbps) with fade-out. Both renderers **chunk** automatically when any source image exceeds 13 MP; otherwise they run single-pass. Requires FFmpeg 7.1+.
-- Output defaults to `Documents/Journeys Movies/` in the user's storage.
+- Output defaults to `Documents/Journeys Movies/` in the user's storage. `ClusterVideoJobRunner` records each stored file in `oc_journeys_videos` (album id, file id, orientation) via `RenderedVideoRegistry`, so a renamed journey keeps its video; files from before that table are matched by name in `TripService`.
 
 ### Frontend
 
-Single-page Vue 2 app (`src/views/PersonalSettingsPage.vue`) mounted at `#personal_settings` by `templates/settings/personal.php`. Uses `@nextcloud/vue@^7`, talks to `lib/Controller/PersonalSettingsController.php` via the routes in `appinfo/routes.php` (`/personal_settings/*`). Settings auto-save inline on toggle. CSRF is enabled — do not re-add `@NoCSRFRequired`.
+Two Vue 2 entry points, both on `@nextcloud/vue@^7`:
+
+- **App page** (`src/diary.js` → `src/views/App.vue`, mounted on `#content` by `templates/diary.php`): `NcContent` with an `NcAppNavigation` for *Travel diaries* (`DiaryApp.vue`), *Trips* (`TripsView.vue`) and *Videos* (`VideosView.vue`), switched by URL hash (`#/trips`). Trips and Videos share `src/store/media.js` and talk to `JourneysController` (`/api/journeys`, `/api/videos`, `/api/albums`, `/api/albums/{id}/render`); it polls every 30 s while a render is pending.
+- **Settings page** (`src/views/PersonalSettingsPage.vue`, mounted at `#personal_settings` by `templates/settings/personal.php`): clustering, home and video defaults only, via `PersonalSettingsController` (`/personal_settings/*`). Settings auto-save inline on toggle.
+
+CSRF is enabled on both — do not re-add `@NoCSRFRequired`.
+
+Two traps in the installed `@nextcloud/vue` 7.12.8: import components from `dist/Components/*.js` (the `.mjs` build pulls in `@linusborg/vue-simple-portal`, which is not installed), but that `.js` build is older — `NcAppNavigationItem` has no `active` prop (App.vue marks the active entry with its own class) and `NcNoteCard` has no `info` type (it renders a warning). Toast styles must be imported (`@nextcloud/dialogs/styles/toast.scss`) on the app page, or toasts render unstyled over the header.
 
 ### Migrations
 

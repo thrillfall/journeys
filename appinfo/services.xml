@@ -11,6 +11,21 @@
     <service id="OCA\Journeys\Service\RenderedVideoLister">
       <argument type="service" id="OCP\Files\IRootFolder"/>
     </service>
+    <service id="OCA\Journeys\Service\RenderedVideoRegistry">
+      <argument type="service" id="OCP\IDBConnection"/>
+      <argument type="service" id="OCP\Files\IRootFolder"/>
+      <argument type="service" id="Psr\Log\LoggerInterface"/>
+    </service>
+    <service id="OCA\Journeys\Service\TripClassifier"/>
+    <service id="OCA\Journeys\Service\TripService">
+      <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
+      <argument type="service" id="OCA\Journeys\Service\HomeService"/>
+      <argument type="service" id="OCA\Journeys\Service\TripClassifier"/>
+      <argument type="service" id="OCA\Journeys\Service\RenderedVideoLister"/>
+      <argument type="service" id="OCA\Journeys\Service\RenderedVideoRegistry"/>
+      <argument type="service" id="OCA\Journeys\Service\VideoRenderJobScheduler"/>
+      <argument type="service" id="OCP\IConfig"/>
+    </service>
     <service id="OCA\Journeys\Service\FacePresenceProvider">
       <argument type="service" id="OCP\IDBConnection"/>
     </service>
@@ -92,6 +107,7 @@
       <argument type="service" id="OCA\Journeys\Service\ClusterVideoRendererLandscape"/>
       <argument type="service" id="OCP\IConfig"/>
       <argument type="service" id="OCA\Journeys\Service\VideoSubtitleResolver"/>
+      <argument type="service" id="OCA\Journeys\Service\RenderedVideoRegistry"/>
     </service>
     <service id="OCA\Journeys\Service\VideoSubtitleResolver">
       <argument type="service" id="OCA\Journeys\Service\SimplePlaceResolver"/>
@@ -122,6 +138,7 @@
       <argument type="service" id="OCA\Journeys\Service\VideoRenderJobScheduler"/>
       <argument type="service" id="OCP\IConfig"/>
       <argument type="service" id="OCA\Journeys\Service\CustomNameReassigner"/>
+      <argument type="service" id="OCA\Journeys\Service\TripClassifier"/>
     </service>
     <service id="OCA\Journeys\Controller\PersonalSettingsController">
       <argument>%app_id%</argument>
@@ -129,14 +146,18 @@
       <argument type="service" id="OCP\IUserSession"/>
       <argument type="service" id="OCA\Journeys\Service\ClusteringManager"/>
       <argument type="service" id="OCP\IConfig"/>
-      <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
-      <argument type="service" id="OCA\Journeys\Service\VideoRenderJobScheduler"/>
-      <argument type="service" id="OCA\Journeys\Service\RenderedVideoLister"/>
       <argument type="service" id="OCA\Journeys\Service\AutoClusterSetting"/>
+    </service>
+    <service id="OCA\Journeys\Controller\JourneysController">
+      <argument>%app_id%</argument>
+      <argument type="service" id="OCP\IRequest"/>
+      <argument type="service" id="OCP\IUserSession"/>
+      <argument type="service" id="OCA\Journeys\Service\TripService"/>
     </service>
     <service id="OCA\Journeys\Controller\PageController">
       <argument>%app_id%</argument>
       <argument type="service" id="OCP\IRequest"/>
+      <argument type="service" id="OCP\EventDispatcher\IEventDispatcher"/>
     </service>
     <service id="OCA\Journeys\Controller\DiaryController">
       <argument>%app_id%</argument>

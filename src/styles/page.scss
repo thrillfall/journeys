@@ -1,0 +1,138 @@
+.journeys-page {
+	box-sizing: border-box;
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 20px 24px 64px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+// Leaves room for the navigation toggle, which NcAppContent pins to the top-left corner.
+.page-header {
+	padding-left: 44px;
+	min-height: 44px;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 16px;
+
+	&__text {
+		min-width: 0;
+
+		h2 {
+			margin: 0;
+			font-size: 1.6em;
+			font-weight: 700;
+		}
+
+		p {
+			margin: 2px 0 0;
+			color: var(--color-text-maxcontrast);
+		}
+	}
+}
+
+.filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+
+	&__field {
+		display: flex;
+
+		select,
+		input {
+			margin: 0;
+			min-height: 44px;
+			width: 100%;
+		}
+
+		&--grow {
+			flex: 1 1 220px;
+		}
+	}
+}
+
+.hint-box {
+	margin: 0;
+	padding: 10px 14px;
+	border-radius: var(--border-radius-large, 12px);
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
+}
+
+.page-loading {
+	margin: 48px auto;
+}
+
+.card-grid {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+	gap: 16px;
+}
+
+.play-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	min-height: 48px;
+	padding: 0;
+	margin: 0;
+	border: 0;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.6);
+	color: #fff;
+	cursor: pointer;
+
+	&:hover,
+	&:focus-visible {
+		background: rgba(0, 0, 0, 0.8);
+	}
+}
+
+.video-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	min-height: 36px;
+	margin: 0;
+	padding: 0 12px 0 8px;
+	border: 0;
+	border-radius: var(--border-radius-pill, 18px);
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
+	font-weight: 600;
+	cursor: pointer;
+
+	&:hover {
+		background: var(--color-primary-element-light-hover);
+	}
+}
+
+.pending-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--color-text-maxcontrast);
+}
+
+@media (max-width: 600px) {
+	.journeys-page {
+		padding: 12px 12px 48px;
+	}
+
+	.page-header__text h2 {
+		font-size: 1.35em;
+	}
+
+	.card-grid {
+		gap: 12px;
+	}
+}
