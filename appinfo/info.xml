@@ -11,11 +11,19 @@ Automatically clusters your photos by time and location into journeys (trips, va
 
 - **Journey albums:** created daily in the background (opt-in), with place-and-date names like `Iceland — Aug 12–19, 2024`. Home-aware: local days and trips are clustered with separate thresholds; adjacent trips in the same country are merged.
 - **Journals:** a travel diary with day entries auto-filled from your photos. Share with users for co-editing or publish to a revocable public link with route map and travel stats.
-- **Videos:** render a journey into an MP4 highlight reel (requires `ffmpeg`), saved to `Documents/Journeys Movies/`. Optionally weaves in short clips, with their own sound, from the trip's videos.
+- **Trips & Videos:** browse your trips in the Journeys app and render any of them, or any Photos album, into an MP4 highlight reel (requires `ffmpeg`), saved to `Documents/Journeys Movies/` and playable right in Nextcloud. Videos for new trips (away from home, at least one night) can be created automatically. Optionally weaves in short clips, with their own sound, from the trip's videos.
 
     php occ journeys:cluster-create-albums <user>
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.37.0 (2026-11-13)</h3>
+    <ul>
+      <li><b>Trips &amp; Videos:</b> your journeys and videos moved from the personal settings into the Journeys app. Browse trips as cards, rename them, create portrait or landscape videos, and watch finished videos right in Nextcloud, also on your phone.</li>
+      <li><b>Trips:</b> only journeys away from home with at least one night count as trips. Day trips and journeys near home appear when you switch on "Also show excursions".</li>
+      <li><b>Videos:</b> automatic videos are now created for trips only. A renamed journey keeps its videos.</li>
+      <li><b>Settings:</b> the settings page now holds only clustering, home and video options.</li>
+      <li><b>Fixed:</b> landscape videos were sometimes shown as portrait.</li>
+    </ul>
   <h3>0.36.2 (2026-11-04)</h3>
     <ul>
       <li><b>Settings:</b> the personal settings page fits on phone screens; the Landscape render button no longer hides off-screen behind sideways scrolling.</li>
@@ -41,7 +49,7 @@ Automatically clusters your photos by time and location into journeys (trips, va
 ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.36.2</version>
+  <version>0.37.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>

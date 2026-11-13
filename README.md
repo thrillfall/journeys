@@ -4,10 +4,11 @@ Automatically clusters your photos by time and location into journeys (trips, va
 
 ## ✨ Features
 
-- **Journey albums:** created daily in the background (opt-in), named after place and dates, e.g. `Iceland — Aug 12–19, 2024`. Names can be overridden in personal settings and survive reclustering. A notification tells you when new albums appear.
+- **Journey albums:** created daily in the background (opt-in), named after place and dates, e.g. `Iceland — Aug 12–19, 2024`. Names can be changed in the app's *Trips* view and survive reclustering. A notification tells you when new albums appear.
 - **Home-aware clustering:** local days and trips are clustered with separate thresholds; adjacent trips in the same country within a week are merged, so road trips and long vacations stay one journey.
 - **Journals:** a travel diary with day entries auto-filled from your photos. Share with users or groups for co-editing, or publish to a revocable public link with route map and travel stats.
-- **Videos:** render any journey or Photos album into an MP4 highlight reel, manually or automatically for new trips. Saved to `Documents/Journeys Movies/`. Optionally weaves in short clips, with their own sound, from the trip's videos (on by default; turn it off in personal settings if rendering, which takes about a third longer, is too slow).
+- **Trips:** the Journeys app lists your trips (away from home, at least one night) as cards; day trips and journeys near home are one switch away.
+- **Videos:** render any journey or Photos album into an MP4 highlight reel from the *Trips* or *Videos* view, or automatically for new trips. Saved to `Documents/Journeys Movies/` and playable in the Nextcloud Viewer. Optionally weaves in short clips, with their own sound, from the trip's videos (on by default; turn it off in personal settings if rendering, which takes about a third longer, is too slow).
 
 ## Requirements
 

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.0] - 2026-11-13
+### Added
+- UI: **Trips and Videos in the Journeys app.** The app page gets a navigation with *Travel diaries*, *Trips* and *Videos*. Trips shows journeys as cards with cover, date range, video chips and a menu to rename, render portrait or landscape, or open the album in Photos. Videos lists rendered videos and pending renders, plays them in the Nextcloud Viewer, and renders any Photos album via a picker. Both work on phone screens.
+- Trips: a trip is a journey away from home with at least one night. Day trips and journeys near home are hidden behind an "Also show excursions" switch. `TripClassifier` decides; without a known home only the night counts.
+- API: `GET /api/journeys`, `PUT /api/journeys/{albumId}/name`, `GET /api/videos`, `GET /api/albums`, `POST /api/albums/{albumId}/render` (`JourneysController`).
+- DB migration: `is_away` on `journeys_cluster_albums` (older rows are classified on first listing from the album's photo coordinates) and table `journeys_videos`, which links each rendered video to its album.
+### Changed
+- Settings: the personal settings page keeps only clustering, home and video defaults; the journey list, manual album render and video list moved into the app.
+- Video rendering: auto-render now only queues trips (away from home and at least one night), no longer day trips.
+- A renamed journey keeps its videos; videos rendered before this release are still matched by name.
+### Removed
+- Routes `personal_settings/clusters`, `update_cluster_name`, `render_cluster_video`, `render_cluster_video_landscape` and `rendered_videos`.
+### Fixed
+- Videos: landscape videos were listed as portrait when the file name had no parentheses around "landscape".
+- Clustering: `ClusteringManager` called the private `HomeService::getHomeFromConfig()`.
+- UI: toasts on the app page rendered unstyled over the header.
+
 ## [0.36.2] - 2026-11-04
 ### Fixed
 - UI: the personal settings page scrolled sideways on phones, hiding the Landscape render button. Long journey titles widened the grid tracks past the viewport; grid tracks and cards may now shrink below their content, render buttons ellipsize, and a wrapped card meta line no longer starts with a separator dot.
