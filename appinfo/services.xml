@@ -26,6 +26,30 @@
       <argument type="service" id="OCA\Journeys\Service\VideoRenderJobScheduler"/>
       <argument type="service" id="OCP\IConfig"/>
     </service>
+    <service id="OCA\Journeys\Service\YearReviewPlanner"/>
+    <service id="OCA\Journeys\Service\YearReviewImageProvider">
+      <argument type="service" id="OCA\Journeys\Service\ImageFetcher"/>
+      <argument type="service" id="OCA\Journeys\Service\AlbumCreator"/>
+      <argument type="service" id="OCA\Journeys\Service\VideoStorySelector"/>
+      <argument type="service" id="OCA\Journeys\Service\TripClassifier"/>
+      <argument type="service" id="OCA\Journeys\Service\YearReviewPlanner"/>
+      <argument type="service" id="OCP\IConfig"/>
+      <argument type="service" id="OCA\Journeys\Service\ClusterLocationResolver"/>
+      <argument type="service" id="OCA\Journeys\Service\HomeService"/>
+    </service>
+    <service id="OCA\Journeys\Service\VideoTitleFormatter"/>
+    <service id="OCA\Journeys\Service\YearReviewCardRenderer">
+      <argument type="service" id="OCA\Journeys\Service\StaticRouteMapService"/>
+      <argument type="service" id="OCA\Journeys\Service\VideoTitleFormatter"/>
+      <argument type="service" id="Psr\Log\LoggerInterface"/>
+    </service>
+    <service id="OCA\Journeys\Service\YearReviewComposer">
+      <argument type="service" id="OCA\Journeys\Service\YearReviewCardRenderer"/>
+      <argument type="service" id="OCA\Journeys\Service\YearReviewImageProvider"/>
+      <argument type="service" id="OCA\Journeys\Service\HomeService"/>
+      <argument type="service" id="OCP\L10N\IFactory"/>
+      <argument type="service" id="OCP\IConfig"/>
+    </service>
     <service id="OCA\Journeys\Service\FacePresenceProvider">
       <argument type="service" id="OCP\IDBConnection"/>
     </service>
@@ -108,6 +132,8 @@
       <argument type="service" id="OCP\IConfig"/>
       <argument type="service" id="OCA\Journeys\Service\VideoSubtitleResolver"/>
       <argument type="service" id="OCA\Journeys\Service\RenderedVideoRegistry"/>
+      <argument type="service" id="OCA\Journeys\Service\YearReviewImageProvider"/>
+      <argument type="service" id="OCA\Journeys\Service\YearReviewComposer"/>
     </service>
     <service id="OCA\Journeys\Service\VideoSubtitleResolver">
       <argument type="service" id="OCA\Journeys\Service\SimplePlaceResolver"/>

@@ -15,7 +15,81 @@ class ClusterVideoJobRunner {
         private IConfig $config,
         private VideoSubtitleResolver $subtitleResolver,
         private RenderedVideoRegistry $videoRegistry,
+        private YearReviewImageProvider $yearReviewProvider,
+        private YearReviewComposer $yearReviewComposer,
     ) {}
+
+    /**
+     * Render the year-in-review video: chapters per journey and per everyday
+     * month, captioned with the chapter name instead of the place.
+     *
+     * @return array{path:string,storedInUserFiles:bool,imageCount:int,year:int,chapters:array}
+     *
+     * @throws NoImagesFoundException
+     */
+    public function renderYearReview(
+        string $user,
+        int $year,
+        string $orientation = 'portrait',
+        int $maxImages = YearReviewImageProvider::DEFAULT_MAX_IMAGES,
+        ?string $outputPath = null,
+        ?callable $outputHandler = null,
+        bool $includeMotion = true,
+        bool $verbose = false,
+    ): array {
+        $landscape = $orientation === 'landscape';
+        $selection = $this->yearReviewProvider->select($user, $year, $landscape ? 'landscape' : 'portrait', $maxImages);
+
+        $preparation = $this->filePreparer->prepare($user, $selection->selectedImages);
+        $workingDir = $preparation['workingDir'] ?? null;
+        $filePaths = $preparation['files'] ?? [];
+        $copied = (int)($preparation['copied'] ?? count($filePaths));
+        if ($workingDir === null || $workingDir === '' || empty($filePaths) || $copied === 0) {
+            if ($workingDir !== null && $workingDir !== '') {
+                $this->filePreparer->cleanup($workingDir);
+            }
+            throw new NoImagesFoundException('No readable files to render.');
+        }
+
+        $showCaptions = (bool)((int)$this->config->getUserValue($user, 'journeys', 'showLocationSubtitles', 1));
+        $renderer = $landscape ? $this->videoRendererLandscape : $this->videoRenderer;
+        try {
+            $composed = $this->yearReviewComposer->compose($user, $selection, $workingDir, $filePaths, $preparation['images'] ?? [], $landscape, 30, $showCaptions);
+            $result = $renderer->render(
+                $user,
+                $outputPath,
+                2.5,
+                1920,
+                30,
+                $workingDir,
+                $composed['files'],
+                $outputHandler,
+                sprintf('Year in review %d', $year) . ($landscape ? ' (landscape)' : ''),
+                $includeMotion,
+                $verbose,
+                $composed['title'],
+                $composed['captions'],
+                $composed['style'],
+            );
+        } finally {
+            $this->filePreparer->cleanup($workingDir);
+        }
+
+        if (!is_array($result) || !isset($result['path'])) {
+            throw new \RuntimeException('Video rendering did not return a path.');
+        }
+        $storedInUserFiles = (bool)($result['storedInUserFiles'] ?? false);
+        if ($storedInUserFiles) {
+            $this->videoRegistry->recordYearReview($user, $year, (string)$result['path'], $landscape ? 'landscape' : 'portrait');
+        }
+        return [
+            'path' => (string)$result['path'],
+            'storedInUserFiles' => $storedInUserFiles,
+            'imageCount' => $copied,
+            'year' => $year,
+            'chapters' => $selection->chapters,
+        ];
+    }
 
     /**
      * Render a cluster video for a Photos album id.

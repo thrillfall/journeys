@@ -23,7 +23,9 @@ class TripService {
         $videosByAlbum = $this->videosByAlbum($userId, $tracked);
         $pendingByAlbum = [];
         foreach ($this->scheduler->pendingForUser($userId) as $p) {
-            $pendingByAlbum[$p['albumId']][] = $p['orientation'];
+            if ($p['albumId'] !== null) {
+                $pendingByAlbum[$p['albumId']][] = $p['orientation'];
+            }
         }
 
         $journeys = [];
@@ -85,7 +87,7 @@ class TripService {
 
         $pending = [];
         foreach ($this->scheduler->pendingForUser($userId) as $p) {
-            $pending[] = $p + ['albumName' => $albumName($p['albumId'])];
+            $pending[] = $p + ['albumName' => $p['albumId'] !== null ? $albumName($p['albumId']) : null];
         }
 
         return ['videos' => $videos, 'pending' => $pending];
@@ -159,7 +161,7 @@ class TripService {
      * rendered from. Videos rendered before journeys_videos existed are matched
      * by name, the way the old settings page did.
      *
-     * @return array<int, array{fileId:int, name:string, path:string, mtime:int, size:int, orientation:string, albumId:?int}>
+     * @return array<int, array{fileId:int, name:string, path:string, mtime:int, size:int, orientation:string, albumId:?int, reviewYear:?int}>
      */
     private function assignVideos(string $userId, array $tracked): array {
         $registry = $this->videoRegistry->byFileId($userId);
@@ -177,9 +179,10 @@ class TripService {
         foreach ($this->videoLister->listForUser($userId) as $video) {
             $fileId = (int)$video['fileId'];
             $albumId = $registry[$fileId]['albumId'] ?? null;
+            $reviewYear = $registry[$fileId]['reviewYear'] ?? null;
             $orientation = $registry[$fileId]['orientation']
                 ?? (preg_match('/\blandscape\b/i', $video['name']) === 1 ? 'landscape' : 'portrait');
-            if ($albumId === null) {
+            if ($albumId === null && $reviewYear === null) {
                 $lower = strtolower($video['name']);
                 foreach ($needles as [$needle, $candidateId]) {
                     if (str_contains($lower, $needle)) {
@@ -188,7 +191,7 @@ class TripService {
                     }
                 }
             }
-            $out[] = $video + ['orientation' => $orientation, 'albumId' => $albumId];
+            $out[] = $video + ['orientation' => $orientation, 'albumId' => $albumId, 'reviewYear' => $reviewYear];
         }
         return $out;
     }

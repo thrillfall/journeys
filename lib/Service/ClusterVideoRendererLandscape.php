@@ -1,6 +1,7 @@
 <?php
 namespace OCA\Journeys\Service;
 
+use OCA\Journeys\Model\VideoStyle;
 use OCP\Files\IRootFolder;
 use Symfony\Component\Process\Process;
 
@@ -42,6 +43,7 @@ class ClusterVideoRendererLandscape {
         bool $verbose = false,
         ?string $albumName = null,
         array $subtitlesByBasename = [],
+        ?VideoStyle $style = null,
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -62,8 +64,13 @@ class ClusterVideoRendererLandscape {
 
         $tmpOut = $outputPath ?: ($workingDir . '/journey_landscape.mp4');
         $durationPerImage = max(0.5, $durationPerImage);
-        $width = $this->makeEven(max(320, $width));
-        $height = $this->determineOutputHeight($width); // 16:9, even
+        if ($style?->size !== null) {
+            $width = $this->makeEven((int)$style->size[0]);
+            $height = $this->makeEven((int)$style->size[1]);
+        } else {
+            $width = $this->makeEven(max(320, $width));
+            $height = $this->determineOutputHeight($width); // 16:9, even
+        }
 
         $audioTrack = $this->musicProvider->pickRandomTrack();
 
@@ -93,8 +100,9 @@ class ClusterVideoRendererLandscape {
             }
         }
 
-        // Ensure we end on a still image when available to guarantee clean fade-out
-        $segments = $this->ensureEndingStill($segments);
+        if (!$style?->keepOrder) {
+            $segments = $this->ensureEndingStill($segments);
+        }
 
         $chunkSize = $this->resolveChunkSize($maxPixels);
         $parts = array_chunk($segments, max(1, $chunkSize));
@@ -129,8 +137,9 @@ class ClusterVideoRendererLandscape {
                 $albumName && $idx === 0 ? $albumName : null,
                 false, // do not persist per chunk
                 $subtitlesByBasename,
+                $style,
             )['duration'];
-            $chunkClips[] = ['path' => $chunkPath, 'duration' => $duration];
+            $chunkClips[] = ['path' => $chunkPath, 'duration' => $duration, 'transition' => $this->transitionInto($chunkSegments[0], $style)];
             $idx++;
         }
 
@@ -186,6 +195,7 @@ class ClusterVideoRendererLandscape {
         ?string $albumName,
         bool $persistToUserFiles,
         array $subtitlesByBasename = [],
+        ?VideoStyle $style = null,
     ): array {
         $holds = $this->segmentHolds($segments, $holdDuration);
         $totalDurationSeconds = array_sum($holds) + $transitionDuration;
@@ -305,12 +315,13 @@ class ClusterVideoRendererLandscape {
                 $offset += $holds[$i - 1];
                 $out = ($i === count($prepLabels) - 1) ? 'mix_last' : sprintf('mix%d', $i);
                 $parts[] = sprintf(
-                    '[%1$s][%2$s]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
+                    '[%1$s][%2$s]xfade=transition=%6$s:duration=%3$s:offset=%4$s[%5$s]',
                     $prev,
                     trim($prepLabels[$i], '[]'),
                     $this->formatFloat($transitionDuration),
                     $this->formatFloat($offset),
                     $out,
+                    $this->transitionInto($segments[$i], $style),
                 );
                 $prev = $out;
             }
@@ -328,6 +339,7 @@ class ClusterVideoRendererLandscape {
             $width,
             3, // shadow offset for landscape
         );
+        $subbedLabel = $this->appendHeadings($parts, $subbedLabel, $segments, $holds, $style, $width, $height, 3);
 
         $fadeDur = min(0.8, max(0.3, $totalDurationSeconds * 0.1));
         $fadeStart = max(0.0, $totalDurationSeconds - $fadeDur);
@@ -493,12 +505,13 @@ class ClusterVideoRendererLandscape {
             $outLabel = ($i === count($clips) - 1) ? 'vout' : sprintf('m%d', $i);
             $offset = max(0.0, $cumDuration - $transitionDuration);
             $parts[] = sprintf(
-                '[%1$s][vin%2$d]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
+                '[%1$s][vin%2$d]xfade=transition=%6$s:duration=%3$s:offset=%4$s[%5$s]',
                 $prevLabel,
                 $i,
                 $this->formatFloat($transitionDuration),
                 $this->formatFloat($offset),
                 $outLabel,
+                preg_match('/^[a-z]+$/', (string)($clips[$i]['transition'] ?? '')) === 1 ? $clips[$i]['transition'] : 'fade',
             );
             $prevLabel = $outLabel;
             $cumDuration += $actualDurations[$i] - $transitionDuration;

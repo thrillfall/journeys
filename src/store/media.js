@@ -60,6 +60,13 @@ export async function render(albumId, orientation) {
 	schedulePoll()
 }
 
+export function videoTitle(video) {
+	if (video.reviewYear) {
+		return t('journeys', 'Year in review {year}', { year: video.reviewYear })
+	}
+	return video.albumName || (video.name ? video.name.replace(/\.mp4$/i, '') : '') || t('journeys', 'Album {id}', { id: video.albumId })
+}
+
 export async function rename(albumId, customName) {
 	const resp = await axios.put(api(`/journeys/${albumId}/name`), { customName })
 	const journey = media.journeys.find(j => j.id === albumId)

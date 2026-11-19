@@ -1,0 +1,11 @@
+OC.L10N.register(
+    "journeys",
+    {
+    "_%n trip_::_%n trips_" : ["%n Reise","%n Reisen"],
+    "_%n day away_::_%n days away_" : ["%n Tag unterwegs","%n Tage unterwegs"],
+    "_%n day trip_::_%n day trips_" : ["%n Ausflug","%n Ausflüge"],
+    "_%n country_::_%n countries_" : ["%n Land","%n Länder"],
+    "%s km from home at the farthest" : "bis zu %s km von zu Hause",
+    "%s photos" : "%s Fotos"
+},
+"nplurals=2; plural=(n != 1);");

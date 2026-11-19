@@ -2,6 +2,7 @@
 namespace OCA\Journeys\Service;
 
 use OCP\Files\IRootFolder;
+use OCA\Journeys\Model\VideoStyle;
 use Symfony\Component\Process\Process;
 use Psr\Log\LoggerInterface;
 
@@ -46,6 +47,7 @@ class ClusterVideoRenderer {
         bool $verbose = false,
         ?string $albumName = null,
         array $subtitlesByBasename = [],
+        ?VideoStyle $style = null,
     ): array {
         if (empty($files)) {
             throw new \InvalidArgumentException('No files provided for rendering');
@@ -60,7 +62,7 @@ class ClusterVideoRenderer {
         $tmpOut = $outputPath ?: ($workingDir . '/output.mp4');
 
         // Build a sequence of render segments (portrait Ken Burns and occasional landscape stacks)
-        $segments = $this->planSegments($files);
+        $segments = $style?->chronologicalStacks ? $this->planSegmentsChronologically($files) : $this->planSegments($files);
         $this->logger->info('ClusterVideoRenderer: Segments planned', [
             'app' => 'journeys',
             'segmentCount' => count($segments),
@@ -83,14 +85,17 @@ class ClusterVideoRenderer {
         $segments = $this->resolveClipDurations($segments, $fps);
         $segments = $this->extendStacks($segments, $durationPerImage, $fps);
         // Determine output size based on the first portrait if available, else fall back to requested width and 16:9 height.
-        [$targetWidth, $targetHeight] = $this->determineOutputDimensionsFromSegments($width, $segments);
+        [$targetWidth, $targetHeight] = $style?->size !== null
+            ? [$this->makeEven((int)$style->size[0]), $this->makeEven((int)$style->size[1])]
+            : $this->determineOutputDimensionsFromSegments($width, $segments);
 
         $audioTrack = $this->musicProvider->pickRandomTrack();
 
         $segmentThreshold = $this->determineDynamicThreshold($segments);
 
-        // Ensure we end on a still image when available to guarantee clean fade-out
-        $segments = $this->ensureEndingStill($segments);
+        if (!$style?->keepOrder) {
+            $segments = $this->ensureEndingStill($segments);
+        }
 
         $this->renderChunked(
             $segments,
@@ -107,6 +112,7 @@ class ClusterVideoRenderer {
             $albumName,
             $segmentThreshold,
             $subtitlesByBasename,
+            $style,
         );
 
         if ($outputPath !== null && $outputPath !== '') {
@@ -137,6 +143,7 @@ class ClusterVideoRenderer {
         bool $verbose,
         ?string $albumName,
         array $subtitlesByBasename = [],
+        ?VideoStyle $style = null,
     ): float {
         if (empty($segments)) {
             throw new \RuntimeException('No files provided to ffmpeg');
@@ -211,6 +218,7 @@ class ClusterVideoRenderer {
             $clipDuration,
             $albumName,
             $subtitlesByBasename,
+            $style,
         );
 
         // If we have an audio input, append an audio fade-out filter graph and map it by label
@@ -340,6 +348,7 @@ class ClusterVideoRenderer {
         ?string $albumName,
         int $chunkSize,
         array $subtitlesByBasename = [],
+        ?VideoStyle $style = null,
     ): void {
         $clipFiles = [];
         $chunkIndex = 0;
@@ -366,8 +375,9 @@ class ClusterVideoRenderer {
                 $verbose,
                 $chunkAlbumName,
                 $subtitlesByBasename,
+                $style,
             );
-            $clipFiles[] = ['path' => $clipPath, 'duration' => $duration];
+            $clipFiles[] = ['path' => $clipPath, 'duration' => $duration, 'transition' => $this->transitionInto($chunk[0], $style)];
             $chunkIndex++;
         }
 
@@ -385,6 +395,7 @@ class ClusterVideoRenderer {
             $current = $this->xfadeClipPair(
                 $current,
                 $clip,
+                $clip['transition'],
                 $transitionDuration,
                 $fps,
                 sprintf('%s/chunk_merge_%03d.mp4', rtrim($workingDir, '/'), $mergeIndex++),
@@ -412,6 +423,7 @@ class ClusterVideoRenderer {
     private function xfadeClipPair(
         array $left,
         array $right,
+        string $transition,
         float $transitionDuration,
         int $fps,
         string $outputPath,
@@ -423,7 +435,8 @@ class ClusterVideoRenderer {
         $cmd = array_merge($this->ffmpegBaseCmd($logLevel), [
             '-i', $left['path'],
             '-i', $right['path'],
-            '-filter_complex', sprintf('[0:v][1:v]xfade=transition=fade:duration=%s:offset=%s[vout]',
+            '-filter_complex', sprintf('[0:v][1:v]xfade=transition=%s:duration=%s:offset=%s[vout]',
+                $transition,
                 $this->formatFloat($transitionDuration),
                 $this->formatFloat($offset)
             ),
@@ -512,6 +525,7 @@ class ClusterVideoRenderer {
         float $clipDuration,
         ?string $albumName,
         array $subtitlesByBasename = [],
+        ?VideoStyle $style = null,
     ): array {
         $filterParts = [];
         $frameCount = max(2, (int) round($clipDuration * $fps));
@@ -696,6 +710,7 @@ class ClusterVideoRenderer {
                 $width,
                 2, // shadow offset for portrait
             );
+            $subbedLabel = $this->appendHeadings($filterParts, $subbedLabel, $segments, $holds, $style, $width, $height, 2);
             $filterParts[] = sprintf('[%s]format=yuv420p[vout]', $subbedLabel);
             return [implode(';', $filterParts), '[vout]'];
         }
@@ -708,12 +723,13 @@ class ClusterVideoRenderer {
             $out = ($i === count($segmentOutputLabels) - 1) ? 'mix_last' : sprintf('mix%d', $i);
             $offset += $holds[$i - 1];
             $filterParts[] = sprintf(
-                '[%1$s][%2$s]xfade=transition=fade:duration=%3$s:offset=%4$s[%5$s]',
+                '[%1$s][%2$s]xfade=transition=%6$s:duration=%3$s:offset=%4$s[%5$s]',
                 $prev,
                 $segmentOutputLabels[$i],
                 $this->formatFloat($transitionDuration),
                 $this->formatFloat($offset),
                 $out,
+                $this->transitionInto($segments[$i], $style),
             );
             $prev = $out;
         }
@@ -729,6 +745,7 @@ class ClusterVideoRenderer {
             $width,
             2, // shadow offset for portrait
         );
+        $subbedLabel = $this->appendHeadings($filterParts, $subbedLabel, $segments, $holds, $style, $width, $height, 2);
         // End fade-out (long enough to be visible even for short clips, including motion-only endings)
         $fadeDur = min(1.2, max(0.6, $totalDuration * 0.15));
         $fadeStart = max(0.0, $totalDuration - $fadeDur);
@@ -903,6 +920,40 @@ class ClusterVideoRenderer {
         }
 
         return $result;
+    }
+
+    /**
+     * Like planSegments(), but a stack is placed where its third landscape
+     * was taken instead of after every four portraits. planSegments() lets
+     * the two streams drift apart, unnoticeable within one journey but months
+     * off across a year. Up to two landscapes left over at the end are dropped.
+     *
+     * @param array<int,string> $files
+     * @return array<int,array{type:string,inputs:array<int,string>}>
+     */
+    private function planSegmentsChronologically(array $files): array {
+        $segments = [];
+        $pending = [];
+        foreach ($files as $f) {
+            if ($this->isClipFile($f)) {
+                $segments[] = ['type' => 'clip', 'inputs' => [$f]];
+                continue;
+            }
+            [$w, $h] = $this->orientedImageSize($f);
+            if ($w <= 0 || $h <= 0) {
+                continue;
+            }
+            if ($h > $w) {
+                $segments[] = ['type' => 'kenburns', 'inputs' => [$f]];
+                continue;
+            }
+            $pending[] = $f;
+            if (count($pending) === 3) {
+                $segments[] = ['type' => 'stack', 'inputs' => $pending];
+                $pending = [];
+            }
+        }
+        return $segments;
     }
 
     /**

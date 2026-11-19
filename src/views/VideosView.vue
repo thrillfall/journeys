@@ -16,9 +16,9 @@
 		<section v-if="media.pending.length" class="pending" :aria-label="t('journeys', 'In progress')">
 			<h3>{{ t('journeys', 'In progress') }}</h3>
 			<ul>
-				<li v-for="p in media.pending" :key="p.albumId + '-' + p.orientation">
+				<li v-for="p in media.pending" :key="(p.reviewYear ? 'y' + p.reviewYear : p.albumId) + '-' + p.orientation">
 					<NcLoadingIcon :size="20" />
-					<span class="pending__name">{{ p.albumName || t('journeys', 'Album {id}', { id: p.albumId }) }}</span>
+					<span class="pending__name">{{ title(p) }}</span>
 					<span class="pending__meta">{{ orientationLabel(p.orientation) }}</span>
 				</li>
 			</ul>
@@ -126,7 +126,7 @@ import Play from 'vue-material-design-icons/Play.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import VideoOutline from 'vue-material-design-icons/VideoOutline.vue'
 
-import { media, loadAlbums, render } from '../store/media.js'
+import { media, loadAlbums, render, videoTitle } from '../store/media.js'
 import { fileSize, filesUrl, orientationLabel, playVideo, previewUrl } from '../util/format.js'
 
 export default {
@@ -148,9 +148,7 @@ export default {
 		orientationLabel,
 		previewUrl,
 		play: playVideo,
-		title(video) {
-			return video.albumName || video.name.replace(/\.mp4$/i, '')
-		},
+		title: videoTitle,
 		date(mtime) {
 			return mtime ? new Date(mtime * 1000).toLocaleDateString() : ''
 		},

@@ -44,6 +44,7 @@ php occ journeys:remove-all-albums <user>           # only removes albums tracke
 php occ journeys:render-cluster-video <user> <albumId>
 php occ journeys:render-cluster-video-landscape <user> <albumId>
 php occ journeys:latest-end <user>
+php occ journeys:render-year-review <user> <year> [--landscape] [--dry-run]
 ```
 
 ### Release verification
@@ -85,6 +86,7 @@ User-visible behavior settings (time gap, distance, min cluster size, near/away 
 - `ClusterVideoFilePreparer` — resolves `fileid`s to local paths, handling mounted / shared storages. User videos (Memories `isvideo`) are cut by `VideoClipExtractor` to a ~4 s excerpt from the middle, normalized (h264, CFR, AAC) and rendered as `clip` segments that play at native speed with their own sound; `VideoStorySelector` gives them ~12 % of the slots. User setting `includeVideoClips`, **default on**. Clips cost render time (~30 % on a long trip, for extraction and re-encode), not peak memory: peak ffmpeg RSS is set by the high-resolution stills, and a clip replaces one.
 - Clip sound is placed on the global timeline in `VideoRenderPrimitives::muxSoundtrack()` (music ducked with a 1 s dB ramp, clip levelled towards −20 dB). Sync depends on every segment's on-screen length being exact: durations are frame-snapped, and **never put `trim` or `setpts` after `fps` and before `tpad`** in a segment chain — tpad then silently stops padding, the segment ends where its xfade starts, and ffmpeg 7 skips the start of the next segment. Limit inputs with `-t` / `-itsscale` instead.
 - `ClusterVideoRenderer` (portrait) / `ClusterVideoRendererLandscape` — shell out to `ffmpeg` in `PATH`. Ken Burns on stills, optional GCam motion-photo handling, optional 3-wide landscape stacks inside portrait output, title overlay, background music from `data/` (128kbps) with fade-out. Both renderers **chunk** automatically when any source image exceeds 13 MP; otherwise they run single-pass. Requires FFmpeg 7.1+.
+- **Year in review** (`YearReviewImageProvider` → `YearReviewComposer` → renderer with a `VideoStyle`): chapters per journey away from home plus everyday photos per month, budget split by `YearReviewPlanner`. `YearReviewCardRenderer` pre-renders the opening montage, map cards and closing card as silent clips ≤ `VideoClipExtractor::CLIP_SECONDS`, so the renderer plays them like any clip. Queued automatically from 28 December by `YearReviewJob` for users with `autoGenerateVideos`; no UI to start it.
 - Output defaults to `Documents/Journeys Movies/` in the user's storage. `ClusterVideoJobRunner` records each stored file in `oc_journeys_videos` (album id, file id, orientation) via `RenderedVideoRegistry`, so a renamed journey keeps its video; files from before that table are matched by name in `TripService`.
 
 ### Frontend

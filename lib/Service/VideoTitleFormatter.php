@@ -210,6 +210,56 @@ class VideoTitleFormatter {
     }
 
     /**
+     * Chapter heading: upper case, about 8 % of the short edge.
+     *
+     * @return array{text: string, fontSize: int}
+     */
+    public function formatHeadingForVideo(string $text, int $videoWidth, int $videoHeight): array {
+        $fontSize = max(36, (int)(min($videoWidth, $videoHeight) * 0.08));
+        $maxCharsPerLine = max(8, (int)floor(($videoWidth * 0.85) / ($fontSize * 0.7)));
+        return [
+            'text' => $this->escapeForDrawtext($this->wrapTextForDisplay(mb_strtoupper($text, 'UTF-8'), $maxCharsPerLine)),
+            'fontSize' => $fontSize,
+        ];
+    }
+
+    /**
+     * Top-anchored heading, timed in absolute timeline seconds, with a soft
+     * dark shadow so it reads on bright skies.
+     */
+    public function buildTimedHeadingDrawtextFilter(
+        string $inputLabel,
+        string $outputLabel,
+        string $text,
+        int $fontSize,
+        float $startTime,
+        float $duration,
+        int $shadowOffset = 2,
+        float $fade = 0.4,
+    ): string {
+        $endTime = $startTime + $duration;
+        $holdEnd = max($startTime + $fade, $endTime - $fade);
+        return sprintf(
+            '[%1$s]drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:' .
+            'text=\'%2$s\':fontcolor=white:fontsize=%3$d:' .
+            'x=(w-text_w)/2:y=h*0.09:' .
+            'shadowcolor=black@0.7:shadowx=%4$d:shadowy=%4$d:' .
+            'enable=\'between(t,%5$s,%6$s)\':' .
+            'alpha=\'if(lt(t,%7$s),(t-%5$s)/%8$s,if(lt(t,%9$s),1,(%6$s-t)/%8$s))\'[%10$s]',
+            $inputLabel,
+            $text,
+            $fontSize,
+            $shadowOffset * 2,
+            $this->formatFloat($startTime),
+            $this->formatFloat($endTime),
+            $this->formatFloat($startTime + $fade),
+            $this->formatFloat($fade),
+            $this->formatFloat($holdEnd),
+            $outputLabel,
+        );
+    }
+
+    /**
      * Format float for FFmpeg filter (ensures proper decimal formatting)
      *
      * @param float $value The float value to format

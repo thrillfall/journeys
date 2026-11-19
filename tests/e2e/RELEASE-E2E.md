@@ -236,6 +236,47 @@ python3 -I tests/e2e/av_sync_check.py e2e_clips_l.mp4 1920 1080 <landscape sourc
 
 ---
 
+## 6. Year in review
+
+Planning is cheap and needs no render; check it first. Needs the albums from
+block 2.
+
+```sh
+docker exec -u www-data nextcloud php occ journeys:render-year-review admin 2024 --dry-run
+```
+
+**PASS:** a chapter table with `everyday` rows for April and July and `trip` /
+`excursion` rows for Rheinsberg, Dresden, Köln, València and New Zealand
+(place only, no district, no dates), in date order, and about 130 images
+selected.
+
+The full film takes about 20 minutes; the OCC command renders it directly with
+the same code `RenderYearReviewJob` runs after `YearReviewJob` queued it:
+
+```sh
+docker exec -u www-data nextcloud php occ journeys:render-year-review admin 2024 -o /tmp/e2e_year.mp4
+docker exec nextcloud ffmpeg -v error -y -i /tmp/e2e_year.mp4 -vf "fps=1/2,scale=150:-1,tile=13x12" -frames:v 1 /tmp/e2e_year.png
+```
+
+**PASS:**
+- The film is about five minutes and opens with a quick montage that ends on a
+  large `2024`.
+- The contact sheet runs in date order: month headings (`APRIL`, `JULY`, …,
+  `DECEMBER`) at the top of the frame, a map card (home → destination, name,
+  dates) before each journey, and the closing card with trips, days away,
+  countries, farthest distance and photos as the last frames, not followed by
+  any photo.
+- `av_sync_check.py` against the film's clips (`isvideo` rows of the year)
+  shows **|A-V| < 33 ms**; clips with a near-static picture can show a false
+  ~80 ms (IMG_0427 in this data set).
+- With the user language set to `de`, the card texts are German
+  (`4 Reisen · 56 Tage unterwegs`).
+
+`YearReviewJob` only acts from 28 December; outside that window
+`occ background-job:execute --force-execute <id>` must queue nothing.
+
+---
+
 ## Growing this checklist
 
 One `##` scenario section per feature domain. When you ship a **major feature**,

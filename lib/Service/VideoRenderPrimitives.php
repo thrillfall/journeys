@@ -291,6 +291,82 @@ trait VideoRenderPrimitives {
     }
 
     /**
+     * Basenames of a segment's inputs; portrait segments carry `inputs`,
+     * landscape segments a single `file`.
+     *
+     * @return string[]
+     */
+    private function segmentBasenames(array $segment): array {
+        $files = $segment['inputs'] ?? (isset($segment['file']) ? [$segment['file']] : []);
+        return array_values(array_filter(array_map(
+            static fn($f) => pathinfo((string)$f, PATHINFO_FILENAME),
+            $files,
+        ), static fn(string $b) => $b !== ''));
+    }
+
+    /**
+     * @param array<string,string> $byBasename
+     */
+    private function styleValueFor(array $segment, array $byBasename): ?string {
+        foreach ($this->segmentBasenames($segment) as $basename) {
+            if (isset($byBasename[$basename]) && $byBasename[$basename] !== '') {
+                return $byBasename[$basename];
+            }
+        }
+        return null;
+    }
+
+    /** xfade transition that leads into $segment. */
+    private function transitionInto(array $segment, ?\OCA\Journeys\Model\VideoStyle $style): string {
+        $name = $style !== null ? $this->styleValueFor($segment, $style->transitionsByBasename) : null;
+        return $name !== null && preg_match('/^[a-z]+$/', $name) === 1 ? $name : 'fade';
+    }
+
+    /**
+     * Large chapter headings near the top of the frame, one per segment that
+     * opens a chapter, timed on the chunk's own clock like the subtitles.
+     *
+     * @param array<int,string> $parts ffmpeg filter parts (mutated)
+     * @param array<int,array<string,mixed>> $segments in render order
+     * @param array<int,float> $segmentHolds per-segment visible seconds
+     */
+    private function appendHeadings(
+        array &$parts,
+        string $inputLabel,
+        array $segments,
+        array $segmentHolds,
+        ?\OCA\Journeys\Model\VideoStyle $style,
+        int $width,
+        int $height,
+        int $shadowOffset,
+    ): string {
+        if ($style === null || $style->headingsByBasename === []) {
+            return $inputLabel;
+        }
+        $current = $inputLabel;
+        $clock = 0.0;
+        foreach (array_values($segments) as $i => $segment) {
+            $text = $this->styleValueFor($segment, $style->headingsByBasename);
+            if ($text !== null) {
+                $outLabel = sprintf('head%d', $i);
+                $formatted = $this->titleFormatter->formatHeadingForVideo($text, $width, $height);
+                $parts[] = $this->titleFormatter->buildTimedHeadingDrawtextFilter(
+                    $current,
+                    $outLabel,
+                    $formatted['text'],
+                    $formatted['fontSize'],
+                    $clock + 0.2,
+                    min(2.4, max(1.2, $segmentHolds[$i] ?? 2.4)),
+                    $shadowOffset,
+                );
+                $current = $outLabel;
+            }
+            $clock += $segmentHolds[$i] ?? 0.0;
+        }
+        return $current;
+    }
+
+    /**
      * Append one drawtext per location group to $parts (mutating it). Returns
      * the final label after subtitles are applied (== $inputLabel when no
      * usable groups exist). Required member: $this->titleFormatter.
