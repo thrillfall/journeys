@@ -12,10 +12,16 @@ Automatically clusters your photos by time and location into journeys (trips, va
 - **Journey albums:** created daily in the background (opt-in), with place-and-date names like `Iceland — Aug 12–19, 2024`. Home-aware: local days and trips are clustered with separate thresholds; adjacent trips in the same country are merged.
 - **Journals:** a travel diary with day entries auto-filled from your photos. Share with users for co-editing or publish to a revocable public link with route map and travel stats.
 - **Trips & Videos:** browse your trips in the Journeys app and render any of them, or any Photos album, into an MP4 highlight reel (requires `ffmpeg`), saved to `Documents/Journeys Movies/` and playable right in Nextcloud. Videos for new trips (away from home, at least one night) can be created automatically. Optionally weaves in short clips, with their own sound, from the trip's videos.
+- **Year in review:** with automatic videos on, a film of the whole year is created on 28 December: month chapters, a map before every journey and the year in numbers.
 
     php occ journeys:cluster-create-albums <user>
 ]]></description>
   <changelog><![CDATA[
+  <h3>0.38.0 (2026-11-19)</h3>
+    <ul>
+      <li><b>Year in review:</b> a film of about five minutes of your year, with an opening montage, a chapter for every month, a small map before every journey and your year in numbers at the end. It is created automatically on 28 December if you let Journeys create videos automatically, and appears in the Videos view.</li>
+      <li><b>CLI:</b> <code>occ journeys:render-year-review &lt;user&gt; &lt;year&gt;</code> renders it right away; <code>--dry-run</code> previews the chapters.</li>
+    </ul>
   <h3>0.37.0 (2026-11-13)</h3>
     <ul>
       <li><b>Trips &amp; Videos:</b> your journeys and videos moved from the personal settings into the Journeys app. Browse trips as cards, rename them, create portrait or landscape videos, and watch finished videos right in Nextcloud, also on your phone.</li>
@@ -49,7 +55,7 @@ Automatically clusters your photos by time and location into journeys (trips, va
 ]]></changelog>
   <licence>agpl</licence>
   <author mail="thrillfall@disroot.org">thrillfall</author>
-  <version>0.37.0</version>
+  <version>0.38.0</version>
   <namespace>Journeys</namespace>
   <category>integration</category>
   <category>multimedia</category>
@@ -67,9 +73,11 @@ Automatically clusters your photos by time and location into journeys (trips, va
     <command>OCA\Journeys\Command\RenderClusterVideoCommand</command>
     <command>OCA\Journeys\Command\RenderClusterVideoLandscapeCommand</command>
     <command>OCA\Journeys\Command\ListClustersCommand</command>
+    <command>OCA\Journeys\Command\RenderYearReviewCommand</command>
   </commands>
   <background-jobs>
     <job>OCA\Journeys\BackgroundJob\DailyClusteringJob</job>
+    <job>OCA\Journeys\BackgroundJob\YearReviewJob</job>
   </background-jobs>
   <settings>
     <personal>OCA\Journeys\Settings\PersonalSettings</personal>

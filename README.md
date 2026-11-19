@@ -9,6 +9,7 @@ Automatically clusters your photos by time and location into journeys (trips, va
 - **Journals:** a travel diary with day entries auto-filled from your photos. Share with users or groups for co-editing, or publish to a revocable public link with route map and travel stats.
 - **Trips:** the Journeys app lists your trips (away from home, at least one night) as cards; day trips and journeys near home are one switch away.
 - **Videos:** render any journey or Photos album into an MP4 highlight reel from the *Trips* or *Videos* view, or automatically for new trips. Saved to `Documents/Journeys Movies/` and playable in the Nextcloud Viewer. Optionally weaves in short clips, with their own sound, from the trip's videos (on by default; turn it off in personal settings if rendering, which takes about a third longer, is too slow).
+- **Year in review:** with automatic videos on, Journeys creates a film of about five minutes of the whole year on 28 December: an opening montage, a chapter for every month, a small map before every journey, and the year in numbers at the end. Render one any time with `journeys:render-year-review`.
 
 ## Requirements
 
@@ -23,6 +24,7 @@ Automatically clusters your photos by time and location into journeys (trips, va
 php occ journeys:cluster-create-albums <user> [maxTimeGap] [maxDistanceKm] [options]
 php occ journeys:render-cluster-video <user> <albumId>
 php occ journeys:render-cluster-video-landscape <user> <albumId>
+php occ journeys:render-year-review <user> <year> [--landscape] [--dry-run]
 php occ journeys:list-clusters <user>
 php occ journeys:remove-all-albums <user>    # only albums created by Journeys
 ```

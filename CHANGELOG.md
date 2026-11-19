@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.38.0] - 2026-11-19
+### Added
+- Videos: **Year in review.** A film of about five minutes of one year: an opening montage, a large heading for every month, a map card (from home to the destination, with name and dates) before every journey away from home, a slide where a chapter changes, and a closing card with the year in numbers (trips, days away, countries, farthest distance from home, photos). Journeys get about 70 % of the photos, weighted by length; the everyday photos of each month share the rest. Screenshots are left out.
+- Background job `YearReviewJob`: from 28 December to the end of the year it queues the year in review once per user for everyone with automatic videos on (`autoGenerateVideos`), in their preferred orientation. There is no button for it in the app.
+- CLI: `journeys:render-year-review <user> <year> [--landscape] [--max-images N] [--dry-run]` renders it right away; `--dry-run` only prints how the photos split across chapters.
+- Video rendering: optional `VideoStyle` for both renderers (chronological landscape stacks, fixed order and size, chapter headings, per-file xfade transitions). Journey videos render as before.
+- DB migration: `journeys_videos.album_id` becomes nullable, new column `review_year`; year videos show up in the *Videos* view.
+- l10n: German translation of the year-in-review card texts.
+
 ## [0.37.0] - 2026-11-13
 ### Added
 - UI: **Trips and Videos in the Journeys app.** The app page gets a navigation with *Travel diaries*, *Trips* and *Videos*. Trips shows journeys as cards with cover, date range, video chips and a menu to rename, render portrait or landscape, or open the album in Photos. Videos lists rendered videos and pending renders, plays them in the Nextcloud Viewer, and renders any Photos album via a picker. Both work on phone screens.
